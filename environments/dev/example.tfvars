@@ -4,8 +4,8 @@ aws_region  = "us-east-2"
 
 # Network Configuration
 vpc_cidr             = "192.1.0.0/16"
-public_subnet_cidrs  = ["172.12.1.0/24", "172.12.1.32/24"]
-private_subnet_cidrs = ["192.1.0.0/24", "192.1.0.32/24"]
+public_subnet_cidrs  = ["192.1.1.0/24", "192.1.2.0/24"]
+private_subnet_cidrs = ["192.1.10.0/24", "192.1.11.0/24"]
 availability_zones   = ["us-east-2a", "us-east-2b"]
 
 # Compute Configuration
@@ -15,5 +15,3 @@ key_name               = "tf-playground-dev"  # Replace with your key name
 # Database Configuration
 db_instance_type = "db.t3.micro"
 db_name         = "tfplayground"
-# db_username    = "admin"     # Set in Terraform Cloud
-# db_password    = "password"  # Set in Terraform Cloud 
