@@ -48,3 +48,4 @@ Thumbs.db
 tfcloud/**/terraform.tfvars
 tfcloud/**/.terraform.lock.hcl
 tfcloud/**/.terraform/ 
+tfcloud/dev/terraform.tfvars.example
