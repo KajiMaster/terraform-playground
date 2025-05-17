@@ -42,4 +42,9 @@ credentials/
 
 # Ignore OS-specific files
 .DS_Store
-Thumbs.db 
+Thumbs.db
+
+# Terraform Cloud sensitive files
+tfcloud/**/terraform.tfvars
+tfcloud/**/.terraform.lock.hcl
+tfcloud/**/.terraform/ 

@@ -1,0 +1,15 @@
+# AWS Credentials (replace with your actual values)
+aws_access_key = "your-access-key"
+aws_secret_key = "your-secret-key"
+
+# Infrastructure Variables (modify as needed)
+environment             = "dev"
+aws_region             = "us-east-2"
+vpc_cidr               = "192.1.0.0/16"
+public_subnet_cidrs    = ["172.12.1.0/24", "172.12.1.32/24"]
+private_subnet_cidrs   = ["192.1.0.0/24", "192.1.0.32/24"]
+availability_zones     = ["us-east-2a", "us-east-2b"]
+webserver_instance_type = "t3.micro"
+key_name               = "your-key-name"  # Replace with your SSH key name
+db_instance_type       = "db.t3.micro"
+db_name                = "tfplayground" 

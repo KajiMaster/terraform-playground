@@ -11,6 +11,13 @@ terraform {
     }
   }
 
+  cloud {
+    organization = "ve-tfcloud-refresh"
+    workspaces {
+      name = "terraform-playground-dev"
+    }
+  }
+
   # We'll configure the backend when we set up Terraform Cloud
   # backend "remote" {
   #   organization = "your-org"

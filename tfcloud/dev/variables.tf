@@ -1,3 +1,17 @@
+# AWS Credentials
+variable "aws_access_key" {
+  description = "AWS Access Key for Terraform Cloud"
+  type        = string
+  sensitive   = true
+}
+
+variable "aws_secret_key" {
+  description = "AWS Secret Key for Terraform Cloud"
+  type        = string
+  sensitive   = true
+}
+
+# Infrastructure Variables
 variable "environment" {
   description = "Environment name"
   type        = string
@@ -57,14 +71,4 @@ variable "db_name" {
   default     = "tfplayground"
 }
 
-variable "aws_access_key" {
-  description = "AWS Access Key for Terraform Cloud"
-  type        = string
-  sensitive   = true
-}
-
-variable "aws_secret_key" {
-  description = "AWS Secret Key for Terraform Cloud"
-  type        = string
-  sensitive   = true
-} 
+# Add other variables as needed... 
