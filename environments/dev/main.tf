@@ -31,25 +31,6 @@ provider "aws" {
   }
 }
 
-# KMS key for encrypting sensitive values
-resource "aws_kms_key" "secrets" {
-  description             = "KMS key for encrypting sensitive Terraform values"
-  deletion_window_in_days = 7
-  enable_key_rotation     = true
-
-  tags = {
-    Environment = var.environment
-    Project     = "tf-playground"
-    ManagedBy   = "terraform"
-  }
-}
-
-# Alias for the KMS key (makes it easier to reference)
-resource "aws_kms_alias" "secrets" {
-  name          = "alias/tf-playground-${var.environment}-secrets"
-  target_key_id = aws_kms_key.secrets.key_id
-}
-
 # Network Module
 module "networking" {
   source = "../../modules/networking"
@@ -64,39 +45,32 @@ module "networking" {
 # Secrets Management Module
 module "secrets" {
   source = "../../modules/secrets"
-
-  environment  = var.environment
-  db_username  = var.initial_db_username
-  db_password  = var.initial_db_password
+  environment = var.environment
 }
 
-# Database Module
+# Database Module (updated to "consume" the decrypted db credentials (db_username and db_password) from the secrets module.)
 module "database" {
   source = "../../modules/database"
-
-  environment               = var.environment
-  vpc_id                   = module.networking.vpc_id
-  private_subnets          = module.networking.private_subnet_ids
+  environment = var.environment
+  vpc_id = module.networking.vpc_id
+  private_subnets = module.networking.private_subnet_ids
   webserver_security_group_id = module.webserver.security_group_id
-  db_instance_type         = var.db_instance_type
-  db_name                  = var.db_name
-  db_username_parameter    = "/tf-playground/${var.environment}/database/username"
-  db_password_parameter    = "/tf-playground/${var.environment}/database/password"
-  kms_key_id              = aws_kms_key.secrets.key_id
+  db_instance_type = var.db_instance_type
+  db_name = var.db_name
+  db_username = module.secrets.db_username
+  db_password = module.secrets.db_password
 }
 
-# Compute Module (Web Server)
+# Compute Module (Web Server) (updated to "consume" the decrypted db credentials (db_username and db_password) from the secrets module.)
 module "webserver" {
   source = "../../modules/compute/webserver"
-
-  environment     = var.environment
-  vpc_id          = module.networking.vpc_id
-  public_subnets  = module.networking.public_subnet_ids
-  instance_type   = var.webserver_instance_type
-  key_name        = var.key_name
-  db_host         = module.database.db_instance_address
-  db_name         = var.db_name
-  db_username_parameter = "/tf-playground/${var.environment}/database/username"
-  db_password_parameter = "/tf-playground/${var.environment}/database/password"
-  kms_key_id      = aws_kms_key.secrets.key_id
+  environment = var.environment
+  vpc_id = module.networking.vpc_id
+  public_subnets = module.networking.public_subnet_ids
+  instance_type = var.webserver_instance_type
+  key_name = var.key_name
+  db_host = module.database.db_instance_address
+  db_name = var.db_name
+  db_user = module.secrets.db_username
+  db_password = module.secrets.db_password
 } 

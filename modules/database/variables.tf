@@ -1,42 +1,40 @@
 variable "environment" {
-  description = "Environment name"
+  description = "Deployment environment (e.g., dev, stage, prod)"
   type        = string
 }
 
 variable "vpc_id" {
-  description = "ID of the VPC"
+  description = "VPC ID for the database resources"
   type        = string
 }
 
 variable "private_subnets" {
-  description = "List of private subnet IDs"
+  description = "List of private subnet IDs for the DB subnet group"
   type        = list(string)
 }
 
 variable "webserver_security_group_id" {
-  description = "Security group ID of the web server"
+  description = "Security group ID of the webserver to allow DB access"
   type        = string
 }
 
 variable "db_instance_type" {
-  description = "RDS instance type"
+  description = "Instance type for the RDS instance"
   type        = string
-  default     = "db.t3.micro"
 }
 
 variable "db_name" {
-  description = "Name of the database"
+  description = "Name of the initial database to create"
   type        = string
 }
 
 variable "db_username" {
-  description = "Username for the database"
+  description = "Master username for the database"
   type        = string
-  sensitive   = true
 }
 
 variable "db_password" {
-  description = "Password for the database"
+  description = "Master password for the database"
   type        = string
   sensitive   = true
 } 

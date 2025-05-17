@@ -58,6 +58,91 @@ resource "aws_iam_role" "webserver" {
   }
 }
 
+# IAM Policy for Secrets Manager access
+resource "aws_iam_policy" "webserver_secrets" {
+  name        = "${var.environment}-webserver-secrets-policy"
+  description = "Policy to allow webserver to access database credentials in Secrets Manager"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:GetSecretValue"
+        ]
+        Resource = [
+          "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:/tf-playground/${var.environment}/database/credentials-*"
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt",
+          "kms:DescribeKey"
+        ]
+        Resource = [
+          "arn:aws:kms:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:key/*"
+        ]
+      }
+    ]
+  })
+
+  tags = {
+    Name = "${var.environment}-webserver-secrets-policy"
+  }
+}
+
+# Attach the policy to the role
+resource "aws_iam_role_policy_attachment" "webserver_secrets" {
+  role       = aws_iam_role.webserver.name
+  policy_arn = aws_iam_policy.webserver_secrets.arn
+}
+
+# Attach AWS managed policy for EC2 instance core permissions
+resource "aws_iam_role_policy_attachment" "webserver_ssm" {
+  role       = aws_iam_role.webserver.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
+# IAM Policy for RDS access
+resource "aws_iam_policy" "webserver_rds" {
+  name        = "${var.environment}-webserver-rds-policy"
+  description = "Policy to allow webserver to interact with RDS database"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "rds-db:connect",
+          "rds:DescribeDBInstances",
+          "rds:DescribeDBClusters"
+        ]
+        Resource = [
+          "arn:aws:rds:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:db:${var.environment}-*",
+          "arn:aws:rds-db:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:dbuser:${var.environment}-*/*"
+        ]
+      }
+    ]
+  })
+
+  tags = {
+    Name = "${var.environment}-webserver-rds-policy"
+  }
+}
+
+# Attach the RDS policy to the role
+resource "aws_iam_role_policy_attachment" "webserver_rds" {
+  role       = aws_iam_role.webserver.name
+  policy_arn = aws_iam_policy.webserver_rds.arn
+}
+
+# Get current region and account ID for the policy
+data "aws_region" "current" {}
+data "aws_caller_identity" "current" {}
+
 # IAM Instance Profile
 resource "aws_iam_instance_profile" "webserver" {
   name = "${var.environment}-webserver-profile"
@@ -98,6 +183,14 @@ resource "aws_instance" "webserver" {
   # Ensure proper shutdown
   lifecycle {
     create_before_destroy = true
+    replace_triggered_by = [
+      aws_iam_role.webserver,
+      aws_iam_policy.webserver_secrets,
+      aws_iam_policy.webserver_rds,
+      aws_iam_role_policy_attachment.webserver_secrets,
+      aws_iam_role_policy_attachment.webserver_ssm,
+      aws_iam_role_policy_attachment.webserver_rds
+    ]
   }
 }
 

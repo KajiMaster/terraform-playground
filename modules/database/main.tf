@@ -56,33 +56,4 @@ resource "aws_db_instance" "database" {
   tags = {
     Name = "${var.environment}-database"
   }
-}
-
-# Initial database setup
-resource "null_resource" "database_setup" {
-  depends_on = [aws_db_instance.database]
-
-  provisioner "local-exec" {
-    command = <<-EOF
-      mysql -h ${aws_db_instance.database.address} \
-            -u ${var.db_username} \
-            -p${var.db_password} \
-            ${var.db_name} \
-            -e "
-      CREATE TABLE IF NOT EXISTS contacts (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        name VARCHAR(100) NOT NULL,
-        address VARCHAR(200),
-        phone VARCHAR(20)
-      );
-
-      INSERT INTO contacts (name, address, phone) VALUES
-        ('John Doe', '123 Main St, City, State', '555-0101'),
-        ('Jane Smith', '456 Oak Ave, Town, State', '555-0102'),
-        ('Bob Johnson', '789 Pine Rd, Village, State', '555-0103'),
-        ('Alice Brown', '321 Elm St, City, State', '555-0104'),
-        ('Charlie Wilson', '654 Maple Dr, Town, State', '555-0105');
-      "
-    EOF
-  }
 } 

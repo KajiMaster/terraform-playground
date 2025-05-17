@@ -4,7 +4,7 @@
 yum update -y
 
 # Install required packages
-yum install -y python3 python3-pip git
+yum install -y python3 python3-pip git mariadb1011-client-utils
 
 # Create application directory
 mkdir -p /var/www/webapp

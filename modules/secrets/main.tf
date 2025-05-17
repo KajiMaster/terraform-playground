@@ -8,50 +8,33 @@ terraform {
   }
 }
 
-# KMS key for encrypting sensitive values
-resource "aws_kms_key" "secrets" {
-  description             = "KMS key for encrypting sensitive Terraform values"
-  deletion_window_in_days = 7
-  enable_key_rotation     = true
-
-  tags = {
-    Environment = var.environment
-    Project     = "tf-playground"
-    ManagedBy   = "terraform"
-  }
+# Reference existing KMS key by alias
+data "aws_kms_key" "secrets" {
+  key_id = "alias/tf-playground-${var.environment}-secrets"
 }
 
-# Alias for the KMS key (makes it easier to reference)
-resource "aws_kms_alias" "secrets" {
-  name          = "alias/tf-playground-${var.environment}-secrets"
-  target_key_id = aws_kms_key.secrets.key_id
+# Reference existing secret
+data "aws_secretsmanager_secret" "db_credentials" {
+  name = "/tf-playground/${var.environment}/database/credentials"
 }
 
-# Database credentials in Parameter Store
-resource "aws_ssm_parameter" "db_username" {
-  name        = "/tf-playground/${var.environment}/database/username"
-  description = "Database master username"
-  type        = "SecureString"
-  value       = var.db_username
-  key_id      = aws_kms_key.secrets.key_id
-
-  tags = {
-    Environment = var.environment
-    Project     = "tf-playground"
-    ManagedBy   = "terraform"
-  }
+# Get the secret value
+data "aws_secretsmanager_secret_version" "db_credentials" {
+  secret_id = data.aws_secretsmanager_secret.db_credentials.id
 }
 
-resource "aws_ssm_parameter" "db_password" {
-  name        = "/tf-playground/${var.environment}/database/password"
-  description = "Database master password"
-  type        = "SecureString"
-  value       = var.db_password
-  key_id      = aws_kms_key.secrets.key_id
+# Parse the secret value
+locals {
+  db_credentials = jsondecode(data.aws_secretsmanager_secret_version.db_credentials.secret_string)
+}
 
-  tags = {
-    Environment = var.environment
-    Project     = "tf-playground"
-    ManagedBy   = "terraform"
-  }
+output "db_username" {
+  description = "The database username from AWS Secrets Manager"
+  value       = local.db_credentials["username"]
+}
+
+output "db_password" {
+  description = "The database password from AWS Secrets Manager"
+  value       = local.db_credentials["password"]
+  sensitive   = true
 } 
