@@ -95,7 +95,9 @@ jobs:
 
       - name: Terraform Plan
         id: plan
-        if: github.event.inputs.action == 'plan' || github.event.inputs.action == 'apply'
+        if: |
+          github.event_name == 'workflow_dispatch' && (github.event.inputs.action == 'plan' || github.event.inputs.action == 'apply') ||
+          github.event_name == 'pull_request'
         run: |
           cd environments/${{ github.event.inputs.environment || 'staging' }}
           echo "Running terraform plan..."
