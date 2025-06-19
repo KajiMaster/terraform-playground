@@ -119,7 +119,7 @@ jobs:
 
       - name: Capture Plan Output
         id: plan_output
-        if: github.event_name == 'pull_request' && (github.event.inputs.action == 'plan' || github.event.inputs.action == 'apply')
+        if: github.event_name == 'pull_request'
         run: |
           cd environments/${{ github.event.inputs.environment || 'staging' }}
           if [ -f tfplan ]; then
