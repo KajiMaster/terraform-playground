@@ -62,8 +62,8 @@ module "webserver" {
   public_subnets = module.networking.public_subnet_ids
   instance_type  = var.webserver_instance_type
   key_name       = var.key_name
-  db_host        = module.database.db_endpoint
-  db_name        = module.database.db_name
+  db_host        = module.database.db_instance_endpoint
+  db_name        = module.database.db_instance_name
   db_user        = module.secrets.db_username
   db_password    = module.secrets.db_password
 }
@@ -75,8 +75,8 @@ module "ssm" {
   environment           = var.environment
   webserver_instance_id = module.webserver.instance_id
   webserver_public_ip   = module.webserver.public_ip
-  database_endpoint     = module.database.db_endpoint
-  database_name         = module.database.db_name
+  database_endpoint     = module.database.db_instance_endpoint
+  database_name         = module.database.db_instance_name
   database_username     = module.secrets.db_username
   database_password     = module.secrets.db_password
   ssh_key_path          = var.ssh_key_path

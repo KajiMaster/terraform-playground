@@ -25,20 +25,20 @@ output "webserver_public_ip" {
 
 output "database_endpoint" {
   description = "RDS database endpoint"
-  value       = module.database.db_endpoint
+  value       = module.database.db_instance_endpoint
 }
 
 output "database_name" {
   description = "RDS database name"
-  value       = module.database.db_name
+  value       = module.database.db_instance_name
 }
 
 output "ssm_automation_document_name" {
   description = "Name of the SSM automation document"
-  value       = module.ssm.automation_document_name
+  value       = module.ssm.ssm_automation_name
 }
 
 output "ssm_automation_role_arn" {
   description = "ARN of the SSM automation role"
-  value       = module.ssm.automation_role_arn
+  value       = module.ssm.ssm_automation_role_arn
 } 
