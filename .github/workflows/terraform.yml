@@ -66,12 +66,29 @@ jobs:
           cd environments/${{ github.event.inputs.environment || 'staging' }}
           terraform init
 
+      - name: Debug Terraform Configuration
+        run: |
+          cd environments/${{ github.event.inputs.environment || 'staging' }}
+          echo "=== Terraform Configuration ==="
+          echo "Current directory: $(pwd)"
+          echo "Files in directory:"
+          ls -la
+          echo ""
+          echo "=== Terraform Variables ==="
+          terraform console -var-file="" <<< "var" || echo "No variables file found"
+          echo ""
+          echo "=== Backend Configuration ==="
+          cat backend.tf || echo "No backend.tf found"
+
       - name: Terraform Plan
         id: plan
         if: github.event.inputs.action == 'plan' || github.event.inputs.action == 'apply'
         run: |
           cd environments/${{ github.event.inputs.environment || 'staging' }}
+          echo "Running terraform plan..."
           terraform plan -out=tfplan -detailed-exitcode
+          echo "Plan completed. Checking if tfplan file exists..."
+          ls -la tfplan || echo "tfplan file not found!"
         continue-on-error: true
 
       - name: Capture Plan Output
