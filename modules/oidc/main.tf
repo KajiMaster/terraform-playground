@@ -1,0 +1,146 @@
+terraform {
+  required_version = ">= 1.0.0"
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
+# GitHub OIDC Provider
+resource "aws_iam_openid_connect_provider" "github" {
+  url = "https://token.actions.githubusercontent.com"
+
+  client_id_list = [
+    "sts.amazonaws.com"
+  ]
+
+  thumbprint_list = [
+    "6938fd4d98bab03faadb97b34396831e3780aea1",
+    "1c58a3a8518e8759bf075b76b750d4f2df264fcd"
+  ]
+
+  tags = {
+    Name        = "github-actions-oidc"
+    Environment = var.environment
+    Project     = "tf-playground"
+    ManagedBy   = "terraform"
+  }
+}
+
+# IAM Role for GitHub Actions
+resource "aws_iam_role" "github_actions" {
+  name = "github-actions-${var.environment}"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Effect = "Allow"
+        Principal = {
+          Federated = aws_iam_openid_connect_provider.github.arn
+        }
+        Condition = {
+          StringEquals = {
+            "token.actions.githubusercontent.com:aud" : "sts.amazonaws.com"
+          }
+          StringLike = {
+            "token.actions.githubusercontent.com:sub" : "repo:${var.github_repository}:*"
+          }
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name        = "github-actions-role-${var.environment}"
+    Environment = var.environment
+    Project     = "tf-playground"
+    ManagedBy   = "terraform"
+  }
+}
+
+# IAM Policy for Terraform operations
+resource "aws_iam_role_policy" "terraform_permissions" {
+  name = "terraform-permissions-${var.environment}"
+  role = aws_iam_role.github_actions.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      # S3 permissions for state management
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject",
+          "s3:ListBucket"
+        ]
+        Resource = [
+          "arn:aws:s3:::${var.state_bucket}",
+          "arn:aws:s3:::${var.state_bucket}/*"
+        ]
+      },
+      # DynamoDB permissions for state locking
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:DeleteItem"
+        ]
+        Resource = "arn:aws:dynamodb:${var.aws_region}:*:table/${var.state_lock_table}"
+      },
+      # EC2 permissions for infrastructure management
+      {
+        Effect = "Allow"
+        Action = [
+          "ec2:*",
+          "elasticloadbalancing:*",
+          "autoscaling:*"
+        ]
+        Resource = "*"
+      },
+      # RDS permissions
+      {
+        Effect = "Allow"
+        Action = [
+          "rds:*"
+        ]
+        Resource = "*"
+      },
+      # VPC permissions
+      {
+        Effect = "Allow"
+        Action = [
+          "ec2:*",
+          "elasticloadbalancing:*"
+        ]
+        Resource = "*"
+      },
+      # IAM permissions (limited to specific resources)
+      {
+        Effect = "Allow"
+        Action = [
+          "iam:GetRole",
+          "iam:PassRole"
+        ]
+        Resource = [
+          "arn:aws:iam::*:role/tf-playground-*",
+          "arn:aws:iam::*:role/github-actions-*"
+        ]
+      },
+      # SSM permissions for automation
+      {
+        Effect = "Allow"
+        Action = [
+          "ssm:*"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+} 

@@ -4,6 +4,12 @@ variable "environment" {
   default     = "dev"
 }
 
+variable "developer" {
+  description = "Developer name for individual environments (e.g., alice, bob, charlie)"
+  type        = string
+  default     = "default"
+}
+
 variable "aws_region" {
   description = "AWS region"
   type        = string

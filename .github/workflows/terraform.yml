@@ -1,0 +1,134 @@
+name: Terraform Infrastructure
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to deploy to"
+        required: true
+        default: "staging"
+        type: choice
+        options: ["staging", "production"]
+      action:
+        description: "Terraform action to perform"
+        required: true
+        default: "plan"
+        type: choice
+        options: ["plan", "apply", "destroy"]
+
+env:
+  AWS_REGION: us-east-2
+  TF_VERSION: "1.5.0"
+
+jobs:
+  terraform:
+    name: Terraform ${{ github.event.inputs.action || 'plan' }} - ${{ github.event.inputs.environment || 'staging' }}
+    runs-on: ubuntu-latest
+
+    # Only allow manual triggers for apply/destroy on production
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'pull_request' && github.ref == 'refs/heads/main')
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::123324351829:role/github-actions-${{ github.event.inputs.environment || 'staging' }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Format Check
+        run: |
+          cd environments/${{ github.event.inputs.environment || 'staging' }}
+          terraform fmt -check
+
+      - name: Terraform Init
+        run: |
+          cd environments/${{ github.event.inputs.environment || 'staging' }}
+          terraform init
+
+      - name: Terraform Plan
+        id: plan
+        if: github.event.inputs.action == 'plan' || github.event.inputs.action == 'apply'
+        run: |
+          cd environments/${{ github.event.inputs.environment || 'staging' }}
+          terraform plan -out=tfplan -detailed-exitcode
+        continue-on-error: true
+
+      - name: Capture Plan Output
+        id: plan_output
+        if: github.event_name == 'pull_request' && (github.event.inputs.action == 'plan' || github.event.inputs.action == 'apply')
+        run: |
+          cd environments/${{ github.event.inputs.environment || 'staging' }}
+          terraform show tfplan > plan_output.txt
+          echo "plan_output<<EOF" >> $GITHUB_OUTPUT
+          cat plan_output.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Terraform Plan Status
+        if: steps.plan.outcome == 'failure'
+        run: |
+          echo "Plan failed or has changes that require review."
+          exit 1
+
+      - name: Terraform Apply
+        if: github.event.inputs.action == 'apply' && github.event.inputs.environment == 'staging'
+        run: |
+          cd environments/${{ github.event.inputs.environment || 'staging' }}
+          terraform apply -auto-approve tfplan
+
+      - name: Terraform Apply (Production)
+        if: github.event.inputs.action == 'apply' && github.event.inputs.environment == 'production'
+        run: |
+          cd environments/${{ github.event.inputs.environment || 'staging' }}
+          terraform apply -auto-approve tfplan
+        env:
+          TF_VAR_environment: production
+
+      - name: Terraform Destroy
+        if: github.event.inputs.action == 'destroy'
+        run: |
+          cd environments/${{ github.event.inputs.environment || 'staging' }}
+          terraform destroy -auto-approve
+
+      - name: Comment PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const output = `#### Terraform Plan 📋
+            *Workflow: \`${{ github.workflow }}\`*
+
+            <details><summary>Show Plan</summary>
+
+            \`\`\`
+            ${{ steps.plan_output.outputs.plan_output || 'Plan output not available' }}
+            \`\`\`
+
+            </details>
+
+            *Pusher: @${{ github.actor }}, Action: \`${{ github.event.inputs.action || 'plan' }}\`*`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })

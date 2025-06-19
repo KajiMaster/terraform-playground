@@ -24,9 +24,10 @@ provider "aws" {
   region = var.aws_region
   default_tags {
     tags = {
-      Environment = var.environment
+      Environment = "${var.environment}-${var.developer}"
       Project     = "tf-playground"
       ManagedBy   = "terraform"
+      Developer   = var.developer
     }
   }
 }
@@ -73,4 +74,27 @@ module "webserver" {
   db_name = var.db_name
   db_user = module.secrets.db_username
   db_password = module.secrets.db_password
+}
+
+# SSM Module for Database Bootstrapping
+module "ssm" {
+  source = "../../modules/ssm"
+  environment = var.environment
+  webserver_instance_id = module.webserver.instance_id
+  webserver_public_ip = module.webserver.public_ip
+  database_endpoint = module.database.db_instance_address
+  database_name = var.db_name
+  database_username = module.secrets.db_username
+  database_password = module.secrets.db_password
+}
+
+# OIDC Module for GitHub Actions
+module "oidc" {
+  source = "../../modules/oidc"
+  
+  environment        = var.environment
+  github_repository  = "KajiMaster/terraform-playground"  # Update this with your actual repo
+  state_bucket       = "tf-playground-state-vexus"
+  state_lock_table   = "tf-playground-locks"
+  aws_region         = var.aws_region
 } 
