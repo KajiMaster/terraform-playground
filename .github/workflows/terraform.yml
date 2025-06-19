@@ -112,7 +112,7 @@ jobs:
           echo "Files before plan:"
           ls -la
           # For first-time setup, we might need to handle missing state gracefully
-          timeout 600 terraform plan -out=tfplan -lock=false || timeout 600 terraform plan -out=tfplan
+          timeout 600 terraform plan -no-color -out=tfplan -lock=false || timeout 600 terraform plan -no-color -out=tfplan
           echo "Plan completed. Checking if tfplan file exists..."
           ls -la tfplan || echo "tfplan file not found!"
         continue-on-error: true
@@ -123,7 +123,8 @@ jobs:
         run: |
           cd environments/${{ github.event.inputs.environment || 'staging' }}
           if [ -f tfplan ]; then
-            terraform show tfplan > plan_output.txt
+            # Use -no-color flag to avoid ANSI color codes
+            terraform show -no-color tfplan > plan_output.txt
             echo "plan_output<<EOF" >> $GITHUB_OUTPUT
             cat plan_output.txt >> $GITHUB_OUTPUT
             echo "EOF" >> $GITHUB_OUTPUT
