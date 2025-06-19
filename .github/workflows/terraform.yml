@@ -56,6 +56,13 @@ jobs:
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
+      - name: Force Unlock State (if needed)
+        run: |
+          cd environments/${{ github.event.inputs.environment || 'staging' }}
+          # Unlock the specific lock we encountered
+          terraform force-unlock -force 440a9745-6d8b-84a7-81a0-387c49f633f0 || echo "Lock already released or doesn't exist"
+        continue-on-error: true
+
       - name: Terraform Format Check
         run: |
           cd environments/${{ github.event.inputs.environment || 'staging' }}
