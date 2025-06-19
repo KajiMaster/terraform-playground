@@ -140,6 +140,17 @@ jobs:
           echo "Plan failed or has changes that require review."
           exit 1
 
+      - name: Terraform Apply (Auto on Main)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          cd environments/staging
+          echo "Auto-applying terraform changes for staging environment..."
+          # Run plan first to generate the plan file
+          terraform plan -no-color -out=tfplan
+          # Apply the plan
+          terraform apply -auto-approve tfplan
+          echo "Terraform apply completed successfully for staging environment"
+
       - name: Terraform Apply
         if: github.event.inputs.action == 'apply' && github.event.inputs.environment == 'staging'
         run: |
