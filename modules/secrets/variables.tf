@@ -1,6 +1,12 @@
 variable "environment" {
-  description = "Environment name (e.g., dev, stage, prod)"
+  description = "Environment name"
   type        = string
+}
+
+variable "create_resources" {
+  description = "Whether to create KMS key and secrets (true) or read existing ones (false)"
+  type        = bool
+  default     = false
 }
 
 # Note: This module expects the following resources to exist:

@@ -8,6 +8,12 @@ variable "github_repository" {
   type        = string
 }
 
+variable "create_oidc_provider" {
+  description = "Whether to create the OIDC provider (false if it already exists)"
+  type        = bool
+  default     = false
+}
+
 variable "state_bucket" {
   description = "S3 bucket name for Terraform state"
   type        = string

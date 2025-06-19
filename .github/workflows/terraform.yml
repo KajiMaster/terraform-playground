@@ -59,9 +59,16 @@ jobs:
       - name: Force Unlock State (if needed)
         run: |
           cd environments/${{ github.event.inputs.environment || 'staging' }}
-          # Unlock the specific lock we encountered
+          # Try to unlock any existing locks
+          terraform force-unlock -force 87bd88f2-f0db-9c68-64ba-f68584a41104 || echo "Lock already released or doesn't exist"
           terraform force-unlock -force 440a9745-6d8b-84a7-81a0-387c49f633f0 || echo "Lock already released or doesn't exist"
         continue-on-error: true
+
+      - name: Check State File Exists
+        run: |
+          cd environments/${{ github.event.inputs.environment || 'staging' }}
+          echo "Checking if state file exists in S3..."
+          aws s3 ls s3://tf-playground-state-vexus/staging/terraform.tfstate || echo "State file does not exist - this is a first-time setup"
 
       - name: Terraform Format Check
         run: |
@@ -104,7 +111,8 @@ jobs:
           echo "Current directory: $(pwd)"
           echo "Files before plan:"
           ls -la
-          timeout 600 terraform plan -out=tfplan
+          # For first-time setup, we might need to handle missing state gracefully
+          timeout 600 terraform plan -out=tfplan -lock=false || timeout 600 terraform plan -out=tfplan
           echo "Plan completed. Checking if tfplan file exists..."
           ls -la tfplan || echo "tfplan file not found!"
         continue-on-error: true

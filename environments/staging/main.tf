@@ -38,6 +38,7 @@ module "networking" {
 module "secrets" {
   source      = "../../modules/secrets"
   environment = var.environment
+  create_resources = true
 }
 
 # Database Module
@@ -89,6 +90,7 @@ module "oidc" {
 
   environment       = var.environment
   github_repository = "KajiMaster/terraform-playground"
+  create_oidc_provider = false
   state_bucket      = var.state_bucket
   state_lock_table  = var.state_lock_table
   aws_region        = var.aws_region

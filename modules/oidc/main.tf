@@ -8,9 +8,10 @@ terraform {
   }
 }
 
-# GitHub OIDC Provider
+# GitHub OIDC Provider (conditional to avoid conflicts)
 resource "aws_iam_openid_connect_provider" "github" {
-  url = "https://token.actions.githubusercontent.com"
+  count = var.create_oidc_provider ? 1 : 0
+  url   = "https://token.actions.githubusercontent.com"
 
   client_id_list = [
     "sts.amazonaws.com"
@@ -29,6 +30,12 @@ resource "aws_iam_openid_connect_provider" "github" {
   }
 }
 
+# Data source for existing OIDC provider (when not creating)
+data "aws_iam_openid_connect_provider" "github" {
+  count = var.create_oidc_provider ? 0 : 1
+  url   = "https://token.actions.githubusercontent.com"
+}
+
 # IAM Role for GitHub Actions
 resource "aws_iam_role" "github_actions" {
   name = "github-actions-${var.environment}"
@@ -40,7 +47,7 @@ resource "aws_iam_role" "github_actions" {
         Action = "sts:AssumeRoleWithWebIdentity"
         Effect = "Allow"
         Principal = {
-          Federated = aws_iam_openid_connect_provider.github.arn
+          Federated = var.create_oidc_provider ? aws_iam_openid_connect_provider.github[0].arn : data.aws_iam_openid_connect_provider.github[0].arn
         }
         Condition = {
           StringEquals = {

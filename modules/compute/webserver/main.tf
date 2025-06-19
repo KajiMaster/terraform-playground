@@ -1,3 +1,21 @@
+terraform {
+  required_version = ">= 1.0.0"
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+    tls = {
+      source  = "hashicorp/tls"
+      version = "~> 4.0"
+    }
+    template = {
+      source  = "hashicorp/template"
+      version = "~> 2.0"
+    }
+  }
+}
+
 # Security Group for Web Server
 resource "aws_security_group" "webserver" {
   name        = "${var.environment}-webserver-sg"
@@ -147,6 +165,18 @@ data "aws_caller_identity" "current" {}
 resource "aws_iam_instance_profile" "webserver" {
   name = "${var.environment}-webserver-profile"
   role = aws_iam_role.webserver.name
+}
+
+# Generate SSH key pair
+resource "tls_private_key" "webserver" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
+}
+
+# SSH Key Pair
+resource "aws_key_pair" "webserver" {
+  key_name   = var.key_name
+  public_key = tls_private_key.webserver.public_key_openssh
 }
 
 # User data script for web server setup

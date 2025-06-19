@@ -26,6 +26,10 @@ resource "aws_db_subnet_group" "database" {
   tags = {
     Name = "${var.environment}-db-subnet-group"
   }
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 # RDS Instance
