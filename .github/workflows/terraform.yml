@@ -75,7 +75,7 @@ jobs:
           ls -la
           echo ""
           echo "=== Terraform Variables ==="
-          terraform console -var-file="" <<< "var" || echo "No variables file found"
+          terraform console <<< "var" || echo "Variables check completed"
           echo ""
           echo "=== Backend Configuration ==="
           cat backend.tf || echo "No backend.tf found"
@@ -86,7 +86,7 @@ jobs:
         run: |
           cd environments/${{ github.event.inputs.environment || 'staging' }}
           echo "Running terraform plan..."
-          terraform plan -out=tfplan -detailed-exitcode
+          terraform plan -out=tfplan
           echo "Plan completed. Checking if tfplan file exists..."
           ls -la tfplan || echo "tfplan file not found!"
         continue-on-error: true
