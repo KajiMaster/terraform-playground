@@ -164,18 +164,23 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
+            const planOutput = '${{ steps.plan_output.outputs.plan_output || 'Plan output not available' }}';
+            const workflowName = '${{ github.workflow }}';
+            const actor = '${{ github.actor }}';
+            const action = '${{ github.event.inputs.action || 'plan' }}';
+
             const output = `#### Terraform Plan 📋
-            *Workflow: \`${{ github.workflow }}\`*
+            *Workflow: \`${workflowName}\`*
 
             <details><summary>Show Plan</summary>
 
             \`\`\`
-            ${{ steps.plan_output.outputs.plan_output || 'Plan output not available' }}
+            ${planOutput}
             \`\`\`
 
             </details>
 
-            *Pusher: @${{ github.actor }}, Action: \`${{ github.event.inputs.action || 'plan' }}\`*`;
+            *Pusher: @${actor}, Action: \`${action}\`*`;
 
             github.rest.issues.createComment({
               issue_number: context.issue.number,
