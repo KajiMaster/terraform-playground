@@ -1,6 +1,14 @@
 # Terraform Playground
 
-A learning project focused on Terraform best practices, modular infrastructure, and environment management. This project sets up a web application infrastructure with an EC2 instance in a public subnet and an RDS MySQL database in a private subnet.
+A comprehensive Terraform playground for AWS infrastructure automation, featuring multi-environment deployment, CI/CD integration, and database bootstrapping with AWS Systems Manager (SSM).
+
+## Features
+
+- **Multi-Environment Support**: Dev, staging, and production environments
+- **SSM Database Bootstrap**: Automated database initialization using AWS Systems Manager
+- **CI/CD Pipeline**: GitHub Actions workflow for automated deployments
+- **Team Development**: Individual developer environments with conflict-free workflows
+- **Modular Design**: Reusable Terraform modules for networking, compute, database, and SSM
 
 ## Current State (Version 1)
 
