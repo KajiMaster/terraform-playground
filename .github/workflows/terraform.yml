@@ -161,30 +161,34 @@ jobs:
 
       - name: Comment PR
         if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const planOutput = '${{ steps.plan_output.outputs.plan_output || 'Plan output not available' }}';
-            const workflowName = '${{ github.workflow }}';
-            const actor = '${{ github.actor }}';
-            const action = '${{ github.event.inputs.action || 'plan' }}';
+        run: |
+          cd environments/${{ github.event.inputs.environment || 'staging' }}
 
-            const output = `#### Terraform Plan 📋
-            *Workflow: \`${workflowName}\`*
+          # Create the comment content
+          cat > comment.txt << 'EOF'
+          #### Terraform Plan 📋
+          *Workflow: `${{ github.workflow }}`*
 
-            <details><summary>Show Plan</summary>
+          <details><summary>Show Plan</summary>
 
-            \`\`\`
-            ${planOutput}
-            \`\`\`
+          ```
+          EOF
 
-            </details>
+          # Add the plan output
+          if [ -f plan_output.txt ]; then
+            cat plan_output.txt >> comment.txt
+          else
+            echo "Plan output not available" >> comment.txt
+          fi
 
-            *Pusher: @${actor}, Action: \`${action}\`*`;
+          # Close the comment
+          cat >> comment.txt << 'EOF'
+          ```
 
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: output
-            })
+          </details>
+
+          *Pusher: @${{ github.actor }}, Action: `${{ github.event.inputs.action || 'plan' }}`*
+          EOF
+
+          # Post the comment
+          gh pr comment ${{ github.event.pull_request.number }} --body-file comment.txt
