@@ -31,8 +31,8 @@ terraform.rc
 *.key
 
 # Ignore any local secrets or credentials
-secrets/
-credentials/
+local-secrets/
+local-credentials/
 *.secret
 *.cred
 

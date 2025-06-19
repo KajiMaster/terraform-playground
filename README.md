@@ -1,6 +1,14 @@
 # Terraform Playground
 
-A learning project focused on Terraform best practices, modular infrastructure, and environment management. This project sets up a web application infrastructure with an EC2 instance in a public subnet and an RDS MySQL database in a private subnet.
+A comprehensive Terraform playground for AWS infrastructure automation, featuring multi-environment deployment, CI/CD integration, and database bootstrapping with AWS Systems Manager (SSM).
+
+## Features
+
+- **Multi-Environment Support**: Dev, staging, and production environments
+- **SSM Database Bootstrap**: Automated database initialization using AWS Systems Manager
+- **CI/CD Pipeline**: GitHub Actions workflow for automated deployments
+- **Team Development**: Individual developer environments with conflict-free workflows
+- **Modular Design**: Reusable Terraform modules for networking, compute, database, and SSM
 
 ## Current State (Version 1)
 
@@ -75,63 +83,35 @@ terraform-playground/
 │   ├── networking/       # Networking resources (VPC, etc.)
 │   └── secrets/          # Secrets management module
 ├── scripts/              # Utility scripts
-│   ├── init-database.sh  # Database initialization script
-│   └── sql/             # SQL scripts
-│       ├── init.sql     # Initial schema and data
-│       └── add_contacts.sql  # Additional sample data
+│   └── setup-remote-state.sh  # Creates S3 bucket and DynamoDB table for Terraform state
 └── docs/                 # Documentation
 ```
 
 ## Deployment
 
-1. **Initial Setup**
+1. **Deploy Infrastructure**
 
    ```bash
    cd environments/dev
-   terraform init
+   terraform apply -auto-approve
    ```
 
-2. **Review and Apply**
+2. **Bootstrap Database**
 
    ```bash
-   terraform plan
-   terraform apply
+   aws ssm start-automation-execution \
+     --document-name "dev-database-automation" \
+     --parameters "DatabaseEndpoint=$(terraform output -raw database_endpoint | sed 's/:3306$//'),DatabaseName=$(terraform output -raw database_name),DatabaseUsername=$(aws secretsmanager get-secret-value --secret-id /tf-playground/dev/database/credentials --region us-east-2 --query SecretString --output text | jq -r '.username'),DatabasePassword=$(aws secretsmanager get-secret-value --secret-id /tf-playground/dev/database/credentials --region us-east-2 --query SecretString --output text | jq -r '.password'),InstanceId=$(terraform output -raw webserver_instance_id),AutomationAssumeRole=$(aws iam get-role --role-name dev-ssm-automation-role --query 'Role.Arn' --output text)" \
+     --region us-east-2
    ```
 
-3. **Post-Deployment Steps**
+3. **Verify Setup**
 
-   a. **Install MariaDB Client** (if not already installed via user_data)
+   - Check web application: `http://<webserver-public-ip>:8080`
+   - Health check: `http://<webserver-public-ip>:8080/health`
+   - Data endpoint: `http://<webserver-public-ip>:8080/` (should return JSON with contacts)
 
-   ```bash
-   sudo yum install -y mariadb1011-client-utils
-   ```
-
-   b. **Transfer Initialization Files**
-
-   ```bash
-   scp -i ~/.ssh/tf-playground-dev.pem scripts/init-database.sh scripts/sql/init.sql ec2-user@<webserver-ip>:/home/ec2-user/
-   ```
-
-   c. **Set Up Directory Structure**
-
-   ```bash
-   mkdir -p /home/ec2-user/sql
-   mv /home/ec2-user/init.sql /home/ec2-user/sql/
-   chmod +x /home/ec2-user/init-database.sh
-   ```
-
-   d. **Initialize Database**
-
-   ```bash
-   ./init-database.sh dev
-   ```
-
-   e. **Add Additional Contacts** (Optional)
-
-   ```bash
-   scp -i ~/.ssh/tf-playground-dev.pem scripts/sql/add_contacts.sql ec2-user@<webserver-ip>:/home/ec2-user/sql/
-   mysql -h <rds-endpoint> -u dbadmin -p"<password>" tfplayground < /home/ec2-user/sql/add_contacts.sql
-   ```
+**Note**: The database bootstrap is fully automated using AWS SSM. No manual SSH or database setup is required. See `docs/database-bootstrap.md` for detailed documentation.
 
 ## IAM Permissions
 

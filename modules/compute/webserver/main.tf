@@ -1,3 +1,21 @@
+terraform {
+  required_version = ">= 1.0.0"
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+    tls = {
+      source  = "hashicorp/tls"
+      version = "~> 4.0"
+    }
+    template = {
+      source  = "hashicorp/template"
+      version = "~> 2.0"
+    }
+  }
+}
+
 # Security Group for Web Server
 resource "aws_security_group" "webserver" {
   name        = "${var.environment}-webserver-sg"
@@ -18,7 +36,7 @@ resource "aws_security_group" "webserver" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]  # Consider restricting this to your IP range
+    cidr_blocks = ["0.0.0.0/0"] # Consider restricting this to your IP range
     description = "SSH access"
   }
 
@@ -149,6 +167,18 @@ resource "aws_iam_instance_profile" "webserver" {
   role = aws_iam_role.webserver.name
 }
 
+# Generate SSH key pair
+resource "tls_private_key" "webserver" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
+}
+
+# SSH Key Pair
+resource "aws_key_pair" "webserver" {
+  key_name   = var.key_name
+  public_key = tls_private_key.webserver.public_key_openssh
+}
+
 # User data script for web server setup
 data "template_file" "user_data" {
   template = file("${path.module}/templates/user_data.sh")
@@ -164,7 +194,7 @@ data "template_file" "user_data" {
 resource "aws_instance" "webserver" {
   ami                    = var.ami_id
   instance_type          = var.instance_type
-  subnet_id              = var.public_subnets[0]  # Place in first public subnet
+  subnet_id              = var.public_subnets[0] # Place in first public subnet
   vpc_security_group_ids = [aws_security_group.webserver.id]
   iam_instance_profile   = aws_iam_instance_profile.webserver.name
   key_name               = var.key_name

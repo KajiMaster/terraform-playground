@@ -79,7 +79,7 @@ resource "aws_eip" "nat" {
 # NAT Gateway
 resource "aws_nat_gateway" "main" {
   allocation_id = aws_eip.nat.id
-  subnet_id     = aws_subnet.public[0].id  # Place NAT Gateway in first public subnet
+  subnet_id     = aws_subnet.public[0].id # Place NAT Gateway in first public subnet
 
   tags = {
     Name        = "tf-playground-${var.environment}-nat"

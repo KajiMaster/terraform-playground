@@ -36,4 +36,14 @@ output "public_subnet_ids" {
 output "private_subnet_ids" {
   description = "List of private subnet IDs"
   value       = module.networking.private_subnet_ids
+}
+
+output "ssm_automation_name" {
+  description = "Name of the SSM automation for database initialization"
+  value       = module.ssm.ssm_automation_name
+}
+
+output "ssm_automation_role_arn" {
+  description = "ARN of the SSM automation role"
+  value       = module.ssm.ssm_automation_role_arn
 } 
