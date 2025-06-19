@@ -38,6 +38,8 @@ jobs:
     permissions:
       id-token: write
       contents: read
+      pull-requests: write
+      issues: write
 
     steps:
       - name: Checkout code
@@ -77,10 +79,16 @@ jobs:
         if: github.event_name == 'pull_request' && (github.event.inputs.action == 'plan' || github.event.inputs.action == 'apply')
         run: |
           cd environments/${{ github.event.inputs.environment || 'staging' }}
-          terraform show tfplan > plan_output.txt
-          echo "plan_output<<EOF" >> $GITHUB_OUTPUT
-          cat plan_output.txt >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          if [ -f tfplan ]; then
+            terraform show tfplan > plan_output.txt
+            echo "plan_output<<EOF" >> $GITHUB_OUTPUT
+            cat plan_output.txt >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          else
+            echo "plan_output<<EOF" >> $GITHUB_OUTPUT
+            echo "Terraform plan file not found. Check the plan step for errors." >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          fi
 
       - name: Terraform Plan Status
         if: steps.plan.outcome == 'failure'
