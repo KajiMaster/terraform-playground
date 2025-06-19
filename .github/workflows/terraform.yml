@@ -71,7 +71,9 @@ jobs:
       - name: Terraform Init
         run: |
           cd environments/${{ github.event.inputs.environment || 'staging' }}
+          echo "Starting terraform init..."
           timeout 300 terraform init
+          echo "Terraform init completed successfully"
 
       - name: Debug Terraform Configuration
         run: |
@@ -97,6 +99,9 @@ jobs:
         run: |
           cd environments/${{ github.event.inputs.environment || 'staging' }}
           echo "Running terraform plan..."
+          echo "Current directory: $(pwd)"
+          echo "Files before plan:"
+          ls -la
           timeout 600 terraform plan -out=tfplan
           echo "Plan completed. Checking if tfplan file exists..."
           ls -la tfplan || echo "tfplan file not found!"
