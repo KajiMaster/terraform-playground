@@ -19,13 +19,13 @@ variable "vpc_cidr" {
 variable "public_subnet_cidrs" {
   description = "CIDR blocks for public subnets"
   type        = list(string)
-  default     = ["172.12.2.0/24", "172.12.2.32/24"]
+  default     = ["172.12.2.0/24", "172.12.3.0/24"]
 }
 
 variable "private_subnet_cidrs" {
   description = "CIDR blocks for private subnets"
   type        = list(string)
-  default     = ["192.2.0.0/24", "192.2.0.32/24"]
+  default     = ["192.2.0.0/24", "192.2.1.0/24"]
 }
 
 variable "availability_zones" {
