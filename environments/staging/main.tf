@@ -36,8 +36,8 @@ module "networking" {
 
 # Secrets Management Module
 module "secrets" {
-  source      = "../../modules/secrets"
-  environment = var.environment
+  source           = "../../modules/secrets"
+  environment      = var.environment
   create_resources = true
 }
 
@@ -88,10 +88,10 @@ module "ssm" {
 module "oidc" {
   source = "../../modules/oidc"
 
-  environment       = var.environment
-  github_repository = "KajiMaster/terraform-playground"
+  environment          = var.environment
+  github_repository    = "KajiMaster/terraform-playground"
   create_oidc_provider = false
-  state_bucket      = var.state_bucket
-  state_lock_table  = var.state_lock_table
-  aws_region        = var.aws_region
+  state_bucket         = var.state_bucket
+  state_lock_table     = var.state_lock_table
+  aws_region           = var.aws_region
 } 

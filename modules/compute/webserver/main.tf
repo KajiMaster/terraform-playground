@@ -36,7 +36,7 @@ resource "aws_security_group" "webserver" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]  # Consider restricting this to your IP range
+    cidr_blocks = ["0.0.0.0/0"] # Consider restricting this to your IP range
     description = "SSH access"
   }
 
@@ -194,7 +194,7 @@ data "template_file" "user_data" {
 resource "aws_instance" "webserver" {
   ami                    = var.ami_id
   instance_type          = var.instance_type
-  subnet_id              = var.public_subnets[0]  # Place in first public subnet
+  subnet_id              = var.public_subnets[0] # Place in first public subnet
   vpc_security_group_ids = [aws_security_group.webserver.id]
   iam_instance_profile   = aws_iam_instance_profile.webserver.name
   key_name               = var.key_name

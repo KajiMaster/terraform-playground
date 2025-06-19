@@ -10,8 +10,8 @@ terraform {
 
 # SSM Automation Document for database initialization
 resource "aws_ssm_document" "database_automation" {
-  name          = "${var.environment}-database-automation"
-  document_type = "Automation"
+  name            = "${var.environment}-database-automation"
+  document_type   = "Automation"
   document_format = "YAML"
 
   content = <<DOC

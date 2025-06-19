@@ -61,8 +61,8 @@ data "aws_secretsmanager_secret" "db_credentials" {
 
 # Conditional secret version creation
 resource "aws_secretsmanager_secret_version" "db_credentials" {
-  count         = var.create_resources ? 1 : 0
-  secret_id     = aws_secretsmanager_secret.db_credentials[0].id
+  count     = var.create_resources ? 1 : 0
+  secret_id = aws_secretsmanager_secret.db_credentials[0].id
   secret_string = jsonencode({
     username = "tfplayground_user"
     password = random_password.db_password[0].result
