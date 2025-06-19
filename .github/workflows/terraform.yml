@@ -71,7 +71,7 @@ jobs:
       - name: Terraform Init
         run: |
           cd environments/${{ github.event.inputs.environment || 'staging' }}
-          terraform init
+          timeout 300 terraform init
 
       - name: Debug Terraform Configuration
         run: |
@@ -82,10 +82,14 @@ jobs:
           ls -la
           echo ""
           echo "=== Terraform Variables ==="
-          terraform console <<< "var" || echo "Variables check completed"
+          echo "Variables file check:"
+          ls -la *.tfvars 2>/dev/null || echo "No .tfvars files found"
           echo ""
           echo "=== Backend Configuration ==="
           cat backend.tf || echo "No backend.tf found"
+          echo ""
+          echo "=== Main Configuration ==="
+          head -20 main.tf || echo "No main.tf found"
 
       - name: Terraform Plan
         id: plan
@@ -93,7 +97,7 @@ jobs:
         run: |
           cd environments/${{ github.event.inputs.environment || 'staging' }}
           echo "Running terraform plan..."
-          terraform plan -out=tfplan
+          timeout 600 terraform plan -out=tfplan
           echo "Plan completed. Checking if tfplan file exists..."
           ls -la tfplan || echo "tfplan file not found!"
         continue-on-error: true
