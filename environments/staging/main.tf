@@ -16,10 +16,21 @@ provider "aws" {
   region = var.aws_region
   default_tags {
     tags = {
-      Environment = var.environment
+      Environment = "${var.environment}"
       Project     = "tf-playground"
       ManagedBy   = "terraform"
     }
+  }
+}
+
+# Remote state data source for global OIDC provider
+data "terraform_remote_state" "global" {
+  backend = "s3"
+  config = {
+    bucket         = "tf-playground-state-vexus"
+    key            = "global/terraform.tfstate"
+    region         = "us-east-2"
+    use_lockfile   = true
   }
 }
 
@@ -36,9 +47,8 @@ module "networking" {
 
 # Secrets Management Module
 module "secrets" {
-  source           = "../../modules/secrets"
-  environment      = var.environment
-  create_resources = true
+  source      = "../../modules/secrets"
+  environment = var.environment
 }
 
 # Database Module
@@ -56,42 +66,38 @@ module "database" {
 
 # Compute Module (Web Server)
 module "webserver" {
-  source = "../../modules/compute/webserver"
-
+  source         = "../../modules/compute/webserver"
   environment    = var.environment
   vpc_id         = module.networking.vpc_id
   public_subnets = module.networking.public_subnet_ids
   instance_type  = var.webserver_instance_type
   key_name       = var.key_name
-  db_host        = module.database.db_instance_endpoint
-  db_name        = module.database.db_instance_name
+  db_host        = module.database.db_instance_address
+  db_name        = var.db_name
   db_user        = module.secrets.db_username
   db_password    = module.secrets.db_password
 }
 
-# SSM Module
+# SSM Module for Database Bootstrapping
 module "ssm" {
-  source = "../../modules/ssm"
-
+  source                = "../../modules/ssm"
   environment           = var.environment
   webserver_instance_id = module.webserver.instance_id
   webserver_public_ip   = module.webserver.public_ip
-  database_endpoint     = module.database.db_instance_endpoint
-  database_name         = module.database.db_instance_name
+  database_endpoint     = module.database.db_instance_address
+  database_name         = var.db_name
   database_username     = module.secrets.db_username
   database_password     = module.secrets.db_password
-  ssh_key_path          = var.ssh_key_path
-  ssh_user              = var.ssh_user
 }
 
-# OIDC Module for GitHub Actions
+# OIDC Module for GitHub Actions (references existing global provider)
 module "oidc" {
   source = "../../modules/oidc"
 
-  environment          = var.environment
-  github_repository    = "KajiMaster/terraform-playground"
-  create_oidc_provider = false
-  state_bucket         = var.state_bucket
-  state_lock_table     = var.state_lock_table
-  aws_region           = var.aws_region
+  environment         = var.environment
+  github_repository   = "KajiMaster/terraform-playground"
+  state_bucket        = "tf-playground-state-vexus"
+  state_lock_table    = "tf-playground-locks"
+  aws_region          = var.aws_region
+  create_oidc_provider = false  # Reference existing provider
 } 
