@@ -27,4 +27,9 @@ output "db_credentials" {
 output "parameter_prefix" {
   description = "The prefix used for Parameter Store parameters"
   value       = "/tf-playground/${var.environment}"
+}
+
+output "random_suffix" {
+  description = "The random suffix used for resource names"
+  value       = var.create_resources ? random_string.suffix[0].result : null
 } 

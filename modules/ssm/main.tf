@@ -71,8 +71,14 @@ mainSteps:
         #!/bin/bash
         set -e
         
-        # Create database schema
-        mysql -h {{ DatabaseEndpoint }} -u {{ DatabaseUsername }} -p{{ DatabasePassword }} {{ DatabaseName }} << 'EOF'
+        # Set environment variables to avoid shell escaping issues
+        export DB_HOST="{{ DatabaseEndpoint }}"
+        export DB_USER="{{ DatabaseUsername }}"
+        export DB_PASS="{{ DatabasePassword }}"
+        export DB_NAME="{{ DatabaseName }}"
+        
+        # Create database schema using environment variables
+        mysql -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" << 'EOF'
         CREATE TABLE IF NOT EXISTS contacts (
             id INT AUTO_INCREMENT PRIMARY KEY,
             name VARCHAR(100) NOT NULL,
@@ -95,8 +101,14 @@ mainSteps:
         #!/bin/bash
         set -e
         
-        # Insert sample data
-        mysql -h {{ DatabaseEndpoint }} -u {{ DatabaseUsername }} -p{{ DatabasePassword }} {{ DatabaseName }} << 'EOF'
+        # Set environment variables to avoid shell escaping issues
+        export DB_HOST="{{ DatabaseEndpoint }}"
+        export DB_USER="{{ DatabaseUsername }}"
+        export DB_PASS="{{ DatabasePassword }}"
+        export DB_NAME="{{ DatabaseName }}"
+        
+        # Insert sample data using environment variables
+        mysql -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" << 'EOF'
         INSERT IGNORE INTO contacts (name, email, phone) VALUES
         ('John Doe', 'john.doe@example.com', '+1-555-0101'),
         ('Jane Smith', 'jane.smith@example.com', '+1-555-0102'),
@@ -118,8 +130,14 @@ mainSteps:
         #!/bin/bash
         set -e
         
-        # Verify the setup
-        COUNT=$(mysql -h {{ DatabaseEndpoint }} -u {{ DatabaseUsername }} -p{{ DatabasePassword }} {{ DatabaseName }} -s -N -e "SELECT COUNT(*) FROM contacts;")
+        # Set environment variables to avoid shell escaping issues
+        export DB_HOST="{{ DatabaseEndpoint }}"
+        export DB_USER="{{ DatabaseUsername }}"
+        export DB_PASS="{{ DatabasePassword }}"
+        export DB_NAME="{{ DatabaseName }}"
+        
+        # Verify the setup using environment variables
+        COUNT=$(mysql -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" -s -N -e "SELECT COUNT(*) FROM contacts;")
         echo "Database setup complete. Found $COUNT contacts in the database."
 DOC
 

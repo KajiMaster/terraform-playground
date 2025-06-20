@@ -41,4 +41,14 @@ output "ssm_automation_document_name" {
 output "ssm_automation_role_arn" {
   description = "ARN of the SSM automation role"
   value       = module.ssm.ssm_automation_role_arn
+}
+
+output "github_actions_role_arn" {
+  description = "ARN of the GitHub Actions IAM role for staging"
+  value       = module.oidc.github_actions_role_arn
+}
+
+output "random_suffix" {
+  description = "Random suffix used for resource names"
+  value       = module.secrets.random_suffix
 } 

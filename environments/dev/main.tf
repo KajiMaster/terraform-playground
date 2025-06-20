@@ -56,8 +56,9 @@ module "networking" {
 
 # Secrets Management Module
 module "secrets" {
-  source      = "../../modules/secrets"
-  environment = var.environment
+  source          = "../../modules/secrets"
+  environment     = var.environment
+  create_resources = true
 }
 
 # Database Module (updated to "consume" the decrypted db credentials (db_username and db_password) from the secrets module.)

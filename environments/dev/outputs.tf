@@ -46,4 +46,9 @@ output "ssm_automation_name" {
 output "ssm_automation_role_arn" {
   description = "ARN of the SSM automation role"
   value       = module.ssm.ssm_automation_role_arn
+}
+
+output "random_suffix" {
+  description = "Random suffix used for resource names"
+  value       = module.secrets.random_suffix
 } 

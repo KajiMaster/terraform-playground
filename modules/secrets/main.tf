@@ -12,6 +12,14 @@ terraform {
   }
 }
 
+# Random suffix for unique resource names (avoids deletion recovery window conflicts)
+resource "random_string" "suffix" {
+  count   = var.create_resources ? 1 : 0
+  length  = 4
+  special = false
+  upper   = false
+}
+
 # Conditional KMS key creation
 resource "aws_kms_key" "secrets" {
   count                   = var.create_resources ? 1 : 0
@@ -20,7 +28,7 @@ resource "aws_kms_key" "secrets" {
   enable_key_rotation     = true
 
   tags = {
-    Name        = "tf-playground-${var.environment}-secrets"
+    Name        = "tf-playground-${var.environment}-secrets-${random_string.suffix[0].result}"
     Environment = var.environment
     Project     = "tf-playground"
   }
@@ -29,7 +37,7 @@ resource "aws_kms_key" "secrets" {
 # Conditional KMS alias creation
 resource "aws_kms_alias" "secrets" {
   count         = var.create_resources ? 1 : 0
-  name          = "alias/tf-playground-${var.environment}-secrets"
+  name          = "alias/tf-playground-${var.environment}-secrets-${random_string.suffix[0].result}"
   target_key_id = aws_kms_key.secrets[0].key_id
 }
 
@@ -42,12 +50,12 @@ data "aws_kms_key" "secrets" {
 # Conditional secret creation
 resource "aws_secretsmanager_secret" "db_credentials" {
   count       = var.create_resources ? 1 : 0
-  name        = "/tf-playground/${var.environment}/database/credentials"
+  name        = "/tf-playground/${var.environment}/database/credentials-${random_string.suffix[0].result}"
   description = "Database credentials for ${var.environment} environment"
   kms_key_id  = aws_kms_key.secrets[0].arn
 
   tags = {
-    Name        = "tf-playground-${var.environment}-db-credentials"
+    Name        = "tf-playground-${var.environment}-db-credentials-${random_string.suffix[0].result}"
     Environment = var.environment
     Project     = "tf-playground"
   }

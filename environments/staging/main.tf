@@ -47,8 +47,9 @@ module "networking" {
 
 # Secrets Management Module
 module "secrets" {
-  source      = "../../modules/secrets"
-  environment = var.environment
+  source          = "../../modules/secrets"
+  environment     = var.environment
+  create_resources = true
 }
 
 # Database Module
