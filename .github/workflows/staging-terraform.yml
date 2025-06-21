@@ -42,7 +42,7 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::123324351829:role/github-actions-staging
+          role-to-assume: arn:aws:iam::123324351829:role/github-actions-global
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Terraform Init
@@ -103,7 +103,7 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::123324351829:role/github-actions-staging
+          role-to-assume: arn:aws:iam::123324351829:role/github-actions-global
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Terraform Init
