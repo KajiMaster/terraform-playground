@@ -1,3 +1,6 @@
+# Staging environment variables
+# Managed by GitFlow CI/CD pipeline
+
 variable "environment" {
   description = "Environment name"
   type        = string
