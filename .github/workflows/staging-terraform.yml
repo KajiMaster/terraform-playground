@@ -47,13 +47,14 @@ jobs:
           unset AWS_DEFAULT_REGION
           rm -rf ~/.aws/credentials
           rm -rf ~/.aws/config
+          echo "Cleared all AWS credentials cache"
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::123324351829:role/github-actions-global
           aws-region: ${{ env.AWS_REGION }}
-          role-session-name: staging-apply-${{ github.run_id }}
+          role-session-name: staging-apply-${{ github.run_id }}-$(date +%s)
 
       - name: Test Role Permissions
         run: |
@@ -150,13 +151,14 @@ jobs:
           unset AWS_DEFAULT_REGION
           rm -rf ~/.aws/credentials
           rm -rf ~/.aws/config
+          echo "Cleared all AWS credentials cache"
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::123324351829:role/github-actions-global
           aws-region: ${{ env.AWS_REGION }}
-          role-session-name: staging-apply-${{ github.run_id }}
+          role-session-name: staging-apply-${{ github.run_id }}-$(date +%s)
 
       - name: Test Role Permissions
         run: |
