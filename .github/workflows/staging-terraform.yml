@@ -39,14 +39,10 @@ jobs:
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
-      - name: Get AWS Account ID
-        run: |
-          echo "AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)" >> $GITHUB_ENV
-
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/github-actions-staging
+          role-to-assume: arn:aws:iam::123324351829:role/github-actions-staging
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Terraform Init
@@ -104,14 +100,10 @@ jobs:
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
-      - name: Get AWS Account ID
-        run: |
-          echo "AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)" >> $GITHUB_ENV
-
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/github-actions-staging
+          role-to-assume: arn:aws:iam::123324351829:role/github-actions-staging
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Terraform Init
