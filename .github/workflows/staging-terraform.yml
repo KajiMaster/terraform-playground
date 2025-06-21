@@ -54,7 +54,7 @@ jobs:
         with:
           role-to-assume: arn:aws:iam::123324351829:role/github-actions-global
           aws-region: ${{ env.AWS_REGION }}
-          role-session-name: staging-apply-${{ github.run_id }}-$(date +%s)
+          role-session-name: staging-apply-${{ github.run_id }}-${{ github.run_number }}
 
       - name: Test Role Permissions
         run: |
@@ -158,7 +158,7 @@ jobs:
         with:
           role-to-assume: arn:aws:iam::123324351829:role/github-actions-global
           aws-region: ${{ env.AWS_REGION }}
-          role-session-name: staging-apply-${{ github.run_id }}-$(date +%s)
+          role-session-name: staging-apply-${{ github.run_id }}-${{ github.run_number }}
 
       - name: Test Role Permissions
         run: |
