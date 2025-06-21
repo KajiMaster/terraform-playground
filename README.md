@@ -219,6 +219,10 @@ The project uses several IAM policies to manage access:
 6. Merge to develop (auto-deploys to staging)
 7. When ready, merge develop to main for production
 
+## Future Development
+
+See [docs/future-roadmap.md](docs/future-roadmap.md) for planned improvements, potential scenarios, and questions for future development sessions. This roadmap helps maintain focus while ensuring we don't lose track of important considerations.
+
 ## License
 
 MIT License
