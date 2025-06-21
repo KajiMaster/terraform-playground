@@ -22,7 +22,6 @@ terraform-playground/
 │   ├── secrets/      # Secrets management
 │   └── oidc/         # GitHub Actions OIDC setup
 ├── docs/             # Documentation
-├── scripts/          # Utility scripts
 └── .github/workflows/ # CI/CD workflows (to be implemented)
 ```
 
