@@ -71,7 +71,6 @@ terraform-playground/
 │   ├── secrets/          # Secrets management module
 │   ├── ssm/              # SSM automation module
 │   └── oidc/             # OIDC provider module
-├── scripts/              # Utility scripts
 ├── docs/                 # Documentation
 └── .github/workflows/    # CI/CD workflows
 ```

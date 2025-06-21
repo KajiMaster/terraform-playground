@@ -42,7 +42,7 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-to-assume: arn:aws:iam::123324351829:role/github-actions-global
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Terraform Init
@@ -63,21 +63,39 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const plan = fs.readFileSync('environments/staging/tfplan', 'utf8');
+            const { execSync } = require('child_process');
             
-            const comment = `## Terraform Plan for Staging Environment
-            
-            <details><summary>Click to expand plan</summary>
-            
-            \`\`\`hcl
-            ${plan}
-            \`\`\`
-            
-            </details>
+            let comment = `## Terraform Plan for Staging Environment
             
             **Environment**: Staging
             **Branch**: develop
             **Triggered by**: PR #${{ github.event.number }}`;
+            
+            try {
+              // Use terraform show to convert binary plan to readable text
+              const plan = execSync('cd environments/staging && terraform show tfplan', { encoding: 'utf8' });
+              
+              // Strip ANSI color codes for GitHub comment readability
+              const cleanPlan = plan.replace(/\x1b\[[0-9;]*m/g, '');
+              
+              comment += `
+              
+              <details><summary>Click to expand plan</summary>
+              
+              \`\`\`hcl
+              ${cleanPlan}
+              \`\`\`
+              
+              </details>`;
+            } catch (error) {
+              comment += `
+              
+              ❌ **Plan Failed**
+              
+              The Terraform plan step failed. Check the workflow logs for details.
+              
+              Error: ${error.message}`;
+            }
             
             github.rest.issues.createComment({
               issue_number: context.issue.number,
@@ -103,7 +121,7 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-to-assume: arn:aws:iam::123324351829:role/github-actions-global
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Terraform Init
@@ -126,4 +144,4 @@ jobs:
           echo "**Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Infrastructure Outputs:" >> $GITHUB_STEP_SUMMARY
-          terraform output >> $GITHUB_STEP_SUMMARY 
+          terraform output >> $GITHUB_STEP_SUMMARY # Updated authentication
