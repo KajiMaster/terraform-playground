@@ -1,4 +1,12 @@
-# Database Bootstrap Documentation
+# Database Bootstrap Guide
+
+This guide covers the automated database bootstrapping process using AWS Systems Manager (SSM) automation.
+
+## Prerequisites
+
+- SSH key pair `tf-playground-key` created in AWS
+- Private key saved as `~/.ssh/tf-playground-key.pem` with permissions `400`
+- `terraform.tfvars` file in your environment directory with `key_name = "tf-playground-key"`
 
 ## Overview
 
@@ -69,21 +77,6 @@ aws ssm describe-automation-executions --filters Key=ExecutionId,Values=<executi
 
 - Counts records in the contacts table
 - Reports completion status
-
-## Prerequisites
-
-### Required Tools
-
-- Terraform >= 1.0.0
-- AWS CLI configured with appropriate credentials
-- `jq` installed locally (`sudo apt install jq` on Ubuntu/WSL)
-
-### AWS Resources Required Before Terraform
-
-1. **SSH Key Pair**
-   - Create an SSH key pair in AWS named `tf-playground-key`
-   - Save the private key as `~/.ssh/tf-playground-key.pem`
-   - Set permissions: `chmod 400 ~/.ssh/tf-playground-key.pem`
 
 ## Environment-Specific Commands
 

@@ -54,6 +54,31 @@ The infrastructure includes:
 - AWS CLI configured with appropriate credentials
 - jq (for JSON parsing in automation commands)
 
+## Local Configuration Files
+
+The following files are `.gitignore`d and need to be created locally:
+
+### SSH Key File
+- **Location**: `~/.ssh/tf-playground-key.pem`
+- **Purpose**: SSH access to EC2 instances
+- **Setup**: Download from AWS Console after creating key pair
+
+### Environment Variables Files
+Each environment has a `terraform.tfvars` file for local development:
+
+- **`environments/dev/terraform.tfvars`** - Development environment variables
+- **`environments/staging/terraform.tfvars`** - Staging environment variables  
+- **`environments/production/terraform.tfvars`** - Production environment variables
+
+**Example terraform.tfvars content:**
+```hcl
+key_name = "tf-playground-key"
+```
+
+**Note**: These files are not tracked by Git for security reasons. Create them locally for convenient development without needing `-var` flags.
+
+**Additional Configuration**: Each environment also includes an `example.tfvars` file showing all available variables for reference.
+
 ## Project Structure
 
 ```
@@ -89,8 +114,10 @@ terraform-playground/
 
    ```bash
    cd environments/dev
-   terraform apply -var='key_name=tf-playground-key'
+   terraform apply
    ```
+
+   **Note**: Uses `terraform.tfvars` for SSH key configuration. Create this file locally if it doesn't exist.
 
 2. **Bootstrap Database**
 
@@ -176,6 +203,11 @@ The project uses several IAM policies to manage access:
 3. **IAM role conflicts**
    - Ensure no duplicate role definitions between modules
    - Check for conflicts between `iam.tf` files and module roles
+
+4. **SSH key not found errors**
+   - Ensure `~/.ssh/tf-playground-key.pem` exists and has correct permissions (400)
+   - Verify the key pair name in AWS matches `tf-playground-key`
+   - Check that `terraform.tfvars` contains the correct `key_name` value
 
 ## Contributing
 
