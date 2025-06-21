@@ -74,12 +74,16 @@ jobs:
             try {
               // Use terraform show to convert binary plan to readable text
               const plan = execSync('cd environments/staging && terraform show tfplan', { encoding: 'utf8' });
+              
+              // Strip ANSI color codes for GitHub comment readability
+              const cleanPlan = plan.replace(/\x1b\[[0-9;]*m/g, '');
+              
               comment += `
               
               <details><summary>Click to expand plan</summary>
               
               \`\`\`hcl
-              ${plan}
+              ${cleanPlan}
               \`\`\`
               
               </details>`;
