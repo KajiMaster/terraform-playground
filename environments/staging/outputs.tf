@@ -46,4 +46,9 @@ output "ssm_automation_role_arn" {
 output "random_suffix" {
   description = "Random suffix used for resource names"
   value       = module.secrets.random_suffix
-} 
+}
+
+output "deployment_timestamp" {
+  description = "Timestamp of last deployment"
+  value       = "Deployed via GitFlow CI/CD - $(date)"
+}

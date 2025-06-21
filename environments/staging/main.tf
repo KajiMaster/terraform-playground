@@ -19,6 +19,7 @@ provider "aws" {
       Environment = "${var.environment}"
       Project     = "tf-playground"
       ManagedBy   = "terraform"
+      Pipeline    = "gitflow-cicd"
     }
   }
 }
