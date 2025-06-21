@@ -154,7 +154,9 @@ resource "aws_iam_role_policy" "terraform_permissions" {
           "iam:DeleteInstanceProfile",
           "iam:GetInstanceProfile",
           "iam:AddRoleToInstanceProfile",
-          "iam:RemoveRoleFromInstanceProfile"
+          "iam:RemoveRoleFromInstanceProfile",
+          "iam:TagInstanceProfile",
+          "iam:UntagInstanceProfile"
         ]
         Resource = [
           "arn:aws:iam::*:role/tf-playground-*",
@@ -165,7 +167,10 @@ resource "aws_iam_role_policy" "terraform_permissions" {
           "arn:aws:iam::*:policy/tf-playground-*",
           "arn:aws:iam::*:policy/staging-*",
           "arn:aws:iam::*:policy/dev-*",
-          "arn:aws:iam::*:policy/prod-*"
+          "arn:aws:iam::*:policy/prod-*",
+          "arn:aws:iam::*:instance-profile/staging-*",
+          "arn:aws:iam::*:instance-profile/dev-*",
+          "arn:aws:iam::*:instance-profile/prod-*"
         ]
       },
       # KMS permissions for secrets management
