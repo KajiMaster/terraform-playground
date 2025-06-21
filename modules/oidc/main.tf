@@ -139,12 +139,33 @@ resource "aws_iam_role_policy" "terraform_permissions" {
           "iam:AttachRolePolicy",
           "iam:DetachRolePolicy",
           "iam:DeleteRole",
-          "iam:DeletePolicy"
+          "iam:DeletePolicy",
+          "iam:TagRole",
+          "iam:TagPolicy",
+          "iam:UntagRole",
+          "iam:UntagPolicy",
+          "iam:ListRolePolicies",
+          "iam:GetPolicy",
+          "iam:GetPolicyVersion",
+          "iam:ListAttachedRolePolicies",
+          "iam:GetRolePolicy",
+          "iam:ListInstanceProfilesForRole",
+          "iam:CreateInstanceProfile",
+          "iam:DeleteInstanceProfile",
+          "iam:GetInstanceProfile",
+          "iam:AddRoleToInstanceProfile",
+          "iam:RemoveRoleFromInstanceProfile"
         ]
         Resource = [
           "arn:aws:iam::*:role/tf-playground-*",
           "arn:aws:iam::*:role/github-actions-*",
-          "arn:aws:iam::*:policy/tf-playground-*"
+          "arn:aws:iam::*:role/staging-*",
+          "arn:aws:iam::*:role/dev-*",
+          "arn:aws:iam::*:role/prod-*",
+          "arn:aws:iam::*:policy/tf-playground-*",
+          "arn:aws:iam::*:policy/staging-*",
+          "arn:aws:iam::*:policy/dev-*",
+          "arn:aws:iam::*:policy/prod-*"
         ]
       },
       # KMS permissions for secrets management
