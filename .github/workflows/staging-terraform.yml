@@ -63,6 +63,7 @@ jobs:
         with:
           script: |
             const fs = require('fs');
+            const { execSync } = require('child_process');
             
             let comment = `## Terraform Plan for Staging Environment
             
@@ -71,7 +72,8 @@ jobs:
             **Triggered by**: PR #${{ github.event.number }}`;
             
             try {
-              const plan = fs.readFileSync('environments/staging/tfplan', 'utf8');
+              // Use terraform show to convert binary plan to readable text
+              const plan = execSync('cd environments/staging && terraform show tfplan', { encoding: 'utf8' });
               comment += `
               
               <details><summary>Click to expand plan</summary>
