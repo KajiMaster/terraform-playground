@@ -2,6 +2,60 @@
 
 This document captures questions, scenarios, and potential improvements for the Terraform playground without implementing them immediately. This helps maintain focus while ensuring we don't lose track of important considerations.
 
+## 🎯 Active Project: Blue-Green Deployment Implementation
+
+### Project Overview
+**Goal**: Implement blue-green deployment strategy to demonstrate enterprise-grade deployment patterns for career advancement.
+
+**Why This Matters**: 
+- High demand skill in DevOps interviews
+- Demonstrates production deployment safety
+- Shows understanding of zero-downtime deployments
+- Aligns with current job market requirements
+
+### Implementation Plan
+
+#### Phase 1: Infrastructure Foundation
+- [ ] Add Application Load Balancer (ALB) to staging environment
+- [ ] Create dual EC2 instance setup (blue/green environments)
+- [ ] Implement health check endpoints in Flask application
+- [ ] Add auto-scaling groups for each environment
+- [ ] Configure target groups for traffic routing
+
+#### Phase 2: Traffic Management
+- [ ] Implement traffic switching logic
+- [ ] Add deployment validation health checks
+- [ ] Create rollback mechanisms
+- [ ] Add deployment metrics and monitoring
+- [ ] Implement gradual traffic shifting (optional)
+
+#### Phase 3: CI/CD Integration
+- [ ] Update GitHub Actions workflow for blue-green deployments
+- [ ] Add deployment approval workflows
+- [ ] Implement automated rollback triggers
+- [ ] Add deployment status notifications
+- [ ] Create deployment documentation
+
+#### Phase 4: Production Readiness
+- [ ] Add production environment with manual approval
+- [ ] Implement cost monitoring and alerts
+- [ ] Add disaster recovery procedures
+- [ ] Create runbooks and operational procedures
+
+### Technical Considerations
+- **Environment**: Implement in staging environment (cost-effective, safe for experimentation)
+- **Application**: Enhance current Flask app with health checks and simulated load
+- **Database**: Ensure data consistency across blue/green environments
+- **Monitoring**: Add CloudWatch dashboards for deployment visibility
+- **Security**: Maintain existing security patterns (IAM, KMS, Secrets Manager)
+
+### Success Metrics
+- [ ] Zero-downtime deployments demonstrated
+- [ ] Automated rollback on health check failures
+- [ ] Deployment time under 5 minutes
+- [ ] Cost increase under $50/month for staging
+- [ ] Comprehensive documentation for portfolio
+
 ## Critical "Monkey Wrench" Scenarios (Priority 1)
 
 ### State Management Disasters
