@@ -1,4 +1,12 @@
-# Database Bootstrap Documentation
+# Database Bootstrap Guide
+
+This guide covers the automated database bootstrapping process using AWS Systems Manager (SSM) automation.
+
+## Prerequisites
+
+- SSH key pair `tf-playground-key` created in AWS
+- Private key saved as `~/.ssh/tf-playground-key.pem` with permissions `400`
+- `terraform.tfvars` file in your environment directory with `key_name = "tf-playground-key"`
 
 ## Overview
 
@@ -70,44 +78,15 @@ aws ssm describe-automation-executions --filters Key=ExecutionId,Values=<executi
 - Counts records in the contacts table
 - Reports completion status
 
-## Prerequisites
-
-### Required Tools
-
-- Terraform >= 1.0.0
-- AWS CLI configured with appropriate credentials
-- `jq` installed locally (`sudo apt install jq` on Ubuntu/WSL)
-
-### AWS Resources Required Before Terraform
-
-1. **SSH Key Pair**
-   - Create an SSH key pair in AWS named `tf-playground-key`
-   - Save the private key as `~/.ssh/tf-playground-key.pem`
-   - Set permissions: `chmod 400 ~/.ssh/tf-playground-key.pem`
-
 ## Environment-Specific Commands
 
 ### Staging Environment
 
 ```bash
 cd environments/staging
-terraform apply
 
-# Get all the values first
-DB_ENDPOINT=$(terraform output -raw database_endpoint | sed 's/:3306$//')
-DB_NAME=$(terraform output -raw database_name)
-SUFFIX=$(terraform output -raw random_suffix)
-SECRET_PATH="/tf-playground/staging/database/credentials-${SUFFIX}"
-DB_USERNAME=$(aws secretsmanager get-secret-value --secret-id "$SECRET_PATH" --region us-east-2 --query SecretString --output text | jq -r '.username')
-DB_PASSWORD=$(aws secretsmanager get-secret-value --secret-id "$SECRET_PATH" --region us-east-2 --query SecretString --output text | jq -r '.password')
-INSTANCE_ID=$(terraform output -raw webserver_instance_id)
-ROLE_ARN=$(aws iam get-role --role-name staging-ssm-automation-role --query 'Role.Arn' --output text)
-
-# Run the automation
-aws ssm start-automation-execution \
-  --document-name "staging-database-automation" \
-  --parameters "DatabaseEndpoint=$DB_ENDPOINT,DatabaseName=$DB_NAME,DatabaseUsername=$DB_USERNAME,DatabasePassword=$DB_PASSWORD,InstanceId=$INSTANCE_ID,AutomationAssumeRole=$ROLE_ARN" \
-  --region us-east-2
+# Bootstrap database with sample data
+aws ssm start-automation-execution --document-name "staging-database-automation" --parameters "DatabaseEndpoint=$(terraform output -raw database_endpoint | sed 's/:3306$//'),DatabaseName=$(terraform output -raw database_name),DatabaseUsername=$(aws secretsmanager get-secret-value --secret-id /tf-playground/staging/database/credentials-$(terraform output -raw random_suffix) --region us-east-2 --query SecretString --output text | jq -r '.username'),DatabasePassword=\"$(aws secretsmanager get-secret-value --secret-id /tf-playground/staging/database/credentials-$(terraform output -raw random_suffix) --region us-east-2 --query SecretString --output text | jq -r '.password')\",InstanceId=$(terraform output -raw webserver_instance_id),AutomationAssumeRole=$(aws iam get-role --role-name staging-ssm-automation-role --query 'Role.Arn' --output text)" --region us-east-2
 ```
 
 ### Production Environment
