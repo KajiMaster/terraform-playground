@@ -39,11 +39,35 @@ jobs:
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
+      - name: Clear AWS Credentials Cache
+        run: |
+          unset AWS_ACCESS_KEY_ID
+          unset AWS_SECRET_ACCESS_KEY
+          unset AWS_SESSION_TOKEN
+          unset AWS_DEFAULT_REGION
+          rm -rf ~/.aws/credentials
+          rm -rf ~/.aws/config
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::123324351829:role/github-actions-global
           aws-region: ${{ env.AWS_REGION }}
+          role-session-name: staging-apply-${{ github.run_id }}
+
+      - name: Test Role Permissions
+        run: |
+          echo "Testing IAM permissions..."
+          aws iam create-role --role-name test-role-$(date +%s) --assume-role-policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"ec2.amazonaws.com"},"Action":"sts:AssumeRole"}]}' || echo "IAM CreateRole failed"
+          
+          echo "Testing KMS permissions..."
+          aws kms list-keys --limit 1 || echo "KMS ListKeys failed"
+          
+          echo "Testing Secrets Manager permissions..."
+          aws secretsmanager list-secrets --max-items 1 || echo "Secrets Manager ListSecrets failed"
+          
+          echo "Current identity:"
+          aws sts get-caller-identity
 
       - name: Terraform Init
         working-directory: environments/staging
@@ -118,11 +142,35 @@ jobs:
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
+      - name: Clear AWS Credentials Cache
+        run: |
+          unset AWS_ACCESS_KEY_ID
+          unset AWS_SECRET_ACCESS_KEY
+          unset AWS_SESSION_TOKEN
+          unset AWS_DEFAULT_REGION
+          rm -rf ~/.aws/credentials
+          rm -rf ~/.aws/config
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::123324351829:role/github-actions-global
           aws-region: ${{ env.AWS_REGION }}
+          role-session-name: staging-apply-${{ github.run_id }}
+
+      - name: Test Role Permissions
+        run: |
+          echo "Testing IAM permissions..."
+          aws iam create-role --role-name test-role-$(date +%s) --assume-role-policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"ec2.amazonaws.com"},"Action":"sts:AssumeRole"}]}' || echo "IAM CreateRole failed"
+          
+          echo "Testing KMS permissions..."
+          aws kms list-keys --limit 1 || echo "KMS ListKeys failed"
+          
+          echo "Testing Secrets Manager permissions..."
+          aws secretsmanager list-secrets --max-items 1 || echo "Secrets Manager ListSecrets failed"
+          
+          echo "Current identity:"
+          aws sts get-caller-identity
 
       - name: Terraform Init
         working-directory: environments/staging
