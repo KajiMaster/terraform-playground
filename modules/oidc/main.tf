@@ -133,12 +133,35 @@ resource "aws_iam_role_policy" "terraform_permissions" {
         Effect = "Allow"
         Action = [
           "iam:GetRole",
-          "iam:PassRole"
+          "iam:PassRole",
+          "iam:CreateRole",
+          "iam:CreatePolicy",
+          "iam:AttachRolePolicy",
+          "iam:DetachRolePolicy",
+          "iam:DeleteRole",
+          "iam:DeletePolicy"
         ]
         Resource = [
           "arn:aws:iam::*:role/tf-playground-*",
-          "arn:aws:iam::*:role/github-actions-*"
+          "arn:aws:iam::*:role/github-actions-*",
+          "arn:aws:iam::*:policy/tf-playground-*"
         ]
+      },
+      # KMS permissions for secrets management
+      {
+        Effect = "Allow"
+        Action = [
+          "kms:*"
+        ]
+        Resource = "*"
+      },
+      # Secrets Manager permissions
+      {
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:*"
+        ]
+        Resource = "*"
       },
       # SSM permissions for automation
       {
