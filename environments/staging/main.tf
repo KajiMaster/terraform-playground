@@ -30,7 +30,6 @@ data "terraform_remote_state" "global" {
     bucket         = "tf-playground-state-vexus"
     key            = "global/terraform.tfstate"
     region         = "us-east-2"
-    use_lockfile   = true
   }
 }
 
@@ -89,16 +88,4 @@ module "ssm" {
   database_name         = var.db_name
   database_username     = module.secrets.db_username
   database_password     = module.secrets.db_password
-}
-
-# OIDC Module for GitHub Actions (references existing global provider)
-module "oidc" {
-  source = "../../modules/oidc"
-
-  environment         = var.environment
-  github_repository   = "KajiMaster/terraform-playground"
-  state_bucket        = "tf-playground-state-vexus"
-  state_lock_table    = "tf-playground-locks"
-  aws_region          = var.aws_region
-  create_oidc_provider = false  # Reference existing provider
 } 
