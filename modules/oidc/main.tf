@@ -173,11 +173,12 @@ resource "aws_iam_role_policy" "terraform_permissions" {
           "arn:aws:iam::*:instance-profile/prod-*"
         ]
       },
-      # KMS permissions for secrets management
+      # KMS permissions for AWS managed keys (limited scope)
       {
         Effect = "Allow"
         Action = [
-          "kms:*"
+          "kms:Decrypt",
+          "kms:DescribeKey"
         ]
         Resource = "*"
       },

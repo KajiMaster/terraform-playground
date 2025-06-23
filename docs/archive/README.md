@@ -1,55 +1,73 @@
 # Archived Documentation
 
-This directory contains theoretical and planning documents that were created during the project's development but are not currently relevant to the working implementation.
+## Overview
 
-## Archived Documents
+This directory contains documentation that has been archived to maintain a clean, portfolio-focused repository. These documents are kept for historical reference and internal use but are not part of the main project documentation.
 
-### `ci-cd-crossroads-case-study.md`
+## Archived Files
 
-- **Purpose**: Detailed analysis of CI/CD approach decisions
-- **Status**: Archived - Too detailed for current project state
-- **When Relevant**: When implementing CI/CD pipeline
+### **Planning and Design Documents**
+- `sketch-01-environment-hierarchy.md` - Early environment design sketches
+- `sketch-02-module-consistency.md` - Module design planning
+- `sketch-03-git-branch-flow.md` - Git workflow planning
+- `sketch-04-state-management.md` - State management design
+- `sketch-05-module-dependencies.md` - Module dependency planning
+- `sketch-06-environment-variables.md` - Environment variable design
 
-### `sketch-02-module-consistency.md`
+### **Historical Implementation Documents**
+- `ai-briefing.md` - Outdated AI context (references old Git sync issues)
+- `version-2-improvements.md` - Historical improvements summary
+- `multi-environment-playground.md` - Redundant with current README
+- `manual-state-setup.md` - Outdated manual setup instructions
+- `simple-feature-branch-workflow.md` - Redundant workflow documentation
+- `ssh-modernization-notes.md` - Brief implementation notes
+- `avid-tf-tech.md` - Technical notes (content unknown)
 
-- **Purpose**: Theoretical module organization patterns
-- **Status**: Archived - Too theoretical for current implementation
-- **When Relevant**: When expanding module architecture
+### **Advanced Workflow Documents**
+- `team-development-workflow.md` - Detailed team workflow (too detailed for portfolio)
+- `ci-cd-crossroads-case-study.md` - CI/CD case study
+- `solo-multi-project-workflow.md` - Advanced workflow patterns
 
-### `sketch-03-git-branch-flow.md`
+## Why These Were Archived
 
-- **Purpose**: Git workflow planning
-- **Status**: Archived - May not reflect actual workflow
-- **When Relevant**: When establishing team development workflow
+### **Portfolio Focus**
+- **Clean Repository**: Only showcase current, relevant work
+- **Reduced Confusion**: Clear, focused documentation
+- **Professional Appearance**: Organized, portfolio-ready structure
 
-### `sketch-05-module-dependencies.md`
+### **Current Relevance**
+- **Outdated Content**: References old issues and workflows
+- **Redundant Information**: Duplicated in current documentation
+- **Over-Detailed**: Too much information for portfolio purposes
 
-- **Purpose**: Detailed module dependency analysis
-- **Status**: Archived - Too detailed for current needs
-- **When Relevant**: When managing complex module dependencies
-
-### `sketch-06-environment-variables.md`
-
-- **Purpose**: Environment variable management patterns
-- **Status**: Archived - Too theoretical for current implementation
-- **When Relevant**: When implementing complex environment management
+### **Maintenance Efficiency**
+- **Easier Updates**: Fewer documents to maintain
+- **Clear Priorities**: Focus on current project needs
+- **Reduced Clutter**: Easier navigation for potential employers
 
 ## Current Active Documentation
 
-The following documents remain active and relevant:
+The main `docs/` directory now contains only portfolio-relevant documentation:
 
 - `README.md` - Main project overview
-- `database-bootstrap.md` - Working database setup process
-- `manual-state-setup.md` - Initial setup instructions
-- `multi-environment-playground.md` - Current architecture overview
-- `sketch-01-environment-hierarchy.md` - Environment structure
-- `sketch-04-state-management.md` - State management details
-- `avid-tf-tech.md` - General Terraform best practices
+- `blue-green-deployment-project.md` - Active project documentation
+- `database-bootstrap.md` - Essential operational guide
+- `kms-migration-to-aws-managed.md` - Cost optimization documentation
+- `strategic-prioritization-and-decision-making.md` - Senior-level thinking
+- `future-roadmap.md` - Project planning and roadmap
+
+## Accessing Archived Content
+
+These documents are still available for:
+- **Historical Reference**: Understanding project evolution
+- **Internal Use**: Team reference and learning
+- **Future Planning**: Ideas for future enhancements
+- **Learning Journey**: Documentation of growth and progress
 
 ## Restoration
 
-To restore any archived document:
+If any of these documents become relevant again, they can be moved back to the main `docs/` directory. This archive serves as a "time capsule" of the project's development journey.
 
-1. Move it back to the main `docs/` directory
-2. Update any references to reflect current project state
-3. Verify relevance to current implementation
+---
+
+**Note**: This archive demonstrates the project's evolution and the decision-making process behind maintaining a clean, professional repository structure.

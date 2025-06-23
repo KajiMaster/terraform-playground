@@ -11,7 +11,7 @@ This project showcases real-world enterprise skills including:
 - **Infrastructure as Code**: Complete AWS infrastructure defined in Terraform
 - **CI/CD Automation**: GitHub Actions with OIDC authentication and automated deployments
 - **Multi-Environment Management**: Dev, staging, production with GitFlow workflow
-- **Security Best Practices**: IAM roles, KMS encryption, Secrets Manager, OIDC
+- **Security Best Practices**: IAM roles, AWS managed encryption, Secrets Manager, OIDC
 - **Team Development**: Individual developer environments with conflict resolution
 - **Database Automation**: SSM-based database bootstrapping and management
 - **Modular Architecture**: Reusable Terraform modules for scalability
@@ -51,7 +51,7 @@ The infrastructure includes:
 - RDS MySQL instance in private subnet
 - EC2 instance in public subnet running a Flask web application
 - IAM roles and policies for secure access to AWS services
-- KMS encryption for sensitive data with random suffixes
+- AWS managed encryption for sensitive data with random suffixes
 - AWS Secrets Manager for database credentials
 - SSM automation for database bootstrapping
 - OIDC provider for GitHub Actions authentication
@@ -195,7 +195,7 @@ The project uses several IAM policies to manage access:
 
 1. **Web Server Secrets Policy**
    - Allows access to Secrets Manager for database credentials
-   - Permits KMS operations for decryption
+   - Permits AWS managed key operations for decryption
    - Policy is attached to the EC2 instance role
 
 2. **SSM Automation Policy**
@@ -211,7 +211,7 @@ The project uses several IAM policies to manage access:
 ## Security Notes
 
 - Database credentials are stored in AWS Secrets Manager with random suffixes
-- KMS keys are used for encryption with environment-specific naming
+- AWS managed keys are used for encryption with environment-specific naming
 - RDS instances are in private subnets
 - Security groups restrict access to necessary ports only
 - IAM roles follow principle of least privilege

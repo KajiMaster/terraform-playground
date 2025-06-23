@@ -1,11 +1,12 @@
-output "kms_key_id" {
-  description = "The ID of the KMS key used for encryption"
-  value       = var.create_resources ? aws_kms_key.secrets[0].key_id : data.aws_kms_key.secrets[0].key_id
+output "db_username" {
+  description = "The database username"
+  value       = var.create_resources ? "tfplayground_user" : jsondecode(data.aws_secretsmanager_secret_version.db_credentials[0].secret_string)["username"]
 }
 
-output "kms_key_arn" {
-  description = "The ARN of the KMS key used for encryption"
-  value       = var.create_resources ? aws_kms_key.secrets[0].arn : data.aws_kms_key.secrets[0].arn
+output "db_password" {
+  description = "The database password"
+  value       = var.create_resources ? random_password.db_password[0].result : jsondecode(data.aws_secretsmanager_secret_version.db_credentials[0].secret_string)["password"]
+  sensitive   = true
 }
 
 output "secret_arn" {
