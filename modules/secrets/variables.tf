@@ -4,14 +4,13 @@ variable "environment" {
 }
 
 variable "create_resources" {
-  description = "Whether to create KMS key and secrets (true) or read existing ones (false)"
+  description = "Whether to create secrets (true) or read existing ones (false)"
   type        = bool
   default     = false
 }
 
-# Note: This module expects the following resources to exist:
-# 1. A KMS key with alias: alias/tf-playground-${environment}-secrets
-# 2. A Secrets Manager secret at: /tf-playground/${environment}/database/credentials
+# Note: This module expects the following resources to exist when create_resources = false:
+# 1. A Secrets Manager secret at: /tf-playground/${environment}/database/credentials
 #    with a JSON structure:
 #    {
 #      "username": "your_db_username",

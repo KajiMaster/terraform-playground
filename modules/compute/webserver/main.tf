@@ -92,16 +92,6 @@ resource "aws_iam_policy" "webserver_secrets" {
         Resource = [
           "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:/tf-playground/${var.environment}/database/credentials-*"
         ]
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "kms:Decrypt",
-          "kms:DescribeKey"
-        ]
-        Resource = [
-          "arn:aws:kms:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:key/*"
-        ]
       }
     ]
   })
