@@ -58,9 +58,14 @@ output "secret_name" {
 }
 
 # SSM outputs
-output "ssm_parameter_prefix" {
-  description = "SSM parameter prefix for database bootstrapping"
-  value       = module.ssm.parameter_prefix
+output "ssm_automation_name" {
+  description = "Name of the SSM automation document"
+  value       = module.ssm.ssm_automation_name
+}
+
+output "ssm_automation_role_arn" {
+  description = "ARN of the SSM automation role"
+  value       = module.ssm.ssm_automation_role_arn
 }
 
 # Application URL

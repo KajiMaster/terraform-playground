@@ -4,13 +4,13 @@ on:
   pull_request:
     branches: [develop]
     paths:
-      - 'environments/**'
+      - 'environments/staging/**'
       - 'modules/**'
       - '.github/workflows/staging-terraform.yml'
   push:
     branches: [develop]
     paths:
-      - 'environments/**'
+      - 'environments/staging/**'
       - 'modules/**'
       - '.github/workflows/staging-terraform.yml'
 
