@@ -1,0 +1,179 @@
+name: 🚀 Production Terraform
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  TF_VERSION: "1.5.0"
+  AWS_REGION: "us-east-2"
+  ENVIRONMENT: "production"
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  terraform-plan:
+    name: Terraform Plan
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::123324351829:role/github-actions-global
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: prod-terraform-plan-${{ github.run_id }}
+
+      - name: Terraform Init
+        working-directory: environments/production
+        run: terraform init
+
+      - name: Terraform Plan
+        working-directory: environments/production
+        run: terraform plan -out=tfplan
+
+      - name: Upload Plan Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-plan
+          path: environments/production/tfplan
+
+  terraform-apply:
+    name: Terraform Apply
+    runs-on: ubuntu-latest
+    needs: terraform-plan
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::123324351829:role/github-actions-global
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: prod-terraform-apply-${{ github.run_id }}
+
+      - name: Download Plan Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: production-plan
+          path: environments/production
+
+      - name: Terraform Init
+        working-directory: environments/production
+        run: terraform init
+
+      - name: Terraform Apply
+        working-directory: environments/production
+        run: terraform apply tfplan
+
+      - name: Get Outputs
+        working-directory: environments/production
+        run: |
+          echo "## 🚀 Production Environment Deployed!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment**: Production" >> $GITHUB_STEP_SUMMARY
+          echo "**Status**: ✅ Deployed" >> $GITHUB_STEP_SUMMARY
+          echo "**Time**: $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📊 Infrastructure Summary:" >> $GITHUB_STEP_SUMMARY
+          terraform output -json | jq -r 'to_entries[] | "- **\(.key)**: \(.value.value)"' >> $GITHUB_STEP_SUMMARY
+
+  database-bootstrap:
+    name: Bootstrap Database
+    runs-on: ubuntu-latest
+    needs: terraform-apply
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::123324351829:role/github-actions-global
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: prod-db-bootstrap-${{ github.run_id }}
+
+      - name: Terraform Init
+        working-directory: environments/production
+        run: terraform init
+
+      - name: Get Infrastructure Outputs
+        working-directory: environments/production
+        run: |
+          echo "Getting Terraform outputs..."
+          terraform output -json > outputs.json
+          echo "Outputs saved to outputs.json"
+
+      - name: Bootstrap Database
+        run: |
+          echo "🚀 Bootstrapping production database..."
+          
+          # Get values from Terraform outputs
+          WEBSERVER_IP=$(jq -r '.webserver_public_ip.value' environments/production/outputs.json)
+          DATABASE_ENDPOINT=$(jq -r '.database_endpoint.value' environments/production/outputs.json)
+          DATABASE_NAME=$(jq -r '.database_name.value' environments/production/outputs.json)
+          SECRET_NAME=$(jq -r '.secret_name.value' environments/production/outputs.json)
+          
+          echo "Webserver IP: $WEBSERVER_IP"
+          echo "Database Endpoint: $DATABASE_ENDPOINT"
+          echo "Database Name: $DATABASE_NAME"
+          echo "Secret Name: $SECRET_NAME"
+          
+          # Get database credentials from Secrets Manager
+          DB_CREDS=$(aws secretsmanager get-secret-value --secret-id "$SECRET_NAME" --query 'SecretString' --output text)
+          DB_USERNAME=$(echo "$DB_CREDS" | jq -r '.username')
+          DB_PASSWORD=$(echo "$DB_CREDS" | jq -r '.password')
+          
+          echo "Database credentials retrieved from Secrets Manager"
+          
+          # Bootstrap database via SSM
+          echo "Running database bootstrap automation..."
+          aws ssm start-automation-execution \
+            --document-name "DatabaseBootstrap" \
+            --parameters "WebserverIP=$WEBSERVER_IP,DatabaseEndpoint=$DATABASE_ENDPOINT,DatabaseName=$DATABASE_NAME,DatabaseUsername=$DB_USERNAME,DatabasePassword=$DB_PASSWORD" \
+            --region ${{ env.AWS_REGION }}
+          
+          echo "✅ Database bootstrap automation started"
+
+      - name: Bootstrap Complete
+        run: |
+          echo "## 🗄️ Production Database Bootstrapped!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment**: Production" >> $GITHUB_STEP_SUMMARY
+          echo "**Status**: ✅ Database initialized" >> $GITHUB_STEP_SUMMARY
+          echo "**Time**: $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🎯 Next Steps:" >> $GITHUB_STEP_SUMMARY
+          echo "- Verify application connectivity" >> $GITHUB_STEP_SUMMARY
+          echo "- Run smoke tests" >> $GITHUB_STEP_SUMMARY
+          echo "- Monitor logs for any issues" >> $GITHUB_STEP_SUMMARY 
