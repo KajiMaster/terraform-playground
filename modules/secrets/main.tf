@@ -61,16 +61,4 @@ resource "random_password" "db_password" {
   count   = var.create_resources ? 1 : 0
   length  = 16
   special = true
-}
-
-# Outputs that work with both modes
-output "db_username" {
-  description = "The database username"
-  value       = var.create_resources ? "tfplayground_user" : jsondecode(data.aws_secretsmanager_secret_version.db_credentials[0].secret_string)["username"]
-}
-
-output "db_password" {
-  description = "The database password"
-  value       = var.create_resources ? random_password.db_password[0].result : jsondecode(data.aws_secretsmanager_secret_version.db_credentials[0].secret_string)["password"]
-  sensitive   = true
 } 
