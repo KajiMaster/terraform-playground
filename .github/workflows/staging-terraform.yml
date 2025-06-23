@@ -5,13 +5,11 @@ on:
     branches: [develop]
     paths:
       - 'environments/staging/**'
-      - 'modules/**'
       - '.github/workflows/staging-terraform.yml'
   push:
     branches: [develop]
     paths:
       - 'environments/staging/**'
-      - 'modules/**'
       - '.github/workflows/staging-terraform.yml'
 
 env:
