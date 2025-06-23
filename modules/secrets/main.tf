@@ -60,5 +60,8 @@ data "aws_secretsmanager_secret_version" "db_credentials" {
 resource "random_password" "db_password" {
   count   = var.create_resources ? 1 : 0
   length  = 16
-  special = true
+  special = false
+  upper   = true
+  lower   = true
+  numeric = true
 } 
