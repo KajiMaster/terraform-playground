@@ -164,13 +164,16 @@ resource "aws_iam_role_policy" "terraform_permissions" {
           "arn:aws:iam::*:role/staging-*",
           "arn:aws:iam::*:role/dev-*",
           "arn:aws:iam::*:role/prod-*",
+          "arn:aws:iam::*:role/production-*",
           "arn:aws:iam::*:policy/tf-playground-*",
           "arn:aws:iam::*:policy/staging-*",
           "arn:aws:iam::*:policy/dev-*",
           "arn:aws:iam::*:policy/prod-*",
+          "arn:aws:iam::*:policy/production-*",
           "arn:aws:iam::*:instance-profile/staging-*",
           "arn:aws:iam::*:instance-profile/dev-*",
-          "arn:aws:iam::*:instance-profile/prod-*"
+          "arn:aws:iam::*:instance-profile/prod-*",
+          "arn:aws:iam::*:instance-profile/production-*"
         ]
       },
       # KMS permissions for AWS managed keys (limited scope)

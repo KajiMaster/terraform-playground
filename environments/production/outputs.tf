@@ -57,6 +57,11 @@ output "secret_name" {
   value       = module.secrets.secret_name
 }
 
+output "random_suffix" {
+  description = "Random suffix used for resource names"
+  value       = module.secrets.random_suffix
+}
+
 # SSM outputs
 output "ssm_automation_name" {
   description = "Name of the SSM automation document"
