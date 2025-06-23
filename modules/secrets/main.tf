@@ -12,42 +12,23 @@ terraform {
   }
 }
 
-# Conditional KMS key creation
-resource "aws_kms_key" "secrets" {
-  count                   = var.create_resources ? 1 : 0
-  description             = "KMS key for ${var.environment} secrets encryption"
-  deletion_window_in_days = 7
-  enable_key_rotation     = true
-
-  tags = {
-    Name        = "tf-playground-${var.environment}-secrets"
-    Environment = var.environment
-    Project     = "tf-playground"
-  }
+# Random suffix for unique resource names (avoids deletion recovery window conflicts)
+resource "random_string" "suffix" {
+  count   = var.create_resources ? 1 : 0
+  length  = 4
+  special = false
+  upper   = false
 }
 
-# Conditional KMS alias creation
-resource "aws_kms_alias" "secrets" {
-  count         = var.create_resources ? 1 : 0
-  name          = "alias/tf-playground-${var.environment}-secrets"
-  target_key_id = aws_kms_key.secrets[0].key_id
-}
-
-# Data source for existing KMS key (when not creating)
-data "aws_kms_key" "secrets" {
-  count  = var.create_resources ? 0 : 1
-  key_id = "alias/tf-playground-${var.environment}-secrets"
-}
-
-# Conditional secret creation
+# Conditional secret creation (using AWS default encryption)
 resource "aws_secretsmanager_secret" "db_credentials" {
   count       = var.create_resources ? 1 : 0
-  name        = "/tf-playground/${var.environment}/database/credentials"
+  name        = "/tf-playground/${var.environment}/database/credentials-${random_string.suffix[0].result}"
   description = "Database credentials for ${var.environment} environment"
-  kms_key_id  = aws_kms_key.secrets[0].arn
+  # Removed kms_key_id - will use AWS default encryption
 
   tags = {
-    Name        = "tf-playground-${var.environment}-db-credentials"
+    Name        = "tf-playground-${var.environment}-db-credentials-${random_string.suffix[0].result}"
     Environment = var.environment
     Project     = "tf-playground"
   }
@@ -79,17 +60,8 @@ data "aws_secretsmanager_secret_version" "db_credentials" {
 resource "random_password" "db_password" {
   count   = var.create_resources ? 1 : 0
   length  = 16
-  special = true
-}
-
-# Outputs that work with both modes
-output "db_username" {
-  description = "The database username"
-  value       = var.create_resources ? "tfplayground_user" : jsondecode(data.aws_secretsmanager_secret_version.db_credentials[0].secret_string)["username"]
-}
-
-output "db_password" {
-  description = "The database password"
-  value       = var.create_resources ? random_password.db_password[0].result : jsondecode(data.aws_secretsmanager_secret_version.db_credentials[0].secret_string)["password"]
-  sensitive   = true
+  special = false
+  upper   = true
+  lower   = true
+  numeric = true
 } 

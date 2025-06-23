@@ -1,4 +1,12 @@
-# Database Bootstrap Documentation
+# Database Bootstrap Guide
+
+This guide covers the automated database bootstrapping process using AWS Systems Manager (SSM) automation.
+
+## Prerequisites
+
+- SSH key pair `tf-playground-key` created in AWS
+- Private key saved as `~/.ssh/tf-playground-key.pem` with permissions `400`
+- `terraform.tfvars` file in your environment directory with `key_name = "tf-playground-key"`
 
 ## Overview
 
@@ -10,15 +18,26 @@ This document describes how to populate the database with sample data using AWS 
 
 ```bash
 cd environments/dev
-terraform apply -auto-approve
+terraform apply
 ```
 
 ### Step 2: Bootstrap Database
 
 ```bash
+# Get all the values first to avoid shell parsing issues
+DB_ENDPOINT=$(terraform output -raw database_endpoint | sed 's/:3306$//')
+DB_NAME=$(terraform output -raw database_name)
+SUFFIX=$(terraform output -raw random_suffix)
+SECRET_PATH="/tf-playground/dev/database/credentials-${SUFFIX}"
+DB_USERNAME=$(aws secretsmanager get-secret-value --secret-id "$SECRET_PATH" --region us-east-2 --query SecretString --output text | jq -r '.username')
+DB_PASSWORD=$(aws secretsmanager get-secret-value --secret-id "$SECRET_PATH" --region us-east-2 --query SecretString --output text | jq -r '.password')
+INSTANCE_ID=$(terraform output -raw webserver_instance_id)
+ROLE_ARN=$(aws iam get-role --role-name dev-ssm-automation-role --query 'Role.Arn' --output text)
+
+# Run the automation
 aws ssm start-automation-execution \
   --document-name "dev-database-automation" \
-  --parameters "DatabaseEndpoint=$(terraform output -raw database_endpoint | sed 's/:3306$//'),DatabaseName=$(terraform output -raw database_name),DatabaseUsername=$(aws secretsmanager get-secret-value --secret-id /tf-playground/dev/database/credentials --region us-east-2 --query SecretString --output text | jq -r '.username'),DatabasePassword=$(aws secretsmanager get-secret-value --secret-id /tf-playground/dev/database/credentials --region us-east-2 --query SecretString --output text | jq -r '.password'),InstanceId=$(terraform output -raw webserver_instance_id),AutomationAssumeRole=$(aws iam get-role --role-name dev-ssm-automation-role --query 'Role.Arn' --output text)" \
+  --parameters "DatabaseEndpoint=$DB_ENDPOINT,DatabaseName=$DB_NAME,DatabaseUsername=$DB_USERNAME,DatabasePassword=$DB_PASSWORD,InstanceId=$INSTANCE_ID,AutomationAssumeRole=$ROLE_ARN" \
   --region us-east-2
 ```
 
@@ -59,66 +78,65 @@ aws ssm describe-automation-executions --filters Key=ExecutionId,Values=<executi
 - Counts records in the contacts table
 - Reports completion status
 
-## Prerequisites
-
-### Required Tools
-
-- Terraform >= 1.0.0
-- AWS CLI configured with appropriate credentials
-- `jq` installed locally (`sudo apt install jq` on Ubuntu/WSL)
-
-### AWS Resources Required Before Terraform
-
-1. **KMS Key and Alias**
-
-   - Create a KMS key for encrypting sensitive data
-   - Create an alias (e.g., `alias/tf-playground-dev-secrets`)
-
-2. **AWS Secrets Manager Secret**
-
-   - Create a secret for database credentials with the following structure:
-     ```json
-     {
-       "username": "dbadmin",
-       "password": "your-secure-password",
-       "engine": "mysql",
-       "host": "localhost",
-       "port": 3306,
-       "dbname": "tfplayground"
-     }
-     ```
-   - Secret name: `/tf-playground/dev/database/credentials`
-
-3. **SSH Key Pair**
-   - Create an SSH key pair in AWS
-   - Save the private key as `~/.ssh/tf-playground-dev.pem`
-   - Set permissions: `chmod 400 ~/.ssh/tf-playground-dev.pem`
-
 ## Environment-Specific Commands
+
+### Development Environment
+
+```bash
+cd environments/dev
+
+# Bootstrap database with sample data (one-liner)
+aws ssm start-automation-execution --document-name "dev-database-automation" --parameters "DatabaseEndpoint=$(terraform output -raw database_endpoint | sed 's/:3306$//'),DatabaseName=$(terraform output -raw database_name),DatabaseUsername=$(aws secretsmanager get-secret-value --secret-id /tf-playground/dev/database/credentials-$(terraform output -raw random_suffix) --region us-east-2 --query SecretString --output text | jq -r '.username'),DatabasePassword=\"$(aws secretsmanager get-secret-value --secret-id /tf-playground/dev/database/credentials-$(terraform output -raw random_suffix) --region us-east-2 --query SecretString --output text | jq -r '.password')\",InstanceId=$(terraform output -raw webserver_instance_id),AutomationAssumeRole=$(aws iam get-role --role-name dev-ssm-automation-role --query 'Role.Arn' --output text)" --region us-east-2
+```
 
 ### Staging Environment
 
 ```bash
 cd environments/staging
-terraform apply -auto-approve
 
-aws ssm start-automation-execution \
-  --document-name "staging-database-automation" \
-  --parameters "DatabaseEndpoint=$(terraform output -raw database_endpoint | sed 's/:3306$//'),DatabaseName=$(terraform output -raw database_name),DatabaseUsername=$(aws secretsmanager get-secret-value --secret-id /tf-playground/staging/database/credentials --region us-east-2 --query SecretString --output text | jq -r '.username'),DatabasePassword=$(aws secretsmanager get-secret-value --secret-id /tf-playground/staging/database/credentials --region us-east-2 --query SecretString --output text | jq -r '.password'),InstanceId=$(terraform output -raw webserver_instance_id),AutomationAssumeRole=$(aws iam get-role --role-name staging-ssm-automation-role --query 'Role.Arn' --output text)" \
-  --region us-east-2
+# Bootstrap database with sample data
+aws ssm start-automation-execution --document-name "staging-database-automation" --parameters "DatabaseEndpoint=$(terraform output -raw database_endpoint | sed 's/:3306$//'),DatabaseName=$(terraform output -raw database_name),DatabaseUsername=$(aws secretsmanager get-secret-value --secret-id /tf-playground/staging/database/credentials-$(terraform output -raw random_suffix) --region us-east-2 --query SecretString --output text | jq -r '.username'),DatabasePassword=\"$(aws secretsmanager get-secret-value --secret-id /tf-playground/staging/database/credentials-$(terraform output -raw random_suffix) --region us-east-2 --query SecretString --output text | jq -r '.password')\",InstanceId=$(terraform output -raw webserver_instance_id),AutomationAssumeRole=$(aws iam get-role --role-name staging-ssm-automation-role --query 'Role.Arn' --output text)" --region us-east-2
 ```
 
 ### Production Environment
 
 ```bash
 cd environments/production
-terraform apply -auto-approve
+terraform apply
 
+# Get all the values first
+DB_ENDPOINT=$(terraform output -raw database_endpoint | sed 's/:3306$//')
+DB_NAME=$(terraform output -raw database_name)
+SUFFIX=$(terraform output -raw random_suffix)
+SECRET_PATH="/tf-playground/production/database/credentials-${SUFFIX}"
+DB_USERNAME=$(aws secretsmanager get-secret-value --secret-id "$SECRET_PATH" --region us-east-2 --query SecretString --output text | jq -r '.username')
+DB_PASSWORD=$(aws secretsmanager get-secret-value --secret-id "$SECRET_PATH" --region us-east-2 --query SecretString --output text | jq -r '.password')
+INSTANCE_ID=$(terraform output -raw webserver_instance_id)
+ROLE_ARN=$(aws iam get-role --role-name production-ssm-automation-role --query 'Role.Arn' --output text)
+
+# Run the automation
 aws ssm start-automation-execution \
   --document-name "production-database-automation" \
-  --parameters "DatabaseEndpoint=$(terraform output -raw database_endpoint | sed 's/:3306$//'),DatabaseName=$(terraform output -raw database_name),DatabaseUsername=$(aws secretsmanager get-secret-value --secret-id /tf-playground/production/database/credentials --region us-east-2 --query SecretString --output text | jq -r '.username'),DatabasePassword=$(aws secretsmanager get-secret-value --secret-id /tf-playground/production/database/credentials --region us-east-2 --query SecretString --output text | jq -r '.password'),InstanceId=$(terraform output -raw webserver_instance_id),AutomationAssumeRole=$(aws iam get-role --role-name production-ssm-automation-role --query 'Role.Arn' --output text)" \
+  --parameters "DatabaseEndpoint=$DB_ENDPOINT,DatabaseName=$DB_NAME,DatabaseUsername=$DB_USERNAME,DatabasePassword=$DB_PASSWORD,InstanceId=$INSTANCE_ID,AutomationAssumeRole=$ROLE_ARN" \
   --region us-east-2
 ```
+
+## Recent Improvements (Version 2)
+
+### Random Suffixes for Secrets
+- Secrets now include random 4-character suffixes to prevent deletion recovery window conflicts
+- Example: `/tf-playground/dev/database/credentials-abc1`
+- This allows for clean destroy/rebuild cycles in lab environments
+
+### Enhanced Password Handling
+- SSM automation now uses environment variables to handle special characters in passwords
+- Prevents shell syntax errors from characters like `!`, `*`, `(`, `)`, `:`, etc.
+- More robust and secure approach
+
+### Simplified Prerequisites
+- No longer requires manual KMS key or Secrets Manager setup
+- All secrets are created automatically by Terraform
+- SSH key is the only prerequisite
 
 ## Troubleshooting
 
@@ -127,6 +145,7 @@ aws ssm start-automation-execution \
 1. **jq not installed**: Install jq for JSON parsing: `sudo yum install -y jq` (Amazon Linux) or `sudo apt-get install jq` (Ubuntu)
 2. **Permission errors**: Ensure your AWS credentials have appropriate SSM and Secrets Manager permissions
 3. **Database connection**: Verify security groups allow EC2 to RDS communication
+4. **Parameter parsing errors**: Use the variable-based approach above to avoid shell parsing issues with special characters
 
 ### Manual Database Setup (Alternative)
 
@@ -134,13 +153,15 @@ If SSM automation fails, you can SSH into the EC2 instance and run the commands 
 
 ```bash
 # SSH into instance
-ssh -i ~/.ssh/tf-playground-dev.pem ec2-user@<public-ip>
+ssh -i ~/.ssh/tf-playground-key.pem ec2-user@<public-ip>
 
 # Install MariaDB client
 sudo yum install -y mariadb1011-client-utils
 
 # Get database credentials from Secrets Manager
-DB_CREDS=$(aws secretsmanager get-secret-value --secret-id /tf-playground/dev/database/credentials --region us-east-2 --query SecretString --output text)
+SUFFIX=$(terraform output -raw random_suffix)
+SECRET_PATH="/tf-playground/dev/database/credentials-${SUFFIX}"
+DB_CREDS=$(aws secretsmanager get-secret-value --secret-id "$SECRET_PATH" --region us-east-2 --query SecretString --output text)
 DB_HOST=$(echo $DB_CREDS | jq -r '.host')
 DB_USER=$(echo $DB_CREDS | jq -r '.username')
 DB_PASS=$(echo $DB_CREDS | jq -r '.password')
@@ -152,8 +173,9 @@ mysql -h $DB_HOST -u $DB_USER -p$DB_PASS $DB_NAME < /path/to/init.sql
 
 ## Security Notes
 
-- Database credentials are stored in AWS Secrets Manager
-- KMS key is used for encryption
+- Database credentials are stored in AWS Secrets Manager with random suffixes
+- KMS keys are used for encryption with environment-specific naming
 - SSM automation uses least-privilege IAM policies
 - All values are dynamically retrieved from Terraform outputs and Secrets Manager
 - No hardcoded values in the automation process
+- Special characters in passwords are properly handled via environment variables

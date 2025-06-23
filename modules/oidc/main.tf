@@ -133,12 +133,62 @@ resource "aws_iam_role_policy" "terraform_permissions" {
         Effect = "Allow"
         Action = [
           "iam:GetRole",
-          "iam:PassRole"
+          "iam:PassRole",
+          "iam:CreateRole",
+          "iam:CreatePolicy",
+          "iam:AttachRolePolicy",
+          "iam:DetachRolePolicy",
+          "iam:DeleteRole",
+          "iam:DeletePolicy",
+          "iam:TagRole",
+          "iam:TagPolicy",
+          "iam:UntagRole",
+          "iam:UntagPolicy",
+          "iam:ListRolePolicies",
+          "iam:GetPolicy",
+          "iam:GetPolicyVersion",
+          "iam:ListAttachedRolePolicies",
+          "iam:GetRolePolicy",
+          "iam:ListInstanceProfilesForRole",
+          "iam:CreateInstanceProfile",
+          "iam:DeleteInstanceProfile",
+          "iam:GetInstanceProfile",
+          "iam:AddRoleToInstanceProfile",
+          "iam:RemoveRoleFromInstanceProfile",
+          "iam:TagInstanceProfile",
+          "iam:UntagInstanceProfile"
         ]
         Resource = [
           "arn:aws:iam::*:role/tf-playground-*",
-          "arn:aws:iam::*:role/github-actions-*"
+          "arn:aws:iam::*:role/github-actions-*",
+          "arn:aws:iam::*:role/staging-*",
+          "arn:aws:iam::*:role/dev-*",
+          "arn:aws:iam::*:role/prod-*",
+          "arn:aws:iam::*:policy/tf-playground-*",
+          "arn:aws:iam::*:policy/staging-*",
+          "arn:aws:iam::*:policy/dev-*",
+          "arn:aws:iam::*:policy/prod-*",
+          "arn:aws:iam::*:instance-profile/staging-*",
+          "arn:aws:iam::*:instance-profile/dev-*",
+          "arn:aws:iam::*:instance-profile/prod-*"
         ]
+      },
+      # KMS permissions for AWS managed keys (limited scope)
+      {
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt",
+          "kms:DescribeKey"
+        ]
+        Resource = "*"
+      },
+      # Secrets Manager permissions
+      {
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:*"
+        ]
+        Resource = "*"
       },
       # SSM permissions for automation
       {
