@@ -60,12 +60,28 @@ jobs:
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
+      - name: Debug AWS Configuration
+        run: |
+          echo "=== AWS Configuration Debug ==="
+          echo "AWS Region: ${{ env.AWS_REGION }}"
+          echo "GitHub Repository: ${{ github.repository }}"
+          echo "GitHub Ref: ${{ github.ref }}"
+          echo "GitHub Event: ${{ github.event_name }}"
+          echo "Role ARN: arn:aws:iam::123324351829:role/github-actions-global"
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::123324351829:role/github-actions-global
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: lab-magic-destroy-dev-${{ github.run_id }}
+
+      - name: Verify AWS Credentials
+        run: |
+          echo "=== AWS Credentials Verification ==="
+          aws sts get-caller-identity
+          echo "AWS CLI version:"
+          aws --version
 
       - name: Terraform Init
         working-directory: environments/dev
@@ -161,7 +177,7 @@ jobs:
           echo "**Time**: $(date)" >> $GITHUB_STEP_SUMMARY
 
   destroy-summary:
-    name: 🎉 Lab Magic Complete
+    name: �� Lab Magic Complete
     runs-on: ubuntu-latest
     needs: [validate-destroy, destroy-dev, destroy-staging, destroy-production]
     if: always()
@@ -173,14 +189,14 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**🎯 Mission Accomplished**: All selected environments have been destroyed" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 💰 Cost Impact:" >> $GITHUB_STEP_SUMMARY
+          echo "### �� Cost Impact:" >> $GITHUB_STEP_SUMMARY
           echo "- **EC2 Instances**: Terminated" >> $GITHUB_STEP_SUMMARY
           echo "- **RDS Databases**: Deleted" >> $GITHUB_STEP_SUMMARY
           echo "- **Load Balancers**: Removed" >> $GITHUB_STEP_SUMMARY
           echo "- **NAT Gateways**: Deleted" >> $GITHUB_STEP_SUMMARY
           echo "- **Secrets**: Cleaned up" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 🚀 Next Steps:" >> $GITHUB_STEP_SUMMARY
+          echo "### �� Next Steps:" >> $GITHUB_STEP_SUMMARY
           echo "- **Tomorrow**: Run your environment-specific workflows to rebuild" >> $GITHUB_STEP_SUMMARY
           echo "- **Cost**: $0 until next deployment" >> $GITHUB_STEP_SUMMARY
           echo "- **State**: Preserved in S3 for quick rebuilds" >> $GITHUB_STEP_SUMMARY
@@ -189,7 +205,7 @@ jobs:
 
       - name: Send Notification
         run: |
-          echo "## 📱 Notification Sent" >> $GITHUB_STEP_SUMMARY
+          echo "## �� Notification Sent" >> $GITHUB_STEP_SUMMARY
           echo "**Status**: Lab Magic Destroy completed successfully" >> $GITHUB_STEP_SUMMARY
           echo "**Time**: $(date)" >> $GITHUB_STEP_SUMMARY
-          echo "**Cost**: $0 achieved" >> $GITHUB_STEP_SUMMARY 
+          echo "**Cost**: $0 achieved" >> $GITHUB_STEP_SUMMARY
