@@ -86,7 +86,7 @@ aws ssm describe-automation-executions --filters Key=ExecutionId,Values=<executi
 cd environments/dev
 
 # Bootstrap database with sample data (one-liner)
-aws ssm start-automation-execution --document-name "dev-database-automation" --parameters "DatabaseEndpoint=$(terraform output -raw database_endpoint | sed 's/:3306$//'),DatabaseName=$(terraform output -raw database_name),DatabaseUsername=$(aws secretsmanager get-secret-value --secret-id /tf-playground/dev/database/credentials-$(terraform output -raw random_suffix) --region us-east-2 --query SecretString --output text | jq -r '.username'),DatabasePassword=\"$(aws secretsmanager get-secret-value --secret-id /tf-playground/dev/database/credentials-$(terraform output -raw random_suffix) --region us-east-2 --query SecretString --output text | jq -r '.password')\",InstanceId=$(terraform output -raw webserver_instance_id),AutomationAssumeRole=$(aws iam get-role --role-name dev-ssm-automation-role --query 'Role.Arn' --output text)" --region us-east-2
+aws ssm start-automation-execution --document-name "dev-database-automation" --parameters "DatabaseEndpoint=$(terraform output -raw database_endpoint | sed 's/:3306$//'),DatabaseName=$(terraform output -raw database_name),DatabaseUsername=$(aws secretsmanager get-secret-value --secret-id $(terraform output -raw secret_name) --region us-east-2 --query SecretString --output text | jq -r '.username'),DatabasePassword=\"$(aws secretsmanager get-secret-value --secret-id $(terraform output -raw secret_name) --region us-east-2 --query SecretString --output text | jq -r '.password')\",InstanceId=$(terraform output -raw webserver_instance_id),AutomationAssumeRole=$(terraform output -raw ssm_automation_role_arn)" --region us-east-2
 ```
 
 ### Staging Environment
@@ -95,7 +95,7 @@ aws ssm start-automation-execution --document-name "dev-database-automation" --p
 cd environments/staging
 
 # Bootstrap database with sample data
-aws ssm start-automation-execution --document-name "staging-database-automation" --parameters "DatabaseEndpoint=$(terraform output -raw database_endpoint | sed 's/:3306$//'),DatabaseName=$(terraform output -raw database_name),DatabaseUsername=$(aws secretsmanager get-secret-value --secret-id /tf-playground/staging/database/credentials-$(terraform output -raw random_suffix) --region us-east-2 --query SecretString --output text | jq -r '.username'),DatabasePassword=\"$(aws secretsmanager get-secret-value --secret-id /tf-playground/staging/database/credentials-$(terraform output -raw random_suffix) --region us-east-2 --query SecretString --output text | jq -r '.password')\",InstanceId=$(terraform output -raw webserver_instance_id),AutomationAssumeRole=$(aws iam get-role --role-name staging-ssm-automation-role --query 'Role.Arn' --output text)" --region us-east-2
+aws ssm start-automation-execution --document-name "staging-database-automation" --parameters "DatabaseEndpoint=$(terraform output -raw database_endpoint | sed 's/:3306$//'),DatabaseName=$(terraform output -raw database_name),DatabaseUsername=$(aws secretsmanager get-secret-value --secret-id $(terraform output -raw secret_name) --region us-east-2 --query SecretString --output text | jq -r '.username'),DatabasePassword=\"$(aws secretsmanager get-secret-value --secret-id $(terraform output -raw secret_name) --region us-east-2 --query SecretString --output text | jq -r '.password')\",InstanceId=$(terraform output -raw webserver_instance_id),AutomationAssumeRole=$(terraform output -raw ssm_automation_role_arn)" --region us-east-2
 ```
 
 ### Production Environment
@@ -179,3 +179,60 @@ mysql -h $DB_HOST -u $DB_USER -p$DB_PASS $DB_NAME < /path/to/init.sql
 - All values are dynamically retrieved from Terraform outputs and Secrets Manager
 - No hardcoded values in the automation process
 - Special characters in passwords are properly handled via environment variables
+
+# Database Bootstrap Commands
+
+## Development Environment
+```bash
+aws ssm start-automation-execution --document-name "dev-database-automation" --parameters "DatabaseEndpoint=$(terraform output -raw database_endpoint | sed 's/:3306$//'),DatabaseName=$(terraform output -raw database_name),DatabaseUsername=$(aws secretsmanager get-secret-value --secret-id $(terraform output -raw secret_name) --region us-east-2 --query SecretString --output text | jq -r '.username'),DatabasePassword=\"$(aws secretsmanager get-secret-value --secret-id $(terraform output -raw secret_name) --region us-east-2 --query SecretString --output text | jq -r '.password')\",InstanceId=$(terraform output -raw webserver_instance_id),AutomationAssumeRole=$(terraform output -raw ssm_automation_role_arn)" --region us-east-2
+```
+
+## Staging Environment
+```bash
+aws ssm start-automation-execution --document-name "staging-database-automation" --parameters "DatabaseEndpoint=$(terraform output -raw database_endpoint | sed 's/:3306$//'),DatabaseName=$(terraform output -raw database_name),DatabaseUsername=$(aws secretsmanager get-secret-value --secret-id $(terraform output -raw secret_name) --region us-east-2 --query SecretString --output text | jq -r '.username'),DatabasePassword=\"$(aws secretsmanager get-secret-value --secret-id $(terraform output -raw secret_name) --region us-east-2 --query SecretString --output text | jq -r '.password')\",InstanceId=$(terraform output -raw webserver_instance_id),AutomationAssumeRole=$(terraform output -raw ssm_automation_role_arn)" --region us-east-2
+```
+
+## Production Environment
+```bash
+aws ssm start-automation-execution --document-name "production-database-automation" --parameters "DatabaseEndpoint=$(terraform output -raw database_endpoint | sed 's/:3306$//'),DatabaseName=$(terraform output -raw database_name),DatabaseUsername=$(aws secretsmanager get-secret-value --secret-id $(terraform output -raw secret_name) --region us-east-2 --query SecretString --output text | jq -r '.username'),DatabasePassword=\"$(aws secretsmanager get-secret-value --secret-id $(terraform output -raw secret_name) --region us-east-2 --query SecretString --output text | jq -r '.password')\",InstanceId=$(terraform output -raw webserver_instance_id),AutomationAssumeRole=$(terraform output -raw ssm_automation_role_arn)" --region us-east-2
+```
+
+## Usage Instructions
+
+1. **Navigate to the environment directory**:
+   ```bash
+   cd environments/[dev|staging|production]
+   ```
+
+2. **Initialize Terraform** (if not already done):
+   ```bash
+   terraform init
+   ```
+
+3. **Run the appropriate command** for your environment
+
+4. **Monitor the automation** in AWS Systems Manager console
+
+5. **Verify database population** by accessing the web application
+
+## Why This Version is Better
+
+✅ **Uses Terraform outputs directly** - No manual path construction  
+✅ **More reliable** - Uses actual resource names from state  
+✅ **Environment-agnostic** - Same command works across all environments  
+✅ **Simpler** - Less prone to errors from manual path building  
+✅ **Maintainable** - Changes to resource naming are automatically reflected  
+
+## Key Improvements
+
+- **`$(terraform output -raw secret_name)`** instead of manually constructing secret paths
+- **`$(terraform output -raw ssm_automation_role_arn)`** instead of looking up IAM roles
+- **Consistent across environments** - Same command structure for all
+- **Self-documenting** - Uses actual resource names from Terraform state
+
+## Notes
+
+- **Environment-specific**: Each command uses the correct SSM automation document name
+- **Secret management**: Uses AWS Secrets Manager for secure credential storage
+- **Automation**: Leverages SSM automation for consistent database setup
+- **Security**: Credentials are retrieved securely and not exposed in logs

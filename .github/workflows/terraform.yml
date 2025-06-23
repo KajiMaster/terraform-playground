@@ -1,10 +1,6 @@
 name: Terraform Infrastructure
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
   workflow_dispatch:
     inputs:
       environment:
@@ -29,11 +25,8 @@ jobs:
     name: Terraform ${{ github.event.inputs.action || 'plan' }} - ${{ github.event.inputs.environment || 'staging' }}
     runs-on: ubuntu-latest
 
-    # Only allow manual triggers for apply/destroy on production
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-      (github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'main')
+    # Only allow manual triggers - disable automatic runs
+    if: github.event_name == 'workflow_dispatch'
 
     permissions:
       id-token: write

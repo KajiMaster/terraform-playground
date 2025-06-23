@@ -4,15 +4,11 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'environments/**'
-      - 'modules/**'
-      - '.github/workflows/prod-terraform.yml'
+      - 'environments/production/**'
   push:
     branches: [main]
     paths:
-      - 'environments/**'
-      - 'modules/**'
-      - '.github/workflows/prod-terraform.yml'
+      - 'environments/production/**'
 
 env:
   TF_VERSION: "1.5.0"

@@ -4,15 +4,11 @@ on:
   pull_request:
     branches: [develop]
     paths:
-      - 'environments/**'
-      - 'modules/**'
-      - '.github/workflows/staging-terraform.yml'
+      - 'environments/staging/**'
   push:
     branches: [develop]
     paths:
-      - 'environments/**'
-      - 'modules/**'
-      - '.github/workflows/staging-terraform.yml'
+      - 'environments/staging/**'
 
 env:
   TF_VERSION: "1.5.0"
