@@ -9,6 +9,7 @@ terraform {
 }
 
 # VPC
+# TESTING: Module change trigger - confirming both staging and production workflows detect module changes
 resource "aws_vpc" "main" {
   cidr_block           = var.vpc_cidr
   enable_dns_hostnames = true

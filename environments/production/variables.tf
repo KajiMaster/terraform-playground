@@ -1,6 +1,7 @@
 # Production environment variables
 # Managed by GitFlow CI/CD pipeline
 # TESTING: Workflow trigger - June 2025
+# FINAL TEST: Confirming production workflow behavior
 
 variable "environment" {
   description = "Environment name"
