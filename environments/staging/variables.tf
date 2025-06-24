@@ -38,7 +38,7 @@ variable "availability_zones" {
 }
 
 variable "webserver_instance_type" {
-  description = "Instance type for web server"
+  description = "Instance type for web server (staging test)"
   type        = string
   default     = "t3.small"
 }
