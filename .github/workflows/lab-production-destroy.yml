@@ -1,10 +1,10 @@
-name: Lab Magic Destroy (Dev Environment)
+name: Lab Production Destroy
 
 on:
   workflow_dispatch:
     inputs:
       confirm_destroy:
-        description: "Type 'DESTROY-DEV' to confirm you want to destroy dev infrastructure"
+        description: "Type 'DESTROY-PRODUCTION' to confirm you want to destroy production infrastructure"
         required: true
         type: string
         default: ""
@@ -28,17 +28,17 @@ jobs:
       - name: Validate Confirmation
         id: validate
         run: |
-          if [ "${{ github.event.inputs.confirm_destroy }}" = "DESTROY-DEV" ]; then
+          if [ "${{ github.event.inputs.confirm_destroy }}" = "DESTROY-PRODUCTION" ]; then
             echo "should_destroy=true" >> $GITHUB_OUTPUT
-            echo "✅ Dev destroy confirmed - proceeding with infrastructure destruction"
+            echo "✅ Production destroy confirmed - proceeding with infrastructure destruction"
           else
             echo "should_destroy=false" >> $GITHUB_OUTPUT
-            echo "❌ Destroy not confirmed. Please type 'DESTROY-DEV' to proceed."
+            echo "❌ Destroy not confirmed. Please type 'DESTROY-PRODUCTION' to proceed."
             exit 1
           fi
 
-  destroy-dev:
-    name: Destroy Development Environment
+  destroy-production:
+    name: Destroy Production Environment
     runs-on: ubuntu-latest
     needs: validate-destroy
     if: needs.validate-destroy.outputs.should_destroy == 'true'
@@ -57,31 +57,24 @@ jobs:
         with:
           role-to-assume: arn:aws:iam::123324351829:role/github-actions-global
           aws-region: ${{ env.AWS_REGION }}
-          role-session-name: lab-magic-destroy-dev-${{ github.run_id }}
+          role-session-name: lab-production-destroy-${{ github.run_id }}
 
       - name: Terraform Init
-        working-directory: environments/dev
+        working-directory: environments/production
         run: terraform init
 
       - name: Terraform Destroy
-        working-directory: environments/dev
+        working-directory: environments/production
         run: terraform destroy -auto-approve
 
       - name: Destroy Complete
         run: |
-          echo "## 🧹 Development Environment Destroyed" >> $GITHUB_STEP_SUMMARY
-          echo "**Environment**: Development" >> $GITHUB_STEP_SUMMARY
+          echo "## 🧹 Production Environment Destroyed" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment**: Production" >> $GITHUB_STEP_SUMMARY
           echo "**Status**: ✅ Destroyed" >> $GITHUB_STEP_SUMMARY
           echo "**Time**: $(date)" >> $GITHUB_STEP_SUMMARY
           echo "**Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Cost Impact:" >> $GITHUB_STEP_SUMMARY
-          echo "- **EC2 Instances**: Terminated" >> $GITHUB_STEP_SUMMARY
-          echo "- **RDS Databases**: Deleted" >> $GITHUB_STEP_SUMMARY
-          echo "- **Load Balancers**: Removed" >> $GITHUB_STEP_SUMMARY
-          echo "- **NAT Gateways**: Deleted" >> $GITHUB_STEP_SUMMARY
-          echo "- **Secrets**: Cleaned up" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Next Steps:" >> $GITHUB_STEP_SUMMARY
-          echo "- **To rebuild**: Run terraform apply in environments/dev" >> $GITHUB_STEP_SUMMARY
-          echo "- **Or create feature branch**: Start new development work" >> $GITHUB_STEP_SUMMARY
+          echo "- **To rebuild**: Create a PR with changes to `environments/production/`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Or run manually**: Use the prod-terraform workflow" >> $GITHUB_STEP_SUMMARY 
