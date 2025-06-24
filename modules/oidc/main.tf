@@ -147,6 +147,7 @@ resource "aws_iam_role_policy" "terraform_permissions" {
           "iam:ListRolePolicies",
           "iam:GetPolicy",
           "iam:GetPolicyVersion",
+          "iam:ListPolicyVersions",
           "iam:ListAttachedRolePolicies",
           "iam:GetRolePolicy",
           "iam:ListInstanceProfilesForRole",
