@@ -39,7 +39,6 @@ data "terraform_remote_state" "global" {
     bucket         = "tf-playground-state-vexus"
     key            = "global/terraform.tfstate"
     region         = "us-east-2"
-    use_lockfile   = true
   }
 }
 
