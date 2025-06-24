@@ -1,4 +1,4 @@
-name: Lab Magic Destroy (Dev Environment)
+name: Lab Dev Destroy
 
 on:
   workflow_dispatch:
@@ -57,7 +57,7 @@ jobs:
         with:
           role-to-assume: arn:aws:iam::123324351829:role/github-actions-global
           aws-region: ${{ env.AWS_REGION }}
-          role-session-name: lab-magic-destroy-dev-${{ github.run_id }}
+          role-session-name: lab-dev-destroy-${{ github.run_id }}
 
       - name: Terraform Init
         working-directory: environments/dev
@@ -84,4 +84,4 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Next Steps:" >> $GITHUB_STEP_SUMMARY
           echo "- **To rebuild**: Run terraform apply in environments/dev" >> $GITHUB_STEP_SUMMARY
-          echo "- **Or create feature branch**: Start new development work" >> $GITHUB_STEP_SUMMARY
+          echo "- **Or create feature branch**: Start new development work" >> $GITHUB_STEP_SUMMARY 
