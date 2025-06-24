@@ -12,6 +12,7 @@ terraform {
   }
 }
 
+# Test comment: This change should trigger the production workflow
 provider "aws" {
   region = var.aws_region
   default_tags {
