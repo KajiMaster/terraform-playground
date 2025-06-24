@@ -64,7 +64,6 @@ jobs:
         working-directory: environments/staging
         run: |
           terraform plan \
-            -var="key_name=tf-playground-key" \
             -out=tfplan
         continue-on-error: true
 
@@ -154,7 +153,6 @@ jobs:
         working-directory: environments/staging
         run: |
           terraform apply \
-            -var="key_name=tf-playground-key" \
             -auto-approve
 
       - name: Get Outputs
