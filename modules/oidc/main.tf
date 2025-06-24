@@ -157,7 +157,8 @@ resource "aws_iam_role_policy" "terraform_permissions" {
           "iam:AddRoleToInstanceProfile",
           "iam:RemoveRoleFromInstanceProfile",
           "iam:TagInstanceProfile",
-          "iam:UntagInstanceProfile"
+          "iam:UntagInstanceProfile",
+          "iam:ListOpenIDConnectProviders"
         ]
         Resource = [
           "arn:aws:iam::*:role/tf-playground-*",
