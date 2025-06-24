@@ -55,5 +55,5 @@ variable "db_name" {
 variable "key_name" {
   description = "Name of the EC2 key pair"
   type        = string
-  default     = "tf-playground-key"
+  default     = "tf-playground-production"
 } 
