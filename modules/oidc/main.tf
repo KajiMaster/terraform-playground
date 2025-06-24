@@ -140,6 +140,7 @@ resource "aws_iam_role_policy" "terraform_permissions" {
           "iam:DetachRolePolicy",
           "iam:DeleteRole",
           "iam:DeletePolicy",
+          "iam:DeleteRolePolicy",
           "iam:TagRole",
           "iam:TagPolicy",
           "iam:UntagRole",
@@ -157,8 +158,7 @@ resource "aws_iam_role_policy" "terraform_permissions" {
           "iam:AddRoleToInstanceProfile",
           "iam:RemoveRoleFromInstanceProfile",
           "iam:TagInstanceProfile",
-          "iam:UntagInstanceProfile",
-          "iam:ListOpenIDConnectProviders"
+          "iam:UntagInstanceProfile"
         ]
         Resource = [
           "arn:aws:iam::*:role/tf-playground-*",
@@ -177,6 +177,15 @@ resource "aws_iam_role_policy" "terraform_permissions" {
           "arn:aws:iam::*:instance-profile/prod-*",
           "arn:aws:iam::*:instance-profile/production-*"
         ]
+      },
+      # OIDC Provider permissions (requires * resource)
+      {
+        Effect = "Allow"
+        Action = [
+          "iam:ListOpenIDConnectProviders",
+          "iam:GetOpenIDConnectProvider"
+        ]
+        Resource = "*"
       },
       # KMS permissions for AWS managed keys (limited scope)
       {
