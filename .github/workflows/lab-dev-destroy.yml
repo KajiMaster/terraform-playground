@@ -18,9 +18,31 @@ permissions:
   contents: read
 
 jobs:
+  validate-branch:
+    name: Validate Branch
+    runs-on: ubuntu-latest
+    outputs:
+      valid_branch: ${{ steps.check.outputs.valid_branch }}
+    
+    steps:
+      - name: Check Branch
+        id: check
+        run: |
+          if [ "${{ github.ref_name }}" = "develop" ]; then
+            echo "valid_branch=true" >> $GITHUB_OUTPUT
+            echo "✅ Running from develop branch - proceeding"
+          else
+            echo "valid_branch=false" >> $GITHUB_OUTPUT
+            echo "❌ This workflow can only run from the 'develop' branch"
+            echo "Current branch: ${{ github.ref_name }}"
+            exit 1
+          fi
+
   validate-destroy:
     name: Validate Destroy Confirmation
     runs-on: ubuntu-latest
+    needs: validate-branch
+    if: needs.validate-branch.outputs.valid_branch == 'true'
     outputs:
       should_destroy: ${{ steps.validate.outputs.should_destroy }}
     
@@ -40,8 +62,10 @@ jobs:
   destroy-dev:
     name: Destroy Development Environment
     runs-on: ubuntu-latest
-    needs: validate-destroy
-    if: needs.validate-destroy.outputs.should_destroy == 'true'
+    needs: [validate-branch, validate-destroy]
+    if: |
+      needs.validate-branch.outputs.valid_branch == 'true' &&
+      needs.validate-destroy.outputs.should_destroy == 'true'
     
     steps:
       - name: Checkout
