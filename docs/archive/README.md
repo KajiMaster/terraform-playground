@@ -22,6 +22,7 @@ This directory contains documentation that has been archived to maintain a clean
 - `simple-feature-branch-workflow.md` - Redundant workflow documentation
 - `ssh-modernization-notes.md` - Brief implementation notes
 - `avid-tf-tech.md` - Technical notes (content unknown)
+- `strategic-prioritization-and-decision-making.md` - Consolidated into lessons-learned.md
 
 ### **Advanced Workflow Documents**
 - `team-development-workflow.md` - Detailed team workflow (too detailed for portfolio)
@@ -39,6 +40,7 @@ This directory contains documentation that has been archived to maintain a clean
 - **Outdated Content**: References old issues and workflows
 - **Redundant Information**: Duplicated in current documentation
 - **Over-Detailed**: Too much information for portfolio purposes
+- **Consolidated**: Key insights moved to active documentation
 
 ### **Maintenance Efficiency**
 - **Easier Updates**: Fewer documents to maintain
@@ -53,7 +55,8 @@ The main `docs/` directory now contains only portfolio-relevant documentation:
 - `blue-green-deployment-project.md` - Active project documentation
 - `database-bootstrap.md` - Essential operational guide
 - `kms-migration-to-aws-managed.md` - Cost optimization documentation
-- `strategic-prioritization-and-decision-making.md` - Senior-level thinking
+- `lessons-learned.md` - Real human notes from hands-on experience
+- `git-gitflow-lessons.md` - Practical Git and GitFlow workflows
 - `future-roadmap.md` - Project planning and roadmap
 
 ## Accessing Archived Content

@@ -187,7 +187,7 @@ resource "aws_instance" "webserver" {
   subnet_id              = var.public_subnets[0] # Place in first public subnet
   vpc_security_group_ids = [aws_security_group.webserver.id]
   iam_instance_profile   = aws_iam_instance_profile.webserver.name
-  key_name               = var.key_name
+  key_name               = aws_key_pair.webserver.key_name
   user_data              = data.template_file.user_data.rendered
 
   root_block_device {
