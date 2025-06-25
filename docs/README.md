@@ -16,8 +16,11 @@ This directory contains the active, portfolio-relevant documentation for the Ter
 ### **Operational Guides**
 - **[database-bootstrap.md](database-bootstrap.md)** - Complete guide for automated database setup and population
 
+### **Learning & Reference**
+- **[lessons-learned.md](lessons-learned.md)** - Real human notes from hands-on experience
+- **[git-gitflow-lessons.md](git-gitflow-lessons.md)** - Practical Git and GitFlow workflows
+
 ### **Strategic Planning**
-- **[strategic-prioritization-and-decision-making.md](strategic-prioritization-and-decision-making.md)** - Senior-level decision-making framework and project prioritization
 - **[future-roadmap.md](future-roadmap.md)** - Project roadmap and future enhancement planning
 
 ## Documentation Philosophy
