@@ -85,4 +85,56 @@ variable "state_lock_table" {
   description = "DynamoDB table for state locking"
   type        = string
   default     = "tf-playground-locks"
+}
+
+# Blue-Green Deployment Variables
+
+variable "ami_id" {
+  description = "AMI ID for EC2 instances"
+  type        = string
+  default     = "ami-0c02fb55956c7d316"  # Amazon Linux 2023
+}
+
+variable "certificate_arn" {
+  description = "ARN of SSL certificate for ALB"
+  type        = string
+  default     = null  # No SSL for staging demo
+}
+
+# Blue Environment Configuration
+variable "blue_desired_capacity" {
+  description = "Desired capacity for blue Auto Scaling Group"
+  type        = number
+  default     = 1
+}
+
+variable "blue_max_size" {
+  description = "Maximum size for blue Auto Scaling Group"
+  type        = number
+  default     = 2
+}
+
+variable "blue_min_size" {
+  description = "Minimum size for blue Auto Scaling Group"
+  type        = number
+  default     = 1
+}
+
+# Green Environment Configuration
+variable "green_desired_capacity" {
+  description = "Desired capacity for green Auto Scaling Group"
+  type        = number
+  default     = 0  # Start with 0 for staging
+}
+
+variable "green_max_size" {
+  description = "Maximum size for green Auto Scaling Group"
+  type        = number
+  default     = 2
+}
+
+variable "green_min_size" {
+  description = "Minimum size for green Auto Scaling Group"
+  type        = number
+  default     = 0  # Start with 0 for staging
 } 

@@ -4,13 +4,16 @@ resource "aws_security_group" "database" {
   description = "Security group for RDS instance"
   vpc_id      = var.vpc_id
 
-  # Allow MySQL access from web server security group
-  ingress {
-    from_port       = 3306
-    to_port         = 3306
-    protocol        = "tcp"
-    security_groups = [var.webserver_security_group_id]
-    description     = "Allow MySQL access from web server"
+  # Allow MySQL access from web server security groups
+  dynamic "ingress" {
+    for_each = var.webserver_security_group_ids
+    content {
+      from_port       = 3306
+      to_port         = 3306
+      protocol        = "tcp"
+      security_groups = [ingress.value]
+      description     = "Allow MySQL access from web server security group"
+    }
   }
 
   tags = {

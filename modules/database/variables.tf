@@ -13,9 +13,9 @@ variable "private_subnets" {
   type        = list(string)
 }
 
-variable "webserver_security_group_id" {
-  description = "Security group ID of the webserver to allow DB access"
-  type        = string
+variable "webserver_security_group_ids" {
+  description = "List of security group IDs of the webservers to allow DB access"
+  type        = list(string)
 }
 
 variable "db_instance_type" {
