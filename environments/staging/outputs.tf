@@ -1,40 +1,86 @@
-output "vpc_id" {
-  description = "ID of the VPC"
-  value       = module.networking.vpc_id
+# Load Balancer Outputs
+output "alb_dns_name" {
+  description = "DNS name of the Application Load Balancer"
+  value       = module.loadbalancer.alb_dns_name
 }
 
-output "public_subnet_ids" {
-  description = "IDs of the public subnets"
-  value       = module.networking.public_subnet_ids
+output "alb_url" {
+  description = "URL to access the application via ALB"
+  value       = module.loadbalancer.alb_url
 }
 
-output "private_subnet_ids" {
-  description = "IDs of the private subnets"
-  value       = module.networking.private_subnet_ids
+output "alb_zone_id" {
+  description = "Zone ID of the Application Load Balancer"
+  value       = module.loadbalancer.alb_zone_id
 }
 
-output "webserver_instance_id" {
-  description = "ID of the web server instance"
-  value       = module.webserver.instance_id
+# Blue Auto Scaling Group Outputs
+output "blue_asg_id" {
+  description = "ID of the blue Auto Scaling Group"
+  value       = module.blue_asg.asg_id
 }
 
-output "webserver_public_ip" {
-  description = "Public IP address of the web server"
-  value       = module.webserver.public_ip
+output "blue_asg_name" {
+  description = "Name of the blue Auto Scaling Group"
+  value       = module.blue_asg.asg_name
 }
 
+output "blue_target_group_arn" {
+  description = "ARN of the blue target group"
+  value       = module.loadbalancer.blue_target_group_arn
+}
+
+# Green Auto Scaling Group Outputs
+output "green_asg_id" {
+  description = "ID of the green Auto Scaling Group"
+  value       = module.green_asg.asg_id
+}
+
+output "green_asg_name" {
+  description = "Name of the green Auto Scaling Group"
+  value       = module.green_asg.asg_name
+}
+
+output "green_target_group_arn" {
+  description = "ARN of the green target group"
+  value       = module.loadbalancer.green_target_group_arn
+}
+
+# Database Outputs
 output "database_endpoint" {
-  description = "RDS database endpoint"
+  description = "The connection endpoint of the RDS instance"
   value       = module.database.db_instance_endpoint
 }
 
 output "database_name" {
-  description = "RDS database name"
+  description = "The database name"
   value       = module.database.db_instance_name
 }
 
-output "ssm_automation_document_name" {
-  description = "Name of the SSM automation document"
+output "database_port" {
+  description = "The database port"
+  value       = module.database.db_instance_port
+}
+
+# Network Outputs
+output "vpc_id" {
+  description = "The ID of the VPC"
+  value       = module.networking.vpc_id
+}
+
+output "public_subnet_ids" {
+  description = "List of public subnet IDs"
+  value       = module.networking.public_subnet_ids
+}
+
+output "private_subnet_ids" {
+  description = "List of private subnet IDs"
+  value       = module.networking.private_subnet_ids
+}
+
+# SSM Outputs
+output "ssm_automation_name" {
+  description = "Name of the SSM automation for database initialization"
   value       = module.ssm.ssm_automation_name
 }
 
@@ -43,9 +89,61 @@ output "ssm_automation_role_arn" {
   value       = module.ssm.ssm_automation_role_arn
 }
 
+# Secrets Outputs
 output "random_suffix" {
   description = "Random suffix used for resource names"
   value       = module.secrets.random_suffix
+}
+
+output "secret_name" {
+  description = "Name of the database credentials secret"
+  value       = module.secrets.secret_name
+}
+
+output "secret_arn" {
+  description = "ARN of the database credentials secret"
+  value       = module.secrets.secret_arn
+}
+
+# Application URLs
+output "application_url" {
+  description = "URL to access the web application via ALB"
+  value       = module.loadbalancer.alb_url
+}
+
+output "health_check_url" {
+  description = "URL to access the health check endpoint"
+  value       = "${module.loadbalancer.alb_url}/health"
+}
+
+output "deployment_validation_url" {
+  description = "URL to access the deployment validation endpoint"
+  value       = "${module.loadbalancer.alb_url}/deployment/validate"
+}
+
+# Environment Summary
+output "environment_summary" {
+  description = "Summary of the blue-green deployment environment"
+  value = {
+    environment = var.environment
+    region      = var.aws_region
+    vpc_id      = module.networking.vpc_id
+    alb_dns_name = module.loadbalancer.alb_dns_name
+    application_url = module.loadbalancer.alb_url
+    blue_asg_name = module.blue_asg.asg_name
+    green_asg_name = module.green_asg.asg_name
+    database_endpoint = module.database.db_instance_endpoint
+  }
+}
+
+output "http_listener_arn" {
+  description = "ARN of the HTTP listener"
+  value       = module.loadbalancer.http_listener_arn
+}
+
+output "https_listener_arn" {
+  description = "ARN of the HTTPS listener (if created)"
+  value       = module.loadbalancer.https_listener_arn
 }
 
 output "deployment_timestamp" {
