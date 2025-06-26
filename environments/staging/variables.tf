@@ -92,7 +92,7 @@ variable "state_lock_table" {
 variable "ami_id" {
   description = "AMI ID for EC2 instances"
   type        = string
-  default     = "ami-0c02fb55956c7d316"  # Amazon Linux 2023
+  default     = "ami-06c8f2ec674c67112"  # Amazon Linux 2023 AMI in us-east-2
 }
 
 variable "certificate_arn" {
