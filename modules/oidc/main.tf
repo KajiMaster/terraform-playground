@@ -212,6 +212,14 @@ resource "aws_iam_role_policy" "terraform_permissions" {
           "ssm:*"
         ]
         Resource = "*"
+      },
+      # CloudWatch permissions for monitoring and alarms
+      {
+        Effect = "Allow"
+        Action = [
+          "cloudwatch:*"
+        ]
+        Resource = "*"
       }
     ]
   })
