@@ -1,17 +1,23 @@
 name: Staging Terraform
 
+# Triggers on:
+# - Changes to staging environment files
+# - Changes to Terraform modules (except OIDC)
+# - Changes to this workflow file itself (for testing workflow updates)
 on:
   pull_request:
     branches: [develop]
     paths:
       - 'environments/staging/**'
       - 'modules/**'
+      - '.github/workflows/staging-terraform.yml'
       - '!modules/oidc/**'
   push:
     branches: [develop]
     paths:
       - 'environments/staging/**'
       - 'modules/**'
+      - '.github/workflows/staging-terraform.yml'
       - '!modules/oidc/**'
 
 env:
