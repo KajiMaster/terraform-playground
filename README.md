@@ -19,16 +19,16 @@ This project showcases real-world enterprise skills including:
 
 ## 🎯 Active Development: Blue-Green Deployment
 
-**Coming Soon**: Advanced blue-green deployment strategy with zero-downtime deployments, automated rollbacks, and production-grade deployment safety.
+**✅ COMPLETED**: Advanced blue-green deployment strategy with zero-downtime deployments, automated rollbacks, and production-grade deployment safety.
 
-**What This Will Add**:
-- Application Load Balancer with traffic switching
-- Dual environment setup (blue/green) with auto-scaling
-- Comprehensive health checks and deployment validation
-- Automated rollback mechanisms
-- Enhanced CI/CD pipeline with deployment safety
+**What This Adds**:
+- ✅ Application Load Balancer with traffic switching
+- ✅ Dual environment setup (blue/green) with auto-scaling
+- ✅ Comprehensive health checks and deployment validation
+- ✅ Automated rollback mechanisms
+- ✅ Enhanced CI/CD pipeline with deployment safety
 
-**Career Impact**: This will demonstrate advanced DevOps skills highly sought after in the job market, including zero-downtime deployments and production deployment safety.
+**Career Impact**: This demonstrates advanced DevOps skills highly sought after in the job market, including zero-downtime deployments and production deployment safety.
 
 📋 **Project Details**: See [`docs/blue-green-deployment-project.md`](docs/blue-green-deployment-project.md) for comprehensive planning and implementation details.
 
@@ -42,14 +42,16 @@ This project showcases real-world enterprise skills including:
 - **Secrets Management**: Secure credential handling with random suffixes to avoid deletion conflicts
 - **Global Resources**: Centralized OIDC provider for GitHub Actions authentication
 
-## Current State (Version 2)
+## Current State (Version 3 - Blue-Green Deployment)
 
 The infrastructure includes:
 
 - VPC with public and private subnets across two availability zones
 - NAT Gateway for private subnet internet access
 - RDS MySQL instance in private subnet
-- EC2 instance in public subnet running a Flask web application
+- **Application Load Balancer** with blue/green target groups
+- **Blue and Green Auto Scaling Groups** for zero-downtime deployments
+- **Enhanced Flask application** with comprehensive health checks
 - IAM roles and policies for secure access to AWS services
 - AWS managed encryption for sensitive data with random suffixes
 - AWS Secrets Manager for database credentials
@@ -59,10 +61,12 @@ The infrastructure includes:
 
 ### Working Components
 
-- ✅ Web application running on port 8080
+- ✅ **Blue-Green Deployment Architecture** with ALB and Auto Scaling Groups
+- ✅ Web application running on port 8080 via ALB
 - ✅ Database with sample contacts data
-- ✅ Health check endpoint at `/health`
-- ✅ Data endpoint at `/` returning JSON
+- ✅ Enhanced health check endpoint at `/health`
+- ✅ Deployment validation endpoint at `/deployment/validate`
+- ✅ Data endpoint at `/` returning JSON with deployment color
 - ✅ Secure database access through IAM roles
 - ✅ Encrypted secrets management with random suffixes
 - ✅ Automated database population via SSM
@@ -144,8 +148,23 @@ terraform-playground/
 2. **Bootstrap Database**
 
    ```bash
-   aws ssm start-automation-execution --document-name "dev-database-automation" --parameters "DatabaseEndpoint=$(terraform output -raw database_endpoint | sed 's/:3306$//'),DatabaseName=$(terraform output -raw database_name),DatabaseUsername=$(aws secretsmanager get-secret-value --secret-id $(terraform output -raw secret_name) --region us-east-2 --query SecretString --output text | jq -r '.username'),DatabasePassword=\"$(aws secretsmanager get-secret-value --secret-id $(terraform output -raw secret_name) --region us-east-2 --query SecretString --output text | jq -r '.password')\",InstanceId=$(terraform output -raw webserver_instance_id),AutomationAssumeRole=$(terraform output -raw ssm_automation_role_arn)" --region us-east-2
+   aws ssm start-automation-execution \
+     --document-name "dev-database-automation" \
+     --parameters \
+       "DatabaseEndpoint=$(terraform output -raw database_endpoint | sed 's/:3306$//'),\
+       DatabaseName=$(terraform output -raw database_name),\
+       DatabaseUsername=$(aws secretsmanager get-secret-value --secret-id $(terraform output -raw secret_name) --region us-east-2 --query SecretString --output text | jq -r '.username'),\
+       DatabasePassword=\"$(aws secretsmanager get-secret-value --secret-id $(terraform output -raw secret_name) --region us-east-2 --query SecretString --output text | jq -r '.password')\",\
+       InstanceId=$(aws autoscaling describe-auto-scaling-groups --auto-scaling-group-names $(terraform output -raw blue_asg_name) --region us-east-2 --query 'AutoScalingGroups[0].Instances[0].InstanceId' --output text),\
+       AutomationAssumeRole=$(terraform output -raw ssm_automation_role_arn)" \
+     --region us-east-2
    ```
+
+3. **Verify Setup**
+
+   - Check web application: `$(terraform output -raw application_url)`
+   - Health check: `$(terraform output -raw health_check_url)`
+   - Data endpoint: `$(terraform output -raw application_url)` (should return JSON with contacts and deployment color)
 
 ### Staging Environment
 
@@ -159,14 +178,23 @@ terraform-playground/
 2. **Bootstrap Database**
 
    ```bash
-   aws ssm start-automation-execution --document-name "staging-database-automation" --parameters "DatabaseEndpoint=$(terraform output -raw database_endpoint | sed 's/:3306$//'),DatabaseName=$(terraform output -raw database_name),DatabaseUsername=$(aws secretsmanager get-secret-value --secret-id $(terraform output -raw secret_name) --region us-east-2 --query SecretString --output text | jq -r '.username'),DatabasePassword=\"$(aws secretsmanager get-secret-value --secret-id $(terraform output -raw secret_name) --region us-east-2 --query SecretString --output text | jq -r '.password')\",InstanceId=$(terraform output -raw webserver_instance_id),AutomationAssumeRole=$(terraform output -raw ssm_automation_role_arn)" --region us-east-2
+   aws ssm start-automation-execution \
+     --document-name "staging-database-automation" \
+     --parameters \
+       "DatabaseEndpoint=$(terraform output -raw database_endpoint | sed 's/:3306$//'),\
+       DatabaseName=$(terraform output -raw database_name),\
+       DatabaseUsername=$(aws secretsmanager get-secret-value --secret-id $(terraform output -raw secret_name) --region us-east-2 --query SecretString --output text | jq -r '.username'),\
+       DatabasePassword=\"$(aws secretsmanager get-secret-value --secret-id $(terraform output -raw secret_name) --region us-east-2 --query SecretString --output text | jq -r '.password')\",\
+       InstanceId=$(aws autoscaling describe-auto-scaling-groups --auto-scaling-group-names $(terraform output -raw blue_asg_name) --region us-east-2 --query 'AutoScalingGroups[0].Instances[0].InstanceId' --output text),\
+       AutomationAssumeRole=$(terraform output -raw ssm_automation_role_arn)" \
+     --region us-east-2
    ```
 
 3. **Verify Setup**
 
-   - Check web application: `http://<webserver-public-ip>:8080`
-   - Health check: `http://<webserver-public-ip>:8080/health`
-   - Data endpoint: `http://<webserver-public-ip>:8080/` (should return JSON with contacts)
+   - Check web application: `$(terraform output -raw application_url)`
+   - Health check: `$(terraform output -raw health_check_url)`
+   - Data endpoint: `$(terraform output -raw application_url)` (should return JSON with contacts and deployment color)
 
 ### Production Environment
 
@@ -180,16 +208,25 @@ terraform-playground/
 2. **Bootstrap Database**
 
    ```bash
-   aws ssm start-automation-execution --document-name "production-database-automation" --parameters "DatabaseEndpoint=$(terraform output -raw database_endpoint | sed 's/:3306$//'),DatabaseName=$(terraform output -raw database_name),DatabaseUsername=$(aws secretsmanager get-secret-value --secret-id $(terraform output -raw secret_name) --region us-east-2 --query SecretString --output text | jq -r '.username'),DatabasePassword=\"$(aws secretsmanager get-secret-value --secret-id $(terraform output -raw secret_name) --region us-east-2 --query SecretString --output text | jq -r '.password')\",InstanceId=$(terraform output -raw webserver_instance_id),AutomationAssumeRole=$(terraform output -raw ssm_automation_role_arn)" --region us-east-2
+   aws ssm start-automation-execution \
+     --document-name "production-database-automation" \
+     --parameters \
+       "DatabaseEndpoint=$(terraform output -raw database_endpoint | sed 's/:3306$//'),\
+       DatabaseName=$(terraform output -raw database_name),\
+       DatabaseUsername=$(aws secretsmanager get-secret-value --secret-id $(terraform output -raw secret_name) --region us-east-2 --query SecretString --output text | jq -r '.username'),\
+       DatabasePassword=\"$(aws secretsmanager get-secret-value --secret-id $(terraform output -raw secret_name) --region us-east-2 --query SecretString --output text | jq -r '.password')\",\
+       InstanceId=$(aws autoscaling describe-auto-scaling-groups --auto-scaling-group-names $(terraform output -raw blue_asg_name) --region us-east-2 --query 'AutoScalingGroups[0].Instances[0].InstanceId' --output text),\
+       AutomationAssumeRole=$(terraform output -raw ssm_automation_role_arn)" \
+     --region us-east-2
    ```
 
 3. **Verify Setup**
 
-   - Check web application: `http://<webserver-public-ip>:8080`
-   - Health check: `http://<webserver-public-ip>:8080/health`
-   - Data endpoint: `http://<webserver-public-ip>:8080/` (should return JSON with contacts)
+   - Check web application: `$(terraform output -raw application_url)`
+   - Health check: `$(terraform output -raw health_check_url)`
+   - Data endpoint: `$(terraform output -raw application_url)` (should return JSON with contacts and deployment color)
 
-**Note**: The database bootstrap is fully automated using AWS SSM. No manual SSH or database setup is required. The automation handles special characters in passwords and creates sample data automatically.
+**Note**: The database bootstrap is fully automated using AWS SSM. No manual SSH or database setup is required. The automation handles special characters in passwords and creates sample data automatically. The blue-green deployment architecture provides zero-downtime deployment capabilities.
 
 ## CI/CD Pipeline
 
