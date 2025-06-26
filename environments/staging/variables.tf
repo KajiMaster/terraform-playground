@@ -92,7 +92,7 @@ variable "state_lock_table" {
 variable "ami_id" {
   description = "AMI ID for EC2 instances"
   type        = string
-  default     = "ami-06c8f2ec674c67112"  # Amazon Linux 2023 AMI in us-east-2
+  default     = "ami-06c8f2ec674c67112"  # Amazon Linux 2023 AMI in us-east-2 (same as dev)
 }
 
 variable "certificate_arn" {
@@ -124,7 +124,7 @@ variable "blue_min_size" {
 variable "green_desired_capacity" {
   description = "Desired capacity for green Auto Scaling Group"
   type        = number
-  default     = 0  # Start with 0 for staging
+  default     = 1  # Changed from 0 to 1 for proper blue-green testing
 }
 
 variable "green_max_size" {
@@ -136,5 +136,5 @@ variable "green_max_size" {
 variable "green_min_size" {
   description = "Minimum size for green Auto Scaling Group"
   type        = number
-  default     = 0  # Start with 0 for staging
+  default     = 1  # Changed from 0 to 1 for proper blue-green testing
 } 
