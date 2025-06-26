@@ -174,7 +174,7 @@ jobs:
           
           # Wait for infrastructure to be ready
           echo "⏳ Waiting for infrastructure to be ready..."
-          sleep 30
+          sleep 60  # Increased wait time
           
           # Get ALB URL
           ALB_URL=$(terraform output -raw application_url)
@@ -184,20 +184,53 @@ jobs:
           echo "**Health Check URL**: $HEALTH_URL" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          # Test health endpoint
+          # Test health endpoint with better error handling
           echo "🏥 Testing health endpoint..."
-          HEALTH_RESPONSE=$(curl -s $HEALTH_URL)
-          echo "Health Response: $HEALTH_RESPONSE" >> $GITHUB_STEP_SUMMARY
+          HEALTH_RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" $HEALTH_URL)
+          HTTP_STATUS=$(echo "$HEALTH_RESPONSE" | grep "HTTP_STATUS:" | cut -d: -f2)
+          HEALTH_BODY=$(echo "$HEALTH_RESPONSE" | grep -v "HTTP_STATUS:")
           
-          # Test main application
-          echo "🌐 Testing main application..."
-          APP_RESPONSE=$(curl -s $ALB_URL)
-          DEPLOYMENT_COLOR=$(echo $APP_RESPONSE | jq -r .deployment_color)
-          CONTACTS_COUNT=$(echo $APP_RESPONSE | jq '.contacts | length')
-          
-          echo "**Deployment Color**: $DEPLOYMENT_COLOR" >> $GITHUB_STEP_SUMMARY
-          echo "**Contacts Count**: $CONTACTS_COUNT" >> $GITHUB_STEP_SUMMARY
+          echo "**Health HTTP Status**: $HTTP_STATUS" >> $GITHUB_STEP_SUMMARY
+          echo "**Health Response**: $HEALTH_BODY" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Test main application with better error handling
+          echo "🌐 Testing main application..."
+          APP_RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" $ALB_URL)
+          APP_HTTP_STATUS=$(echo "$APP_RESPONSE" | grep "HTTP_STATUS:" | cut -d: -f2)
+          APP_BODY=$(echo "$APP_RESPONSE" | grep -v "HTTP_STATUS:")
+          
+          echo "**App HTTP Status**: $APP_HTTP_STATUS" >> $GITHUB_STEP_SUMMARY
+          echo "**App Response**: $APP_BODY" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Only try to parse JSON if we got a 200 status
+          if [ "$APP_HTTP_STATUS" = "200" ]; then
+            # Test if response is valid JSON
+            if echo "$APP_BODY" | jq . >/dev/null 2>&1; then
+              DEPLOYMENT_COLOR=$(echo "$APP_BODY" | jq -r .deployment_color)
+              CONTACTS_COUNT=$(echo "$APP_BODY" | jq '.contacts | length')
+              
+              echo "**Deployment Color**: $DEPLOYMENT_COLOR" >> $GITHUB_STEP_SUMMARY
+              echo "**Contacts Count**: $CONTACTS_COUNT" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "❌ **Invalid JSON Response**" >> $GITHUB_STEP_SUMMARY
+              echo "Response is not valid JSON. This might indicate:" >> $GITHUB_STEP_SUMMARY
+              echo "- Application is still starting up" >> $GITHUB_STEP_SUMMARY
+              echo "- Database connection issues" >> $GITHUB_STEP_SUMMARY
+              echo "- Application error page" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              DEPLOYMENT_COLOR="unknown"
+              CONTACTS_COUNT=0
+            fi
+          else
+            echo "❌ **Application not responding correctly**" >> $GITHUB_STEP_SUMMARY
+            echo "HTTP Status: $APP_HTTP_STATUS" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            DEPLOYMENT_COLOR="unknown"
+            CONTACTS_COUNT=0
+          fi
           
           # Validate target groups
           echo "🎯 Validating target groups..."
@@ -220,17 +253,35 @@ jobs:
           echo "**Green Target Group Health**: $GREEN_HEALTH" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          # Success criteria
-          if [ "$DEPLOYMENT_COLOR" = "blue" ] && [ "$CONTACTS_COUNT" -gt 0 ] && [ "$BLUE_HEALTH" = "healthy" ]; then
+          # Success criteria with more detailed reporting
+          if [ "$APP_HTTP_STATUS" = "200" ] && [ "$DEPLOYMENT_COLOR" = "blue" ] && [ "$CONTACTS_COUNT" -gt 0 ] && [ "$BLUE_HEALTH" = "healthy" ]; then
             echo "✅ **Blue-Green Deployment Validation: PASSED**" >> $GITHUB_STEP_SUMMARY
-            echo "- Application responding correctly" >> $GITHUB_STEP_SUMMARY
-            echo "- Database connectivity confirmed" >> $GITHUB_STEP_SUMMARY
+            echo "- Application responding correctly (HTTP 200)" >> $GITHUB_STEP_SUMMARY
+            echo "- Valid JSON response received" >> $GITHUB_STEP_SUMMARY
+            echo "- Database connectivity confirmed ($CONTACTS_COUNT contacts)" >> $GITHUB_STEP_SUMMARY
             echo "- Target groups healthy" >> $GITHUB_STEP_SUMMARY
             echo "- Ready for failover testing" >> $GITHUB_STEP_SUMMARY
           else
             echo "❌ **Blue-Green Deployment Validation: FAILED**" >> $GITHUB_STEP_SUMMARY
-            echo "- Check application logs for issues" >> $GITHUB_STEP_SUMMARY
-            echo "- Verify database connectivity" >> $GITHUB_STEP_SUMMARY
-            echo "- Review target group health" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Issues Found:**" >> $GITHUB_STEP_SUMMARY
+            if [ "$APP_HTTP_STATUS" != "200" ]; then
+              echo "- Application HTTP Status: $APP_HTTP_STATUS (expected 200)" >> $GITHUB_STEP_SUMMARY
+            fi
+            if [ "$DEPLOYMENT_COLOR" != "blue" ]; then
+              echo "- Deployment Color: $DEPLOYMENT_COLOR (expected blue)" >> $GITHUB_STEP_SUMMARY
+            fi
+            if [ "$CONTACTS_COUNT" -eq 0 ]; then
+              echo "- No contacts found (database connectivity issue)" >> $GITHUB_STEP_SUMMARY
+            fi
+            if [ "$BLUE_HEALTH" != "healthy" ]; then
+              echo "- Blue Target Group Health: $BLUE_HEALTH (expected healthy)" >> $GITHUB_STEP_SUMMARY
+            fi
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Next Steps:**" >> $GITHUB_STEP_SUMMARY
+            echo "- Check application logs for startup issues" >> $GITHUB_STEP_SUMMARY
+            echo "- Verify database connectivity and SSM automation" >> $GITHUB_STEP_SUMMARY
+            echo "- Review target group health and instance status" >> $GITHUB_STEP_SUMMARY
+            echo "- Wait longer for application to fully start up" >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
