@@ -180,7 +180,7 @@ jobs:
           
           # Wait for infrastructure to be ready
           echo "⏳ Waiting for infrastructure to be ready..."
-          sleep 60  # Increased wait time
+          sleep 120  # Increased wait time to 2 minutes
           
           # Get ALB URL
           ALB_URL=$(terraform output -raw application_url)
@@ -259,6 +259,27 @@ jobs:
           echo "**Green Target Group Health**: $GREEN_HEALTH" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
+          # Check ASG status
+          echo "🚀 Checking Auto Scaling Groups..."
+          BLUE_ASG_NAME=$(terraform output -raw blue_asg_name)
+          GREEN_ASG_NAME=$(terraform output -raw green_asg_name)
+          
+          BLUE_INSTANCES=$(aws autoscaling describe-auto-scaling-groups \
+            --auto-scaling-group-names $BLUE_ASG_NAME \
+            --region ${{ env.AWS_REGION }} \
+            --query 'AutoScalingGroups[0].Instances[?LifecycleState==`InService`]' \
+            --output text)
+          
+          GREEN_INSTANCES=$(aws autoscaling describe-auto-scaling-groups \
+            --auto-scaling-group-names $GREEN_ASG_NAME \
+            --region ${{ env.AWS_REGION }} \
+            --query 'AutoScalingGroups[0].Instances[?LifecycleState==`InService`]' \
+            --output text)
+          
+          echo "**Blue ASG Instances**: $(echo "$BLUE_INSTANCES" | wc -w)" >> $GITHUB_STEP_SUMMARY
+          echo "**Green ASG Instances**: $(echo "$GREEN_INSTANCES" | wc -w)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
           # Success criteria with more detailed reporting
           if [ "$APP_HTTP_STATUS" = "200" ] && [ "$DEPLOYMENT_COLOR" = "blue" ] && [ "$CONTACTS_COUNT" -gt 0 ] && [ "$BLUE_HEALTH" = "healthy" ]; then
             echo "✅ **Blue-Green Deployment Validation: PASSED**" >> $GITHUB_STEP_SUMMARY
@@ -289,5 +310,6 @@ jobs:
             echo "- Verify database connectivity and SSM automation" >> $GITHUB_STEP_SUMMARY
             echo "- Review target group health and instance status" >> $GITHUB_STEP_SUMMARY
             echo "- Wait longer for application to fully start up" >> $GITHUB_STEP_SUMMARY
+            echo "- Check if instances are properly configured with the application" >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
