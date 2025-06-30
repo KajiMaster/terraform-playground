@@ -1,7 +1,6 @@
 # Staging environment variables
 # Managed by GitFlow CI/CD pipeline
-# TESTING: Workflow trigger - June 2025
-# FINAL TEST: Confirming staging workflow behavior
+# COST OPTIMIZED: Using smallest viable resources for lab environment
 
 variable "environment" {
   description = "Environment name"
@@ -40,9 +39,9 @@ variable "availability_zones" {
 }
 
 variable "webserver_instance_type" {
-  description = "Instance type for web server (staging test)"
+  description = "Instance type for web server (cost optimized for lab)"
   type        = string
-  default     = "t3.small"
+  default     = "t3.micro"  # Changed from t3.small to t3.micro
 }
 
 variable "key_name" {
@@ -52,9 +51,9 @@ variable "key_name" {
 }
 
 variable "db_instance_type" {
-  description = "Instance type for RDS"
+  description = "Instance type for RDS (cost optimized for lab)"
   type        = string
-  default     = "db.t3.small"
+  default     = "db.t3.micro"  # Changed from db.t3.small to db.t3.micro
 }
 
 variable "db_name" {
@@ -101,7 +100,7 @@ variable "certificate_arn" {
   default     = null  # No SSL for staging demo
 }
 
-# Blue Environment Configuration
+# Blue Environment Configuration (cost optimized)
 variable "blue_desired_capacity" {
   description = "Desired capacity for blue Auto Scaling Group"
   type        = number
@@ -111,7 +110,7 @@ variable "blue_desired_capacity" {
 variable "blue_max_size" {
   description = "Maximum size for blue Auto Scaling Group"
   type        = number
-  default     = 2
+  default     = 1  # Reduced from 2 to 1 for cost savings
 }
 
 variable "blue_min_size" {
@@ -120,21 +119,21 @@ variable "blue_min_size" {
   default     = 1
 }
 
-# Green Environment Configuration
+# Green Environment Configuration (cost optimized)
 variable "green_desired_capacity" {
   description = "Desired capacity for green Auto Scaling Group"
   type        = number
-  default     = 1  # Changed from 0 to 1 for proper blue-green testing
+  default     = 0  # Start with 0 to save costs, scale up only when needed
 }
 
 variable "green_max_size" {
   description = "Maximum size for green Auto Scaling Group"
   type        = number
-  default     = 2
+  default     = 1  # Reduced from 2 to 1 for cost savings
 }
 
 variable "green_min_size" {
   description = "Minimum size for green Auto Scaling Group"
   type        = number
-  default     = 1  # Changed from 0 to 1 for proper blue-green testing
+  default     = 0  # Start with 0 to save costs
 } 
