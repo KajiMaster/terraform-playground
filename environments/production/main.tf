@@ -60,11 +60,12 @@ module "database" {
   environment                 = var.environment
   vpc_id                      = module.networking.vpc_id
   private_subnets             = module.networking.private_subnet_ids
-  webserver_security_group_id = module.webserver.security_group_id
+  webserver_security_group_ids = [module.webserver.security_group_id]
   db_instance_type            = var.db_instance_type
   db_name                     = var.db_name
   db_username                 = module.secrets.db_username
   db_password                 = module.secrets.db_password
+  security_group_id           = module.networking.database_security_group_id
 }
 
 # Compute Module (Web Server)
@@ -79,6 +80,7 @@ module "webserver" {
   db_name        = var.db_name
   db_user        = module.secrets.db_username
   db_password    = module.secrets.db_password
+  security_group_id = module.networking.webserver_security_group_id
 }
 
 # SSM Module for Database Bootstrapping

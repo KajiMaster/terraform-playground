@@ -94,4 +94,9 @@ variable "cpu_threshold" {
   description = "CPU utilization threshold for auto scaling"
   type        = number
   default     = 80
+}
+
+variable "security_group_id" {
+  description = "Security group ID for the ASG instances (managed by networking module)"
+  type        = string
 } 

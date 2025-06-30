@@ -16,43 +16,7 @@ terraform {
   }
 }
 
-# Security Group for Auto Scaling Group instances
-resource "aws_security_group" "asg" {
-  name        = "${var.environment}-${var.deployment_color}-asg-sg"
-  description = "Security group for ${var.deployment_color} Auto Scaling Group"
-  vpc_id      = var.vpc_id
-
-  # Allow HTTP traffic from ALB
-  ingress {
-    from_port       = 8080
-    to_port         = 8080
-    protocol        = "tcp"
-    security_groups = [var.alb_security_group_id]
-    description     = "Allow HTTP traffic from ALB"
-  }
-
-  # SSH access (for debugging)
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # Consider restricting this in production
-    description = "SSH access"
-  }
-
-  # Allow all outbound traffic
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "Allow all outbound traffic"
-  }
-
-  tags = {
-    Name = "${var.environment}-${var.deployment_color}-asg-sg"
-  }
-}
+# Security group is now managed by the networking module
 
 # IAM Role for Auto Scaling Group instances
 resource "aws_iam_role" "asg" {
@@ -189,7 +153,7 @@ resource "aws_launch_template" "asg" {
 
   network_interfaces {
     associate_public_ip_address = true
-    security_groups             = [aws_security_group.asg.id]
+    security_groups             = [var.security_group_id]
   }
 
   iam_instance_profile {

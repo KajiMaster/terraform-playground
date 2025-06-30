@@ -151,17 +151,37 @@ resource "aws_route_table_association" "private" {
   route_table_id = aws_route_table.private.id
 }
 
-# Security Groups
+# Security Groups - Centralized Network Security
 resource "aws_security_group" "webserver" {
   name        = "${var.environment}-webserver-sg"
-  description = "Security group for web servers"
+  description = "Security group for web servers (HTTP, SSH, egress)"
   vpc_id      = aws_vpc.main.id
 
+  # Allow HTTP traffic on port 8080 (for application)
+  ingress {
+    from_port   = 8080
+    to_port     = 8080
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow HTTP traffic on port 8080"
+  }
+
+  # SSH access (for debugging)
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"] # Consider restricting this in production
+    description = "SSH access"
+  }
+
+  # Allow all outbound traffic
   egress {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow all outbound traffic"
   }
 
   tags = {
@@ -174,22 +194,28 @@ resource "aws_security_group" "webserver" {
 
 resource "aws_security_group" "database" {
   name        = "${var.environment}-database-sg"
-  description = "Security group for RDS database"
+  description = "Security group for RDS database (MySQL from webservers)"
   vpc_id      = aws_vpc.main.id
 
-  ingress {
-    description     = "MySQL from web servers"
-    from_port       = 3306
-    to_port         = 3306
-    protocol        = "tcp"
-    security_groups = var.webserver_security_group_ids
+  # Allow MySQL access from web servers
+  dynamic "ingress" {
+    for_each = var.webserver_security_group_ids
+    content {
+      description     = "MySQL from web server"
+      from_port       = 3306
+      to_port         = 3306
+      protocol        = "tcp"
+      security_groups = [ingress.value]
+    }
   }
 
+  # Allow all outbound traffic
   egress {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow all outbound traffic"
   }
 
   tags = {
@@ -198,4 +224,47 @@ resource "aws_security_group" "database" {
     Project     = "tf-playground"
     ManagedBy   = "terraform"
   }
-} 
+}
+
+resource "aws_security_group" "alb" {
+  name        = "${var.environment}-alb-sg"
+  description = "Security group for Application Load Balancer"
+  vpc_id      = aws_vpc.main.id
+
+  # Allow HTTP traffic from internet
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow HTTP traffic from internet"
+  }
+
+  # Allow HTTPS traffic from internet (for future SSL)
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow HTTPS traffic from internet"
+  }
+
+  # Allow all outbound traffic
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow all outbound traffic"
+  }
+
+  tags = {
+    Name        = "${var.environment}-alb-sg"
+    Environment = var.environment
+    Project     = "tf-playground"
+    ManagedBy   = "terraform"
+  }
+}
+
+# Security group rules for ALB to webserver communication are handled by the webserver security group
+# which already allows traffic on port 8080 from any source (0.0.0.0/0) 

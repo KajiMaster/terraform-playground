@@ -14,7 +14,7 @@ variable "public_subnets" {
 }
 
 variable "certificate_arn" {
-  description = "ARN of the SSL certificate for HTTPS listener (optional)"
+  description = "ARN of the SSL certificate for HTTPS listener"
   type        = string
   default     = null
 }
@@ -47,4 +47,9 @@ variable "health_check_unhealthy_threshold" {
   description = "Number of consecutive health checks required to mark target as unhealthy"
   type        = number
   default     = 2
+}
+
+variable "security_group_id" {
+  description = "Security group ID for the ALB (managed by networking module)"
+  type        = string
 } 
