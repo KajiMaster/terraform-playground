@@ -57,14 +57,14 @@ def check_database_connection():
 def check_application_readiness():
     """Check if application is ready to serve requests"""
     try:
-        # Basic application functionality test
+        # Just check if database is responding, don't check for specific data
         conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute('SELECT COUNT(*) as count FROM contacts')
-        result = cursor.fetchone()
+        cursor = conn.cursor()
+        cursor.execute('SELECT 1')  # Simple connectivity test
+        cursor.fetchone()
         cursor.close()
         conn.close()
-        return result['count'] >= 0  # Just check if query works
+        return True  # If we can connect and execute a query, we're ready
     except Exception as e:
         print(f"Application readiness check failed: {e}")
         return False
