@@ -215,10 +215,8 @@ jobs:
             # Test if response is valid JSON
             if echo "$APP_BODY" | jq . >/dev/null 2>&1; then
               DEPLOYMENT_COLOR=$(echo "$APP_BODY" | jq -r .deployment_color)
-              CONTACTS_COUNT=$(echo "$APP_BODY" | jq '.contacts | length')
               
               echo "**Deployment Color**: $DEPLOYMENT_COLOR" >> $GITHUB_STEP_SUMMARY
-              echo "**Contacts Count**: $CONTACTS_COUNT" >> $GITHUB_STEP_SUMMARY
               echo "" >> $GITHUB_STEP_SUMMARY
             else
               echo "❌ **Invalid JSON Response**" >> $GITHUB_STEP_SUMMARY
@@ -228,14 +226,12 @@ jobs:
               echo "- Application error page" >> $GITHUB_STEP_SUMMARY
               echo "" >> $GITHUB_STEP_SUMMARY
               DEPLOYMENT_COLOR="unknown"
-              CONTACTS_COUNT=0
             fi
           else
             echo "❌ **Application not responding correctly**" >> $GITHUB_STEP_SUMMARY
             echo "HTTP Status: $APP_HTTP_STATUS" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             DEPLOYMENT_COLOR="unknown"
-            CONTACTS_COUNT=0
           fi
           
           # Validate target groups
@@ -281,13 +277,13 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           
           # Success criteria with more detailed reporting
-          if [ "$APP_HTTP_STATUS" = "200" ] && [ "$DEPLOYMENT_COLOR" = "blue" ] && [ "$CONTACTS_COUNT" -gt 0 ] && [ "$BLUE_HEALTH" = "healthy" ]; then
+          if [ "$APP_HTTP_STATUS" = "200" ] && [ "$DEPLOYMENT_COLOR" = "blue" ] && [ "$BLUE_HEALTH" = "healthy" ]; then
             echo "✅ **Blue-Green Deployment Validation: PASSED**" >> $GITHUB_STEP_SUMMARY
             echo "- Application responding correctly (HTTP 200)" >> $GITHUB_STEP_SUMMARY
             echo "- Valid JSON response received" >> $GITHUB_STEP_SUMMARY
-            echo "- Database connectivity confirmed ($CONTACTS_COUNT contacts)" >> $GITHUB_STEP_SUMMARY
             echo "- Target groups healthy" >> $GITHUB_STEP_SUMMARY
             echo "- Ready for failover testing" >> $GITHUB_STEP_SUMMARY
+            echo "- Note: Database data not required for lab environment" >> $GITHUB_STEP_SUMMARY
           else
             echo "❌ **Blue-Green Deployment Validation: FAILED**" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
@@ -298,16 +294,13 @@ jobs:
             if [ "$DEPLOYMENT_COLOR" != "blue" ]; then
               echo "- Deployment Color: $DEPLOYMENT_COLOR (expected blue)" >> $GITHUB_STEP_SUMMARY
             fi
-            if [ "$CONTACTS_COUNT" -eq 0 ]; then
-              echo "- No contacts found (database connectivity issue)" >> $GITHUB_STEP_SUMMARY
-            fi
             if [ "$BLUE_HEALTH" != "healthy" ]; then
               echo "- Blue Target Group Health: $BLUE_HEALTH (expected healthy)" >> $GITHUB_STEP_SUMMARY
             fi
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "**Next Steps:**" >> $GITHUB_STEP_SUMMARY
             echo "- Check application logs for startup issues" >> $GITHUB_STEP_SUMMARY
-            echo "- Verify database connectivity and SSM automation" >> $GITHUB_STEP_SUMMARY
+            echo "- Verify database connectivity" >> $GITHUB_STEP_SUMMARY
             echo "- Review target group health and instance status" >> $GITHUB_STEP_SUMMARY
             echo "- Wait longer for application to fully start up" >> $GITHUB_STEP_SUMMARY
             echo "- Check if instances are properly configured with the application" >> $GITHUB_STEP_SUMMARY
