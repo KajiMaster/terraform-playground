@@ -12,6 +12,10 @@ echo "Environment: $ENVIRONMENT"
 echo "Region: $REGION"
 echo "=========================================="
 
+# Store the root directory path
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+
 # Change to environment directory
 cd environments/$ENVIRONMENT
 
@@ -25,7 +29,7 @@ echo "=========================================="
 # Pre-test validation
 echo "🔍 Pre-test Validation..."
 echo "Testing health checks..."
-./scripts/test-health-checks.sh
+$ROOT_DIR/scripts/test-health-checks.sh
 
 # Get current deployment color
 CURRENT_COLOR=$(curl -s $(terraform output -raw application_url) | jq -r .deployment_color)
@@ -48,7 +52,7 @@ echo "🔄 SCENARIO 1: Blue to Green Failover"
 echo "=========================================="
 
 # Run blue to green test
-./scripts/test-blue-to-green.sh $ENVIRONMENT $REGION
+$ROOT_DIR/scripts/test-blue-to-green.sh $ENVIRONMENT $REGION
 
 echo "=========================================="
 echo "✅ Scenario 1 completed successfully!"
@@ -62,7 +66,7 @@ echo "🔄 SCENARIO 2: Green to Blue Rollback"
 echo "=========================================="
 
 # Run green to blue test
-./scripts/test-green-to-blue.sh $ENVIRONMENT $REGION
+$ROOT_DIR/scripts/test-green-to-blue.sh $ENVIRONMENT $REGION
 
 echo "=========================================="
 echo "✅ Scenario 2 completed successfully!"
@@ -74,7 +78,7 @@ echo "🔍 Final Validation..."
 echo "=========================================="
 
 # Test health checks again
-./scripts/test-health-checks.sh
+$ROOT_DIR/scripts/test-health-checks.sh
 
 # Verify we're back to blue
 FINAL_COLOR=$(curl -s $(terraform output -raw application_url) | jq -r .deployment_color)

@@ -62,6 +62,7 @@ module "loadbalancer" {
   certificate_arn = var.certificate_arn
 }
 
+# Comment line for trigger GHA (delete later)
 # Database Module
 module "database" {
   source                      = "../../modules/database"
