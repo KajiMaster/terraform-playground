@@ -60,6 +60,7 @@ module "loadbalancer" {
   vpc_id      = module.networking.vpc_id
   public_subnets = module.networking.public_subnet_ids
   certificate_arn = var.certificate_arn
+  security_group_id = module.networking.alb_security_group_id
 }
 
 # Comment line for trigger GHA (delete later)
@@ -74,6 +75,7 @@ module "database" {
   db_name                     = var.db_name
   db_username                 = module.secrets.db_username
   db_password                 = module.secrets.db_password
+  security_group_id           = module.networking.database_security_group_id
 }
 
 # Blue Auto Scaling Group
@@ -95,6 +97,7 @@ module "blue_asg" {
   db_name                  = var.db_name
   db_user                  = module.secrets.db_username
   db_password              = module.secrets.db_password
+  security_group_id        = module.networking.webserver_security_group_id
 }
 
 # Green Auto Scaling Group
@@ -116,6 +119,7 @@ module "green_asg" {
   db_name                  = var.db_name
   db_user                  = module.secrets.db_username
   db_password              = module.secrets.db_password
+  security_group_id        = module.networking.webserver_security_group_id
 }
 
 # SSM Module for Database Bootstrapping (updated to use blue ASG)
@@ -142,23 +146,4 @@ module "oidc" {
   create_oidc_provider = false  # Reference existing provider
 }
 
-# Security group rule to allow ALB to webserver communication
-resource "aws_security_group_rule" "alb_to_webserver_http" {
-  type                     = "ingress"
-  from_port                = 80
-  to_port                  = 80
-  protocol                 = "tcp"
-  source_security_group_id = module.loadbalancer.alb_security_group_id
-  security_group_id        = module.networking.webserver_security_group_id
-  description              = "HTTP from ALB to webserver"
-}
-
-resource "aws_security_group_rule" "alb_to_webserver_https" {
-  type                     = "ingress"
-  from_port                = 443
-  to_port                  = 443
-  protocol                 = "tcp"
-  source_security_group_id = module.loadbalancer.alb_security_group_id
-  security_group_id        = module.networking.webserver_security_group_id
-  description              = "HTTPS from ALB to webserver"
-} # Force workflow trigger - Mon Jun 30 14:28:15 -05 2025
+# Security group rules are now managed by the networking module

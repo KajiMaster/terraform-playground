@@ -43,6 +43,11 @@ output "database_security_group_id" {
   value       = aws_security_group.database.id
 }
 
+output "alb_security_group_id" {
+  description = "The ID of the ALB security group"
+  value       = aws_security_group.alb.id
+}
+
 output "public_route_table_id" {
   description = "The ID of the public route table"
   value       = aws_route_table.public.id

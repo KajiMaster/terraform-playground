@@ -50,4 +50,9 @@ variable "db_password" {
   description = "Database password"
   type        = string
   sensitive   = true
+}
+
+variable "security_group_id" {
+  description = "Security group ID for the web server (managed by networking module)"
+  type        = string
 } 

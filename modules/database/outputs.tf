@@ -20,5 +20,5 @@ output "db_instance_port" {
 
 output "db_security_group_id" {
   description = "The security group ID of the RDS instance"
-  value       = aws_security_group.database.id
+  value       = var.security_group_id
 } 

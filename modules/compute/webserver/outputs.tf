@@ -10,7 +10,7 @@ output "public_ip" {
 
 output "security_group_id" {
   description = "ID of the web server security group"
-  value       = aws_security_group.webserver.id
+  value       = var.security_group_id
 }
 
 output "instance_private_ip" {

@@ -68,6 +68,7 @@ module "loadbalancer" {
   vpc_id      = module.networking.vpc_id
   public_subnets = module.networking.public_subnet_ids
   certificate_arn = var.certificate_arn
+  security_group_id = module.networking.alb_security_group_id
 }
 
 # Database Module
@@ -81,6 +82,7 @@ module "database" {
   db_name                     = var.db_name
   db_username                 = module.secrets.db_username
   db_password                 = module.secrets.db_password
+  security_group_id           = module.networking.database_security_group_id
 }
 
 # Blue Auto Scaling Group
@@ -102,6 +104,7 @@ module "blue_asg" {
   db_name                  = var.db_name
   db_user                  = module.secrets.db_username
   db_password              = module.secrets.db_password
+  security_group_id        = module.networking.webserver_security_group_id
 }
 
 # Green Auto Scaling Group
@@ -123,6 +126,7 @@ module "green_asg" {
   db_name                  = var.db_name
   db_user                  = module.secrets.db_username
   db_password              = module.secrets.db_password
+  security_group_id        = module.networking.webserver_security_group_id
 }
 
 # SSM Module for Database Bootstrapping (updated to use blue ASG)

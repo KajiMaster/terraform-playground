@@ -25,7 +25,7 @@ output "launch_template_name" {
 
 output "security_group_id" {
   description = "ID of the ASG security group"
-  value       = aws_security_group.asg.id
+  value       = var.security_group_id
 }
 
 output "iam_role_arn" {
