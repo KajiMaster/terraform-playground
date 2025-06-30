@@ -123,7 +123,7 @@ variable "blue_min_size" {
 variable "green_desired_capacity" {
   description = "Desired capacity for green Auto Scaling Group"
   type        = number
-  default     = 0  # Start with 0 to save costs, scale up only when needed
+  default     = 1  # Changed from 0 to 1 for blue-green testing
 }
 
 variable "green_max_size" {
@@ -135,5 +135,5 @@ variable "green_max_size" {
 variable "green_min_size" {
   description = "Minimum size for green Auto Scaling Group"
   type        = number
-  default     = 0  # Start with 0 to save costs
+  default     = 1  # Changed from 0 to 1 for blue-green testing
 } 
