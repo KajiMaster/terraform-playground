@@ -140,4 +140,25 @@ module "oidc" {
   state_lock_table    = "tf-playground-locks"
   aws_region          = var.aws_region
   create_oidc_provider = false  # Reference existing provider
+}
+
+# Security group rule to allow ALB to webserver communication
+resource "aws_security_group_rule" "alb_to_webserver_http" {
+  type                     = "ingress"
+  from_port                = 80
+  to_port                  = 80
+  protocol                 = "tcp"
+  source_security_group_id = module.loadbalancer.alb_security_group_id
+  security_group_id        = module.networking.webserver_security_group_id
+  description              = "HTTP from ALB to webserver"
+}
+
+resource "aws_security_group_rule" "alb_to_webserver_https" {
+  type                     = "ingress"
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  source_security_group_id = module.loadbalancer.alb_security_group_id
+  security_group_id        = module.networking.webserver_security_group_id
+  description              = "HTTPS from ALB to webserver"
 } 

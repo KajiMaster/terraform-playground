@@ -33,11 +33,6 @@ output "nat_gateway_eip" {
   value       = var.create_nat_gateway ? aws_eip.nat[0].public_ip : null
 }
 
-output "alb_security_group_id" {
-  description = "The ID of the ALB security group"
-  value       = aws_security_group.alb.id
-}
-
 output "webserver_security_group_id" {
   description = "The ID of the webserver security group"
   value       = aws_security_group.webserver.id
