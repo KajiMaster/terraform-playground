@@ -1,0 +1,90 @@
+name: Deploy Cost Monitoring System
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_deploy:
+        description: "Type 'DEPLOY-COST-MONITORING' to confirm deployment"
+        required: true
+        type: string
+        default: ""
+
+env:
+  TF_VERSION: "1.12.0"
+  AWS_REGION: "us-east-2"
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  validate-deploy:
+    name: Validate Deployment Confirmation
+    runs-on: ubuntu-latest
+    outputs:
+      should_deploy: ${{ steps.validate.outputs.should_deploy }}
+    
+    steps:
+      - name: Validate Confirmation
+        id: validate
+        run: |
+          if [ "${{ github.event.inputs.confirm_deploy }}" = "DEPLOY-COST-MONITORING" ]; then
+            echo "should_deploy=true" >> $GITHUB_OUTPUT
+            echo "✅ Cost monitoring deployment confirmed - proceeding"
+          else
+            echo "should_deploy=false" >> $GITHUB_OUTPUT
+            echo "❌ Deployment not confirmed. Please type 'DEPLOY-COST-MONITORING' to proceed."
+            exit 1
+          fi
+
+  deploy-cost-monitoring:
+    name: Deploy Cost Monitoring to Global Environment
+    runs-on: ubuntu-latest
+    needs: validate-deploy
+    if: needs.validate-deploy.outputs.should_deploy == 'true'
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::123324351829:role/github-actions-global
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: cost-monitoring-deploy-${{ github.run_id }}
+
+      - name: Terraform Init
+        working-directory: environments/global
+        run: terraform init
+
+      - name: Terraform Plan
+        working-directory: environments/global
+        run: terraform plan -out=tfplan
+
+      - name: Terraform Apply
+        working-directory: environments/global
+        run: terraform apply tfplan
+
+      - name: Deployment Summary
+        run: |
+          echo "## 🚨 Cost Monitoring System Deployed" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment**: Global" >> $GITHUB_STEP_SUMMARY
+          echo "**Status**: ✅ Deployed" >> $GITHUB_STEP_SUMMARY
+          echo "**Time**: $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Features Deployed:" >> $GITHUB_STEP_SUMMARY
+          echo "- **Daily Budget**: $15 limit with email alerts" >> $GITHUB_STEP_SUMMARY
+          echo "- **After-Hours Monitoring**: Checks at 8 PM UTC daily" >> $GITHUB_STEP_SUMMARY
+          echo "- **Resource Detection**: EC2, RDS, Load Balancers" >> $GITHUB_STEP_SUMMARY
+          echo "- **Email Alerts**: SNS notifications for cost issues" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps:" >> $GITHUB_STEP_SUMMARY
+          echo "1. **Update email address** in environments/global/main.tf" >> $GITHUB_STEP_SUMMARY
+          echo "2. **Confirm SNS subscription** via email" >> $GITHUB_STEP_SUMMARY
+          echo "3. **Test the system** by running environments outside hours" >> $GITHUB_STEP_SUMMARY 

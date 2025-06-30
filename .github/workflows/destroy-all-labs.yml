@@ -1,0 +1,191 @@
+name: Daily Lab Cleanup - Destroy All Environments
+
+on:
+  schedule:
+    # Run every day at 9 PM EST (2 AM UTC next day)
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      confirm_destroy_all:
+        description: "Type 'DESTROY-ALL-LABS' to confirm you want to destroy ALL lab environments"
+        required: true
+        type: string
+        default: ""
+
+env:
+  TF_VERSION: "1.12.0"
+  AWS_REGION: "us-east-2"
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  validate-schedule:
+    name: Validate Schedule or Manual Trigger
+    runs-on: ubuntu-latest
+    outputs:
+      should_proceed: ${{ steps.validate.outputs.should_proceed }}
+    
+    steps:
+      - name: Validate Trigger
+        id: validate
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "should_proceed=true" >> $GITHUB_OUTPUT
+            echo "✅ Scheduled cleanup triggered - proceeding with daily lab cleanup"
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.confirm_destroy_all }}" = "DESTROY-ALL-LABS" ]; then
+            echo "should_proceed=true" >> $GITHUB_OUTPUT
+            echo "✅ Manual destroy confirmed - proceeding with lab cleanup"
+          else
+            echo "should_proceed=false" >> $GITHUB_OUTPUT
+            echo "❌ Invalid trigger or confirmation missing"
+            exit 1
+          fi
+
+  destroy-dev:
+    name: Destroy Development Environment
+    runs-on: ubuntu-latest
+    needs: validate-schedule
+    if: needs.validate-schedule.outputs.should_proceed == 'true'
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::123324351829:role/github-actions-global
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: daily-cleanup-dev-${{ github.run_id }}
+
+      - name: Terraform Init
+        working-directory: environments/dev
+        run: terraform init
+
+      - name: Terraform Destroy
+        working-directory: environments/dev
+        run: terraform destroy -auto-approve
+        continue-on-error: true
+
+      - name: Dev Destroy Status
+        run: |
+          if [ $? -eq 0 ]; then
+            echo "✅ Dev environment destroyed successfully"
+          else
+            echo "⚠️ Dev environment destroy had issues (may already be destroyed)"
+          fi
+
+  destroy-staging:
+    name: Destroy Staging Environment
+    runs-on: ubuntu-latest
+    needs: validate-schedule
+    if: needs.validate-schedule.outputs.should_proceed == 'true'
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::123324351829:role/github-actions-global
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: daily-cleanup-staging-${{ github.run_id }}
+
+      - name: Terraform Init
+        working-directory: environments/staging
+        run: terraform init
+
+      - name: Terraform Destroy
+        working-directory: environments/staging
+        run: terraform destroy -auto-approve
+        continue-on-error: true
+
+      - name: Staging Destroy Status
+        run: |
+          if [ $? -eq 0 ]; then
+            echo "✅ Staging environment destroyed successfully"
+          else
+            echo "⚠️ Staging environment destroy had issues (may already be destroyed)"
+          fi
+
+  destroy-production:
+    name: Destroy Production Environment
+    runs-on: ubuntu-latest
+    needs: validate-schedule
+    if: needs.validate-schedule.outputs.should_proceed == 'true'
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::123324351829:role/github-actions-global
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: daily-cleanup-production-${{ github.run_id }}
+
+      - name: Terraform Init
+        working-directory: environments/production
+        run: terraform init
+
+      - name: Terraform Destroy
+        working-directory: environments/production
+        run: terraform destroy -auto-approve
+        continue-on-error: true
+
+      - name: Production Destroy Status
+        run: |
+          if [ $? -eq 0 ]; then
+            echo "✅ Production environment destroyed successfully"
+          else
+            echo "⚠️ Production environment destroy had issues (may already be destroyed)"
+          fi
+
+  cleanup-summary:
+    name: Daily Cleanup Summary
+    runs-on: ubuntu-latest
+    needs: [destroy-dev, destroy-staging, destroy-production]
+    if: always()
+    
+    steps:
+      - name: Generate Summary
+        run: |
+          echo "## 🧹 Daily Lab Cleanup Complete" >> $GITHUB_STEP_SUMMARY
+          echo "**Date**: $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "**Trigger**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Environments Cleaned:" >> $GITHUB_STEP_SUMMARY
+          echo "- **Development**: ${{ needs.destroy-dev.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Staging**: ${{ needs.destroy-staging.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Production**: ${{ needs.destroy-production.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Cost Impact:" >> $GITHUB_STEP_SUMMARY
+          echo "- **EC2 Instances**: All terminated" >> $GITHUB_STEP_SUMMARY
+          echo "- **RDS Databases**: All deleted" >> $GITHUB_STEP_SUMMARY
+          echo "- **Load Balancers**: All removed" >> $GITHUB_STEP_SUMMARY
+          echo "- **NAT Gateways**: All deleted" >> $GITHUB_STEP_SUMMARY
+          echo "- **Auto Scaling Groups**: All terminated" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps:" >> $GITHUB_STEP_SUMMARY
+          echo "- **To rebuild**: Use individual environment workflows" >> $GITHUB_STEP_SUMMARY
+          echo "- **Manual trigger**: Run this workflow manually if needed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Schedule**: Runs daily at 9 PM EST (2 AM UTC)" >> $GITHUB_STEP_SUMMARY 

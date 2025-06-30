@@ -38,4 +38,14 @@ module "oidc" {
   state_lock_table    = "tf-playground-locks"
   aws_region          = "us-east-2"
   create_oidc_provider = true
+}
+
+# Cost Monitoring and Alerting
+module "cost_monitoring" {
+  source = "../../modules/cost-monitoring"
+
+  environment            = "global"
+  daily_budget_limit     = 15.0  # $15 daily limit
+  alert_email_addresses  = ["alerts@virtualexponent.com"]
+  after_hours_check_time = "20:00"  # 8 PM EST
 } 
