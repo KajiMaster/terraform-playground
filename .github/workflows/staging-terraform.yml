@@ -246,6 +246,51 @@ jobs:
           echo "🔄 Testing Blue-Green Failover Functionality..." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
+          # Ensure green environment is ready before testing
+          echo "**Preparing Green Environment for Testing**" >> $GITHUB_STEP_SUMMARY
+          GREEN_ASG_NAME=$(terraform output -raw green_asg_name)
+          
+          # Check if green ASG has instances
+          GREEN_INSTANCE_COUNT=$(aws autoscaling describe-auto-scaling-groups \
+            --auto-scaling-group-names $GREEN_ASG_NAME \
+            --region ${{ env.AWS_REGION }} \
+            --query 'AutoScalingGroups[0].Instances[?LifecycleState==`InService`] | length(@)' \
+            --output text)
+          
+          echo "Green ASG has $GREEN_INSTANCE_COUNT instances" >> $GITHUB_STEP_SUMMARY
+          
+          # If no green instances, scale up and wait
+          if [ "$GREEN_INSTANCE_COUNT" -eq 0 ]; then
+            echo "Scaling up green ASG for testing..." >> $GITHUB_STEP_SUMMARY
+            aws autoscaling set-desired-capacity \
+              --auto-scaling-group-name $GREEN_ASG_NAME \
+              --desired-capacity 1 \
+              --region ${{ env.AWS_REGION }}
+            
+            echo "Waiting for green instances to be ready..." >> $GITHUB_STEP_SUMMARY
+            sleep 60  # Wait for instance to start
+            
+            # Wait for green target group to be healthy
+            echo "Waiting for green target group to be healthy..." >> $GITHUB_STEP_SUMMARY
+            for i in {1..10}; do
+              GREEN_TG_HEALTH=$(aws elbv2 describe-target-health \
+                --target-group-arn $GREEN_TG_ARN \
+                --region ${{ env.AWS_REGION }} \
+                --query 'TargetHealthDescriptions[0].TargetHealth.State' \
+                --output text)
+              
+              if [ "$GREEN_TG_HEALTH" = "healthy" ]; then
+                echo "✅ Green target group is healthy!" >> $GITHUB_STEP_SUMMARY
+                break
+              else
+                echo "Attempt $i: Green target group health: $GREEN_TG_HEALTH" >> $GITHUB_STEP_SUMMARY
+                sleep 15
+              fi
+            done
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
           # Step 1: Verify we start with blue
           echo "**Step 1: Verifying initial state (should be blue)**" >> $GITHUB_STEP_SUMMARY
           INITIAL_RESPONSE=$(curl -s $ALB_URL)
@@ -259,6 +304,12 @@ jobs:
           
           # Step 2: Switch traffic to green
           echo "**Step 2: Switching traffic to green**" >> $GITHUB_STEP_SUMMARY
+          
+          # Check target group health before switch
+          echo "Target group health before switch:" >> $GITHUB_STEP_SUMMARY
+          echo "- Blue: $(aws elbv2 describe-target-health --target-group-arn $BLUE_TG_ARN --region ${{ env.AWS_REGION }} --query 'TargetHealthDescriptions[0].TargetHealth.State' --output text)" >> $GITHUB_STEP_SUMMARY
+          echo "- Green: $(aws elbv2 describe-target-health --target-group-arn $GREEN_TG_ARN --region ${{ env.AWS_REGION }} --query 'TargetHealthDescriptions[0].TargetHealth.State' --output text)" >> $GITHUB_STEP_SUMMARY
+          
           aws elbv2 modify-listener \
             --listener-arn $LISTENER_ARN \
             --default-actions Type=forward,TargetGroupArn=$GREEN_TG_ARN \
@@ -273,11 +324,25 @@ jobs:
           GREEN_COLOR=$(echo "$GREEN_RESPONSE" | jq -r '.deployment_color // "unknown"')
           echo "Green deployment color: $GREEN_COLOR" >> $GITHUB_STEP_SUMMARY
           
+          # Check which target group is actually receiving traffic
+          CURRENT_TARGET_GROUP=$(aws elbv2 describe-listeners \
+            --listener-arns $LISTENER_ARN \
+            --region ${{ env.AWS_REGION }} \
+            --query 'Listeners[0].DefaultActions[0].TargetGroupArn' \
+            --output text)
+          
+          if [[ "$CURRENT_TARGET_GROUP" == *"green"* ]]; then
+            echo "✅ Listener is correctly pointing to green target group" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Listener is not pointing to green target group: $CURRENT_TARGET_GROUP" >> $GITHUB_STEP_SUMMARY
+          fi
+          
           if [ "$GREEN_COLOR" = "green" ]; then
             echo "✅ Blue to Green switch successful!" >> $GITHUB_STEP_SUMMARY
           else
             echo "❌ Blue to Green switch failed - expected green, got $GREEN_COLOR" >> $GITHUB_STEP_SUMMARY
             echo "Response: $GREEN_RESPONSE" >> $GITHUB_STEP_SUMMARY
+            echo "This might indicate that green instances are not healthy or not responding" >> $GITHUB_STEP_SUMMARY
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
           
