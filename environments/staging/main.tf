@@ -43,7 +43,6 @@ module "networking" {
   public_cidrs  = var.public_subnet_cidrs
   private_cidrs = var.private_subnet_cidrs
   azs           = var.availability_zones
-  create_nat_gateway = true  # Keep NAT Gateway for staging testing
 }
 
 # Secrets Management Module
