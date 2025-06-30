@@ -73,11 +73,11 @@ resource "aws_lb_target_group" "blue" {
     healthy_threshold   = 2
     interval            = 30
     matcher             = "200"
-    path                = "/health"
+    path                = "/health/simple"
     port                = "traffic-port"
     protocol            = "HTTP"
-    timeout             = 5
-    unhealthy_threshold = 2
+    timeout             = 10
+    unhealthy_threshold = 3
   }
 
   tags = {
@@ -97,11 +97,11 @@ resource "aws_lb_target_group" "green" {
     healthy_threshold   = 2
     interval            = 30
     matcher             = "200"
-    path                = "/health"
+    path                = "/health/simple"
     port                = "traffic-port"
     protocol            = "HTTP"
-    timeout             = 5
-    unhealthy_threshold = 2
+    timeout             = 10
+    unhealthy_threshold = 3
   }
 
   tags = {
@@ -122,6 +122,48 @@ resource "aws_lb_listener" "http" {
 
   tags = {
     Name = "${var.environment}-alb-http-listener"
+  }
+}
+
+# Listener Rule for Blue Environment (default)
+resource "aws_lb_listener_rule" "blue" {
+  listener_arn = aws_lb_listener.http.arn
+  priority     = 100
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.blue.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/*"]
+    }
+  }
+
+  tags = {
+    Name = "${var.environment}-blue-rule"
+  }
+}
+
+# Listener Rule for Green Environment (for failover testing)
+resource "aws_lb_listener_rule" "green" {
+  listener_arn = aws_lb_listener.http.arn
+  priority     = 200
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.green.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/green*", "/green/*"]
+    }
+  }
+
+  tags = {
+    Name = "${var.environment}-green-rule"
   }
 }
 

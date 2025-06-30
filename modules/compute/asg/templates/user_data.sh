@@ -151,6 +151,25 @@ def health():
             'timestamp': datetime.utcnow().isoformat()
         }), 500
 
+@app.route('/health/simple')
+def health_simple():
+    """Simple health check for load balancer target groups"""
+    try:
+        # Just check if the application is running and can respond
+        return jsonify({
+            'status': 'healthy',
+            'deployment_color': '${deployment_color}',
+            'timestamp': datetime.utcnow().isoformat(),
+            'instance_id': os.environ.get('INSTANCE_ID', 'unknown')
+        }), 200
+    except Exception as e:
+        return jsonify({
+            'status': 'unhealthy',
+            'error': str(e),
+            'deployment_color': '${deployment_color}',
+            'timestamp': datetime.utcnow().isoformat()
+        }), 500
+
 @app.route('/deployment/validate')
 def deployment_validation():
     """Comprehensive validation for new deployments"""
