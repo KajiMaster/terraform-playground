@@ -155,19 +155,22 @@ def health():
 def health_simple():
     """Simple health check for load balancer target groups"""
     try:
-        # Just check if the application is running and can respond
+        # Basic application check - just verify the app is running
+        # Don't check database or other services to keep it simple and fast
         return jsonify({
             'status': 'healthy',
             'deployment_color': '${deployment_color}',
             'timestamp': datetime.utcnow().isoformat(),
-            'instance_id': os.environ.get('INSTANCE_ID', 'unknown')
+            'instance_id': os.environ.get('INSTANCE_ID', 'unknown'),
+            'message': 'Application is running'
         }), 200
     except Exception as e:
         return jsonify({
             'status': 'unhealthy',
             'error': str(e),
             'deployment_color': '${deployment_color}',
-            'timestamp': datetime.utcnow().isoformat()
+            'timestamp': datetime.utcnow().isoformat(),
+            'instance_id': os.environ.get('INSTANCE_ID', 'unknown')
         }), 500
 
 @app.route('/deployment/validate')
@@ -248,6 +251,21 @@ systemctl daemon-reload
 systemctl start webapp
 systemctl enable webapp
 
+# Wait for the application to start up
+echo "Waiting for application to start up..." >> /var/log/webapp-deployment.log
+sleep 30
+
+# Verify the application is running
+for i in {1..10}; do
+    if curl -f http://localhost:8080/health/simple > /dev/null 2>&1; then
+        echo "Application is running and responding to health checks" >> /var/log/webapp-deployment.log
+        break
+    else
+        echo "Attempt $i: Application not yet ready, waiting..." >> /var/log/webapp-deployment.log
+        sleep 10
+    fi
+done
+
 # Create a simple health check script
 cat > /usr/local/bin/health-check.sh << 'EOF'
 #!/bin/bash
@@ -260,4 +278,5 @@ chmod +x /usr/local/bin/health-check.sh
 # Log deployment information
 echo "Deployment completed for ${deployment_color} environment at $(date)" >> /var/log/webapp-deployment.log
 echo "Instance ID: $(curl -s http://169.254.169.254/latest/meta-data/instance-id)" >> /var/log/webapp-deployment.log
-echo "Deployment Color: ${deployment_color}" >> /var/log/webapp-deployment.log 
+echo "Deployment Color: ${deployment_color}" >> /var/log/webapp-deployment.log
+echo "Application startup sequence completed" >> /var/log/webapp-deployment.log 

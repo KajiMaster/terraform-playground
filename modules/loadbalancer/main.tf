@@ -71,13 +71,13 @@ resource "aws_lb_target_group" "blue" {
   health_check {
     enabled             = true
     healthy_threshold   = 2
-    interval            = 30
+    interval            = 60
     matcher             = "200"
     path                = "/health/simple"
     port                = "traffic-port"
     protocol            = "HTTP"
-    timeout             = 10
-    unhealthy_threshold = 3
+    timeout             = 30
+    unhealthy_threshold = 5
   }
 
   tags = {
@@ -95,13 +95,13 @@ resource "aws_lb_target_group" "green" {
   health_check {
     enabled             = true
     healthy_threshold   = 2
-    interval            = 30
+    interval            = 60
     matcher             = "200"
     path                = "/health/simple"
     port                = "traffic-port"
     protocol            = "HTTP"
-    timeout             = 10
-    unhealthy_threshold = 3
+    timeout             = 30
+    unhealthy_threshold = 5
   }
 
   tags = {
