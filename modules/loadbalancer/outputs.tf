@@ -53,6 +53,16 @@ output "https_listener_arn" {
   value       = var.certificate_arn != null ? aws_lb_listener.https[0].arn : null
 }
 
+output "blue_listener_rule_arn" {
+  description = "ARN of the blue listener rule"
+  value       = aws_lb_listener_rule.blue.arn
+}
+
+output "green_listener_rule_arn" {
+  description = "ARN of the green listener rule"
+  value       = aws_lb_listener_rule.green.arn
+}
+
 output "alb_url" {
   description = "URL to access the application via ALB"
   value       = "http://${aws_lb.main.dns_name}"
