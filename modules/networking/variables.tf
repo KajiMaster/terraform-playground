@@ -29,6 +29,12 @@ variable "webserver_security_group_ids" {
   default     = []
 }
 
+variable "alb_security_group_id" {
+  description = "Security group ID for the Application Load Balancer"
+  type        = string
+  default     = null
+}
+
 # Cost optimization variables
 variable "create_nat_gateway" {
   description = "Whether to create a NAT Gateway (set to false to use shared NAT Gateway)"
