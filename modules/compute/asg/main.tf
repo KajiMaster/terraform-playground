@@ -233,7 +233,7 @@ resource "aws_autoscaling_group" "asg" {
   target_group_arns   = [var.target_group_arn]
   vpc_zone_identifier = var.subnet_ids
   health_check_type   = "ELB"
-  health_check_grace_period = 300
+  health_check_grace_period = 600
 
   launch_template {
     id      = aws_launch_template.asg.id
@@ -264,28 +264,30 @@ resource "aws_autoscaling_group" "asg" {
 }
 
 # Auto Scaling Policy for CPU-based scaling
-resource "aws_autoscaling_policy" "cpu_policy" {
-  name                   = "${var.environment}-${var.deployment_color}-cpu-policy"
-  scaling_adjustment     = 1
-  adjustment_type        = "ChangeInCapacity"
-  cooldown               = 300
-  autoscaling_group_name = aws_autoscaling_group.asg.name
-}
+# DISABLED: For blue-green deployment, we want manual control, not automatic scaling
+# resource "aws_autoscaling_policy" "cpu_policy" {
+#   name                   = "${var.environment}-${var.deployment_color}-cpu-policy"
+#   scaling_adjustment     = 1
+#   adjustment_type        = "ChangeInCapacity"
+#   cooldown               = 300
+#   autoscaling_group_name = aws_autoscaling_group.asg.name
+# }
 
 # CloudWatch Alarm for CPU utilization
-resource "aws_cloudwatch_metric_alarm" "cpu_alarm" {
-  alarm_name          = "${var.environment}-${var.deployment_color}-cpu-alarm"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = "2"
-  metric_name         = "CPUUtilization"
-  namespace           = "AWS/EC2"
-  period              = "120"
-  statistic           = "Average"
-  threshold           = "80"
-  alarm_description   = "This metric monitors EC2 CPU utilization"
-  alarm_actions       = [aws_autoscaling_policy.cpu_policy.arn]
-
-  dimensions = {
-    AutoScalingGroupName = aws_autoscaling_group.asg.name
-  }
-} 
+# DISABLED: For blue-green deployment, we want manual control, not automatic scaling
+# resource "aws_cloudwatch_metric_alarm" "cpu_alarm" {
+#   alarm_name          = "${var.environment}-${var.deployment_color}-cpu-alarm"
+#   comparison_operator = "GreaterThanThreshold"
+#   evaluation_periods  = "2"
+#   metric_name         = "CPUUtilization"
+#   namespace           = "AWS/EC2"
+#   period              = "120"
+#   statistic           = "Average"
+#   threshold           = "80"
+#   alarm_description   = "This metric monitors EC2 CPU utilization"
+#   alarm_actions       = [aws_autoscaling_policy.cpu_policy.arn]
+#
+#   dimensions = {
+#     AutoScalingGroupName = aws_autoscaling_group.asg.name
+#   }
+# } 
