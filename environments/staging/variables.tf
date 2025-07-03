@@ -41,7 +41,7 @@ variable "availability_zones" {
 variable "webserver_instance_type" {
   description = "Instance type for web server (cost optimized for lab)"
   type        = string
-  default     = "t3.micro"  # Changed from t3.small to t3.micro
+  default     = "t3.micro" # Changed from t3.small to t3.micro
 }
 
 variable "key_name" {
@@ -53,7 +53,7 @@ variable "key_name" {
 variable "db_instance_type" {
   description = "Instance type for RDS (cost optimized for lab)"
   type        = string
-  default     = "db.t3.micro"  # Changed from db.t3.small to db.t3.micro
+  default     = "db.t3.micro" # Changed from db.t3.small to db.t3.micro
 }
 
 variable "db_name" {
@@ -91,13 +91,13 @@ variable "state_lock_table" {
 variable "ami_id" {
   description = "AMI ID for EC2 instances"
   type        = string
-  default     = "ami-06c8f2ec674c67112"  # Amazon Linux 2023 AMI in us-east-2 (same as dev)
+  default     = "ami-06c8f2ec674c67112" # Amazon Linux 2023 AMI in us-east-2 (same as dev)
 }
 
 variable "certificate_arn" {
   description = "ARN of SSL certificate for ALB"
   type        = string
-  default     = null  # No SSL for staging demo
+  default     = null # No SSL for staging demo
 }
 
 # Blue Environment Configuration (cost optimized)
@@ -110,7 +110,7 @@ variable "blue_desired_capacity" {
 variable "blue_max_size" {
   description = "Maximum size for blue Auto Scaling Group"
   type        = number
-  default     = 1  # Reduced from 2 to 1 for cost savings
+  default     = 1 # Reduced from 2 to 1 for cost savings
 }
 
 variable "blue_min_size" {
@@ -123,17 +123,17 @@ variable "blue_min_size" {
 variable "green_desired_capacity" {
   description = "Desired capacity for green Auto Scaling Group"
   type        = number
-  default     = 1  # Changed from 0 to 1 for blue-green testing
+  default     = 1 # Changed from 0 to 1 for blue-green testing
 }
 
 variable "green_max_size" {
   description = "Maximum size for green Auto Scaling Group"
   type        = number
-  default     = 1  # Reduced from 2 to 1 for cost savings
+  default     = 1 # Reduced from 2 to 1 for cost savings
 }
 
 variable "green_min_size" {
   description = "Minimum size for green Auto Scaling Group"
   type        = number
-  default     = 1  # Changed from 0 to 1 for blue-green testing
+  default     = 1 # Changed from 0 to 1 for blue-green testing
 } 

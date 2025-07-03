@@ -46,6 +46,19 @@ output "green_target_group_arn" {
   value       = module.loadbalancer.green_target_group_arn
 }
 
+# SSH Keys for debugging
+output "blue_asg_private_key" {
+  description = "Private key for SSH access to blue ASG instances"
+  value       = module.blue_asg.private_key
+  sensitive   = true
+}
+
+output "green_asg_private_key" {
+  description = "Private key for SSH access to green ASG instances"
+  value       = module.green_asg.private_key
+  sensitive   = true
+}
+
 # Database Outputs
 output "database_endpoint" {
   description = "The connection endpoint of the RDS instance"
@@ -125,13 +138,13 @@ output "deployment_validation_url" {
 output "environment_summary" {
   description = "Summary of the blue-green deployment environment"
   value = {
-    environment = var.environment
-    region      = var.aws_region
-    vpc_id      = module.networking.vpc_id
-    alb_dns_name = module.loadbalancer.alb_dns_name
-    application_url = module.loadbalancer.alb_url
-    blue_asg_name = module.blue_asg.asg_name
-    green_asg_name = module.green_asg.asg_name
+    environment       = var.environment
+    region            = var.aws_region
+    vpc_id            = module.networking.vpc_id
+    alb_dns_name      = module.loadbalancer.alb_dns_name
+    application_url   = module.loadbalancer.alb_url
+    blue_asg_name     = module.blue_asg.asg_name
+    green_asg_name    = module.green_asg.asg_name
     database_endpoint = module.database.db_instance_endpoint
   }
 }

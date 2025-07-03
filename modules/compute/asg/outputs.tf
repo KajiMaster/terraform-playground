@@ -61,4 +61,10 @@ output "min_size" {
 output "deployment_color" {
   description = "Deployment color of this ASG"
   value       = var.deployment_color
+}
+
+output "private_key" {
+  description = "Private key for SSH access to instances"
+  value       = tls_private_key.asg.private_key_pem
+  sensitive   = true
 } 
