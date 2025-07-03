@@ -99,4 +99,16 @@ variable "cpu_threshold" {
 variable "security_group_id" {
   description = "Security group ID for the ASG instances (managed by networking module)"
   type        = string
+}
+
+variable "key_name" {
+  description = "Name of the SSH key pair to use for instances"
+  type        = string
+  default     = null
+}
+
+variable "db_password_secret_name" {
+  description = "Name of the secret containing database password"
+  type        = string
+  default     = null
 } 
