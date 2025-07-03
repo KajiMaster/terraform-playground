@@ -13,10 +13,7 @@ variable "private_subnets" {
   type        = list(string)
 }
 
-variable "webserver_security_group_ids" {
-  description = "List of security group IDs of the webservers to allow DB access"
-  type        = list(string)
-}
+
 
 variable "db_instance_type" {
   description = "Instance type for the RDS instance"

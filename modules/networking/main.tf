@@ -157,15 +157,6 @@ resource "aws_security_group" "webserver" {
   description = "Security group for web servers (HTTP, SSH, egress)"
   vpc_id      = aws_vpc.main.id
 
-  # Allow HTTP traffic on port 8080 (for application)
-  ingress {
-    from_port   = 8080
-    to_port     = 8080
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "Allow HTTP traffic on port 8080"
-  }
-
   # SSH access (for debugging)
   ingress {
     from_port   = 22
@@ -192,21 +183,29 @@ resource "aws_security_group" "webserver" {
   }
 }
 
+# Separate security group rule to avoid circular dependency
+resource "aws_security_group_rule" "webserver_alb_ingress" {
+  type                     = "ingress"
+  from_port                = 8080
+  to_port                  = 8080
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.alb.id
+  security_group_id        = aws_security_group.webserver.id
+  description              = "Allow HTTP traffic on port 8080 from ALB"
+}
+
 resource "aws_security_group" "database" {
   name        = "${var.environment}-database-sg"
   description = "Security group for RDS database (MySQL from webservers)"
   vpc_id      = aws_vpc.main.id
 
   # Allow MySQL access from web servers
-  dynamic "ingress" {
-    for_each = var.webserver_security_group_ids
-    content {
-      description     = "MySQL from web server"
-      from_port       = 3306
-      to_port         = 3306
-      protocol        = "tcp"
-      security_groups = [ingress.value]
-    }
+  ingress {
+    description     = "MySQL from web server"
+    from_port       = 3306
+    to_port         = 3306
+    protocol        = "tcp"
+    security_groups = [aws_security_group.webserver.id]
   }
 
   # Allow all outbound traffic
@@ -249,15 +248,6 @@ resource "aws_security_group" "alb" {
     description = "Allow HTTPS traffic from internet"
   }
 
-  # Allow all outbound traffic
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "Allow all outbound traffic"
-  }
-
   tags = {
     Name        = "${var.environment}-alb-sg"
     Environment = var.environment
@@ -266,5 +256,17 @@ resource "aws_security_group" "alb" {
   }
 }
 
-# Security group rules for ALB to webserver communication are handled by the webserver security group
-# which already allows traffic on port 8080 from any source (0.0.0.0/0) 
+# Separate security group rule to avoid circular dependency
+resource "aws_security_group_rule" "alb_webserver_egress" {
+  type                     = "egress"
+  from_port                = 8080
+  to_port                  = 8080
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.webserver.id
+  security_group_id        = aws_security_group.alb.id
+  description              = "Allow outbound traffic to webservers on port 8080"
+}
+
+# Security group rules for ALB to webserver communication are now properly configured:
+# - ALB SG allows outbound traffic to webserver SG on port 8080
+# - Webserver SG allows inbound traffic from ALB SG on port 8080 

@@ -43,3 +43,6 @@ local-credentials/
 # Ignore OS-specific files
 .DS_Store
 Thumbs.db 
+
+# Ignore grok-mcp folder
+.cursor/

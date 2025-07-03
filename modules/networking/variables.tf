@@ -23,11 +23,7 @@ variable "azs" {
   type        = list(string)
 }
 
-variable "webserver_security_group_ids" {
-  description = "List of security group IDs for web servers"
-  type        = list(string)
-  default     = []
-}
+
 
 variable "alb_security_group_id" {
   description = "Security group ID for the Application Load Balancer"
