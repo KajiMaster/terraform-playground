@@ -185,6 +185,15 @@ jobs:
           # Get ALB URL and resources
           ALB_URL=$(terraform output -raw application_url)
           HEALTH_URL=$(terraform output -raw health_check_url)
+          
+          echo "**Debug Info:**" >> $GITHUB_STEP_SUMMARY
+          echo "- ALB URL: $ALB_URL" >> $GITHUB_STEP_SUMMARY
+          echo "- Health URL: $HEALTH_URL" >> $GITHUB_STEP_SUMMARY
+          echo "- Testing ALB connectivity..." >> $GITHUB_STEP_SUMMARY
+          
+          # Test basic connectivity
+          ALB_TEST=$(curl -s -w "\nHTTP_STATUS:%{http_code}" $ALB_URL 2>/dev/null || echo "CONNECTION_FAILED")
+          echo "- ALB connectivity test: $ALB_TEST" >> $GITHUB_STEP_SUMMARY
           LISTENER_ARN=$(terraform output -raw http_listener_arn)
           BLUE_TG_ARN=$(terraform output -raw blue_target_group_arn)
           GREEN_TG_ARN=$(terraform output -raw green_target_group_arn)
@@ -299,8 +308,15 @@ jobs:
           # Step 1: Verify we start with blue
           echo "**Step 1: Verifying initial state (should be blue)**" >> $GITHUB_STEP_SUMMARY
           INITIAL_RESPONSE=$(curl -s $ALB_URL)
+          echo "Raw initial response: '$INITIAL_RESPONSE'" >> $GITHUB_STEP_SUMMARY
           if [ $? -eq 0 ] && [ -n "$INITIAL_RESPONSE" ]; then
-            INITIAL_COLOR=$(echo "$INITIAL_RESPONSE" | jq -r '.deployment_color // "unknown"')
+            # Check if response is valid JSON
+            if echo "$INITIAL_RESPONSE" | jq . >/dev/null 2>&1; then
+              INITIAL_COLOR=$(echo "$INITIAL_RESPONSE" | jq -r '.deployment_color // "unknown"')
+            else
+              INITIAL_COLOR="unknown"
+              echo "⚠️ Warning: Initial response is not valid JSON" >> $GITHUB_STEP_SUMMARY
+            fi
           else
             INITIAL_COLOR="unknown"
             echo "⚠️ Warning: Could not retrieve initial response from ALB" >> $GITHUB_STEP_SUMMARY
@@ -332,8 +348,15 @@ jobs:
           # Step 3: Verify traffic switched to green
           echo "**Step 3: Verifying traffic switch to green**" >> $GITHUB_STEP_SUMMARY
           GREEN_RESPONSE=$(curl -s $ALB_URL)
+          echo "Raw green response: '$GREEN_RESPONSE'" >> $GITHUB_STEP_SUMMARY
           if [ $? -eq 0 ] && [ -n "$GREEN_RESPONSE" ]; then
-            GREEN_COLOR=$(echo "$GREEN_RESPONSE" | jq -r '.deployment_color // "unknown"')
+            # Check if response is valid JSON
+            if echo "$GREEN_RESPONSE" | jq . >/dev/null 2>&1; then
+              GREEN_COLOR=$(echo "$GREEN_RESPONSE" | jq -r '.deployment_color // "unknown"')
+            else
+              GREEN_COLOR="unknown"
+              echo "⚠️ Warning: Green response is not valid JSON" >> $GITHUB_STEP_SUMMARY
+            fi
           else
             GREEN_COLOR="unknown"
             echo "⚠️ Warning: Could not retrieve green response from ALB" >> $GITHUB_STEP_SUMMARY
@@ -375,8 +398,15 @@ jobs:
           # Step 5: Verify traffic switched back to blue
           echo "**Step 5: Verifying traffic switch back to blue**" >> $GITHUB_STEP_SUMMARY
           FINAL_RESPONSE=$(curl -s $ALB_URL)
+          echo "Raw final response: '$FINAL_RESPONSE'" >> $GITHUB_STEP_SUMMARY
           if [ $? -eq 0 ] && [ -n "$FINAL_RESPONSE" ]; then
-            FINAL_COLOR=$(echo "$FINAL_RESPONSE" | jq -r '.deployment_color // "unknown"')
+            # Check if response is valid JSON
+            if echo "$FINAL_RESPONSE" | jq . >/dev/null 2>&1; then
+              FINAL_COLOR=$(echo "$FINAL_RESPONSE" | jq -r '.deployment_color // "unknown"')
+            else
+              FINAL_COLOR="unknown"
+              echo "⚠️ Warning: Final response is not valid JSON" >> $GITHUB_STEP_SUMMARY
+            fi
           else
             FINAL_COLOR="unknown"
             echo "⚠️ Warning: Could not retrieve final response from ALB" >> $GITHUB_STEP_SUMMARY
