@@ -47,9 +47,12 @@ module "networking" {
 
 # Secrets Management Module
 module "secrets" {
-  source           = "../../modules/secrets"
-  environment      = var.environment
-  create_resources = true
+  source                    = "../../modules/secrets"
+  environment               = var.environment
+  create_resources          = true
+  ssh_private_key_secret_name = "/tf-playground/staging/ssh-key"
+  ssh_public_key_secret_name  = "/tf-playground/staging/ssh-key-public"
+  db_password_secret_name = "/tf-playground/staging/db-pword"
 }
 
 # Application Load Balancer Module
@@ -96,7 +99,9 @@ module "blue_asg" {
   db_name               = var.db_name
   db_user               = module.secrets.db_username
   db_password           = module.secrets.db_password
+  db_password_secret_name = "/tf-playground/staging/db-pword"
   security_group_id     = module.networking.webserver_security_group_id
+  key_name              = module.secrets.ssh_key_name
 }
 
 # Green Auto Scaling Group
@@ -118,7 +123,9 @@ module "green_asg" {
   db_name               = var.db_name
   db_user               = module.secrets.db_username
   db_password           = module.secrets.db_password
+  db_password_secret_name = "/tf-playground/staging/db-pword"
   security_group_id     = module.networking.webserver_security_group_id
+  key_name              = module.secrets.ssh_key_name
 }
 
 # SSM Module for Database Bootstrapping (updated to use blue ASG)

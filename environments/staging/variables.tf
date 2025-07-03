@@ -110,7 +110,7 @@ variable "blue_desired_capacity" {
 variable "blue_max_size" {
   description = "Maximum size for blue Auto Scaling Group"
   type        = number
-  default     = 1 # Reduced from 2 to 1 for cost savings
+  default     = 2 # Allow temporary overlap during instance updates
 }
 
 variable "blue_min_size" {
@@ -129,7 +129,7 @@ variable "green_desired_capacity" {
 variable "green_max_size" {
   description = "Maximum size for green Auto Scaling Group"
   type        = number
-  default     = 1 # Reduced from 2 to 1 for cost savings
+  default     = 2 # Allow temporary overlap during instance updates
 }
 
 variable "green_min_size" {

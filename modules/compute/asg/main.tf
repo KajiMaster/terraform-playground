@@ -54,7 +54,9 @@ resource "aws_iam_policy" "asg_secrets" {
           "secretsmanager:GetSecretValue"
         ]
         Resource = [
-          "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:/tf-playground/${var.environment}/database/credentials-*"
+          "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:/tf-playground/${var.environment}/database/credentials-*",
+          "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:/tf-playground/${var.environment}/db-pword",
+          "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:/tf-playground/${var.environment}/db-pword-*"
         ]
       }
     ]
@@ -121,16 +123,20 @@ resource "aws_iam_instance_profile" "asg" {
   role = aws_iam_role.asg.name
 }
 
-# Generate SSH key pair
+# SSH Key Pair - use provided key or generate one
 resource "tls_private_key" "asg" {
+  count = var.key_name == null ? 1 : 0
+  
   algorithm = "RSA"
   rsa_bits  = 4096
 }
 
 # SSH Key Pair
 resource "aws_key_pair" "asg" {
+  count = var.key_name == null ? 1 : 0
+  
   key_name   = "${var.environment}-${var.deployment_color}-key"
-  public_key = tls_private_key.asg.public_key_openssh
+  public_key = tls_private_key.asg[0].public_key_openssh
 }
 
 # User data script for ASG instances
@@ -141,6 +147,7 @@ data "template_file" "user_data" {
     db_name     = var.db_name
     db_user     = var.db_user
     db_password = var.db_password
+    db_password_secret_name = var.db_password_secret_name
     deployment_color = var.deployment_color
   }
 }
@@ -160,7 +167,7 @@ resource "aws_launch_template" "asg" {
     name = aws_iam_instance_profile.asg.name
   }
 
-  key_name = aws_key_pair.asg.key_name
+  key_name = var.key_name != null ? var.key_name : aws_key_pair.asg[0].key_name
 
   user_data = base64encode(data.template_file.user_data.rendered)
 

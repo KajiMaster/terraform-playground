@@ -157,15 +157,6 @@ resource "aws_security_group" "webserver" {
   description = "Security group for web servers (HTTP, SSH, egress)"
   vpc_id      = aws_vpc.main.id
 
-  # SSH access (for debugging)
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # Consider restricting this in production
-    description = "SSH access"
-  }
-
   # Allow all outbound traffic
   egress {
     from_port   = 0
@@ -182,6 +173,17 @@ resource "aws_security_group" "webserver" {
     ManagedBy   = "terraform"
   }
 }
+
+# SSH access rule (separate to avoid conflicts) - temporarily commented out
+# resource "aws_security_group_rule" "webserver_ssh_ingress" {
+#   type        = "ingress"
+#   from_port   = 22
+#   to_port     = 22
+#   protocol    = "tcp"
+#   cidr_blocks = ["0.0.0.0/0"] # Consider restricting this in production
+#   security_group_id = aws_security_group.webserver.id
+#   description = "SSH access"
+# }
 
 # Separate security group rule to avoid circular dependency
 resource "aws_security_group_rule" "webserver_alb_ingress" {

@@ -35,8 +35,8 @@ aws ssm start-automation-execution \
   --parameters \
     "DatabaseEndpoint=$(terraform output -raw database_endpoint | sed 's/:3306$//'),\
     DatabaseName=$(terraform output -raw database_name),\
-    DatabaseUsername=$(aws secretsmanager get-secret-value --secret-id $(terraform output -raw secret_name) --region us-east-2 --query SecretString --output text | jq -r '.username'),\
-    DatabasePassword=\"$(aws secretsmanager get-secret-value --secret-id $(terraform output -raw secret_name) --region us-east-2 --query SecretString --output text | jq -r '.password')\",\
+    DatabaseUsername=tfplayground_user,\
+    DatabasePassword=\"$(aws secretsmanager get-secret-value --secret-id /tf-playground/staging/db-pword --region us-east-2 --query SecretString --output text)\",\
     InstanceId=$(aws autoscaling describe-auto-scaling-groups --auto-scaling-group-names $(terraform output -raw blue_asg_name) --region us-east-2 --query 'AutoScalingGroups[0].Instances[0].InstanceId' --output text),\
     AutomationAssumeRole=$(terraform output -raw ssm_automation_role_arn)" \
   --region us-east-2

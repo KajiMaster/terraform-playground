@@ -15,7 +15,11 @@ python3 -m venv venv
 source venv/bin/activate
 
 # Install required Python packages
-pip install flask mysql-connector-python requests psutil
+pip install flask mysql-connector-python requests psutil boto3
+
+# Get instance ID and set as environment variable
+INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+export INSTANCE_ID
 
 # Create enhanced application files
 cat > app.py << 'EOF'
@@ -29,11 +33,40 @@ import requests
 
 app = Flask(__name__)
 
+# Get database password from Secrets Manager
+import json
+import boto3
+
+def get_instance_id():
+    """Get instance ID from metadata service"""
+    try:
+        import requests
+        response = requests.get('http://169.254.169.254/latest/meta-data/instance-id', timeout=5)
+        return response.text if response.status_code == 200 else 'unknown'
+    except Exception as e:
+        print(f"Failed to get instance ID: {e}")
+        return 'unknown'
+
+def get_db_password():
+    try:
+        # Get region from instance metadata
+        import requests
+        region_response = requests.get('http://169.254.169.254/latest/meta-data/placement/region', timeout=5)
+        region = region_response.text if region_response.status_code == 200 else 'us-east-2'
+        
+        client = boto3.client('secretsmanager', region_name=region)
+        secret_name = '${db_password_secret_name}' if '${db_password_secret_name}' != '' else '/tf-playground/staging/db-pword'
+        response = client.get_secret_value(SecretId=secret_name)
+        return response['SecretString']
+    except Exception as e:
+        print(f"Failed to get password from Secrets Manager: {e}")
+        return '${db_password}'  # Fallback to template variable
+
 # Database configuration
 db_config = {
     'host': '${db_host}',
     'user': '${db_user}',
-    'password': '${db_password}',
+    'password': get_db_password(),
     'database': '${db_name}'
 }
 
@@ -107,7 +140,7 @@ def index():
             'contacts': contacts,
             'deployment_color': '${deployment_color}',
             'timestamp': datetime.utcnow().isoformat(),
-            'instance_id': os.environ.get('INSTANCE_ID', 'unknown')
+            'instance_id': get_instance_id()
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -141,7 +174,7 @@ def health():
             },
             'deployment_color': '${deployment_color}',
             'timestamp': datetime.utcnow().isoformat(),
-            'instance_id': os.environ.get('INSTANCE_ID', 'unknown')
+            'instance_id': get_instance_id()
         }), 200 if all_healthy else 503
     except Exception as e:
         return jsonify({
@@ -161,7 +194,7 @@ def health_simple():
             'status': 'healthy',
             'deployment_color': '${deployment_color}',
             'timestamp': datetime.utcnow().isoformat(),
-            'instance_id': os.environ.get('INSTANCE_ID', 'unknown'),
+            'instance_id': get_instance_id(),
             'message': 'Application is running'
         }), 200
     except Exception as e:
@@ -170,7 +203,7 @@ def health_simple():
             'error': str(e),
             'deployment_color': '${deployment_color}',
             'timestamp': datetime.utcnow().isoformat(),
-            'instance_id': os.environ.get('INSTANCE_ID', 'unknown')
+            'instance_id': get_instance_id()
         }), 500
 
 @app.route('/deployment/validate')
@@ -192,7 +225,7 @@ def deployment_validation():
             'checks': checks,
             'deployment_color': '${deployment_color}',
             'timestamp': datetime.utcnow().isoformat(),
-            'instance_id': os.environ.get('INSTANCE_ID', 'unknown')
+            'instance_id': get_instance_id()
         }), 200 if all_passed else 503
     except Exception as e:
         return jsonify({
@@ -211,7 +244,7 @@ def info():
         
         return jsonify({
             'deployment_color': '${deployment_color}',
-            'instance_id': os.environ.get('INSTANCE_ID', 'unknown'),
+            'instance_id': get_instance_id(),
             'system_info': {
                 'memory_usage_percent': memory.percent,
                 'disk_usage_percent': disk.percent,
@@ -237,7 +270,6 @@ After=network.target
 User=root
 WorkingDirectory=/var/www/webapp
 Environment="PATH=/var/www/webapp/venv/bin"
-Environment="INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)"
 ExecStart=/var/www/webapp/venv/bin/python app.py
 Restart=always
 RestartSec=10
