@@ -89,47 +89,8 @@ resource "aws_lb_listener" "http" {
   }
 }
 
-# Listener Rule for Blue Environment (default)
-resource "aws_lb_listener_rule" "blue" {
-  listener_arn = aws_lb_listener.http.arn
-  priority     = 100
-
-  action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.blue.arn
-  }
-
-  condition {
-    path_pattern {
-      values = ["/*"]
-    }
-  }
-
-  tags = {
-    Name = "${var.environment}-blue-rule"
-  }
-}
-
-# Listener Rule for Green Environment (for failover testing)
-resource "aws_lb_listener_rule" "green" {
-  listener_arn = aws_lb_listener.http.arn
-  priority     = 200
-
-  action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.green.arn
-  }
-
-  condition {
-    path_pattern {
-      values = ["/green*", "/green/*"]
-    }
-  }
-
-  tags = {
-    Name = "${var.environment}-green-rule"
-  }
-}
+# Note: Listener rules removed for proper blue-green deployment
+# Traffic switching is handled by modifying the listener's default action
 
 # HTTPS Listener (Port 443) - for future SSL implementation
 resource "aws_lb_listener" "https" {
