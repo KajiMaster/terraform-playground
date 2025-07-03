@@ -226,20 +226,23 @@ jobs:
           BLUE_ASG_NAME=$(terraform output -raw blue_asg_name)
           GREEN_ASG_NAME=$(terraform output -raw green_asg_name)
           
+          echo "Blue ASG Name: $BLUE_ASG_NAME" >> $GITHUB_STEP_SUMMARY
+          echo "Green ASG Name: $GREEN_ASG_NAME" >> $GITHUB_STEP_SUMMARY
+          
           BLUE_INSTANCES=$(aws autoscaling describe-auto-scaling-groups \
             --auto-scaling-group-names $BLUE_ASG_NAME \
             --region ${{ env.AWS_REGION }} \
-            --query 'AutoScalingGroups[0].Instances[?LifecycleState==`InService`]' \
-            --output text)
+            --query 'AutoScalingGroups[0].Instances[?LifecycleState==`InService`] | length(@)' \
+            --output text 2>/dev/null || echo "0")
           
           GREEN_INSTANCES=$(aws autoscaling describe-auto-scaling-groups \
             --auto-scaling-group-names $GREEN_ASG_NAME \
             --region ${{ env.AWS_REGION }} \
-            --query 'AutoScalingGroups[0].Instances[?LifecycleState==`InService`]' \
-            --output text)
+            --query 'AutoScalingGroups[0].Instances[?LifecycleState==`InService`] | length(@)' \
+            --output text 2>/dev/null || echo "0")
           
-          echo "**Blue ASG Instances**: $(echo "$BLUE_INSTANCES" | wc -w)" >> $GITHUB_STEP_SUMMARY
-          echo "**Green ASG Instances**: $(echo "$GREEN_INSTANCES" | wc -w)" >> $GITHUB_STEP_SUMMARY
+          echo "**Blue ASG Instances**: $BLUE_INSTANCES" >> $GITHUB_STEP_SUMMARY
+          echo "**Green ASG Instances**: $GREEN_INSTANCES" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           # Test Blue-Green Failover Functionality
@@ -294,11 +297,17 @@ jobs:
           # Step 1: Verify we start with blue
           echo "**Step 1: Verifying initial state (should be blue)**" >> $GITHUB_STEP_SUMMARY
           INITIAL_RESPONSE=$(curl -s $ALB_URL)
-          INITIAL_COLOR=$(echo "$INITIAL_RESPONSE" | jq -r '.deployment_color // "unknown"')
+          if [ $? -eq 0 ] && [ -n "$INITIAL_RESPONSE" ]; then
+            INITIAL_COLOR=$(echo "$INITIAL_RESPONSE" | jq -r '.deployment_color // "unknown"')
+          else
+            INITIAL_COLOR="unknown"
+            echo "⚠️ Warning: Could not retrieve initial response from ALB" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "Initial deployment color: $INITIAL_COLOR" >> $GITHUB_STEP_SUMMARY
           
           if [ "$INITIAL_COLOR" != "blue" ]; then
             echo "⚠️ Warning: Expected blue, got $INITIAL_COLOR" >> $GITHUB_STEP_SUMMARY
+            echo "Raw response: $INITIAL_RESPONSE" >> $GITHUB_STEP_SUMMARY
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
           
@@ -321,7 +330,12 @@ jobs:
           # Step 3: Verify traffic switched to green
           echo "**Step 3: Verifying traffic switch to green**" >> $GITHUB_STEP_SUMMARY
           GREEN_RESPONSE=$(curl -s $ALB_URL)
-          GREEN_COLOR=$(echo "$GREEN_RESPONSE" | jq -r '.deployment_color // "unknown"')
+          if [ $? -eq 0 ] && [ -n "$GREEN_RESPONSE" ]; then
+            GREEN_COLOR=$(echo "$GREEN_RESPONSE" | jq -r '.deployment_color // "unknown"')
+          else
+            GREEN_COLOR="unknown"
+            echo "⚠️ Warning: Could not retrieve green response from ALB" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "Green deployment color: $GREEN_COLOR" >> $GITHUB_STEP_SUMMARY
           
           # Check which target group is actually receiving traffic
@@ -359,7 +373,12 @@ jobs:
           # Step 5: Verify traffic switched back to blue
           echo "**Step 5: Verifying traffic switch back to blue**" >> $GITHUB_STEP_SUMMARY
           FINAL_RESPONSE=$(curl -s $ALB_URL)
-          FINAL_COLOR=$(echo "$FINAL_RESPONSE" | jq -r '.deployment_color // "unknown"')
+          if [ $? -eq 0 ] && [ -n "$FINAL_RESPONSE" ]; then
+            FINAL_COLOR=$(echo "$FINAL_RESPONSE" | jq -r '.deployment_color // "unknown"')
+          else
+            FINAL_COLOR="unknown"
+            echo "⚠️ Warning: Could not retrieve final response from ALB" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "Final deployment color: $FINAL_COLOR" >> $GITHUB_STEP_SUMMARY
           
           if [ "$FINAL_COLOR" = "blue" ]; then
