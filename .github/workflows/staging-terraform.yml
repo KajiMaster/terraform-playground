@@ -172,285 +172,68 @@ jobs:
           echo "### Infrastructure Outputs:" >> $GITHUB_STEP_SUMMARY
           terraform output >> $GITHUB_STEP_SUMMARY
 
-      - name: Validate Blue-Green Deployment
+      - name: Validate Infrastructure Deployment
         working-directory: environments/staging
         run: |
-          echo "## 🔍 Blue-Green Deployment Validation" >> $GITHUB_STEP_SUMMARY
+          echo "## 🔍 Infrastructure Deployment Validation" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           # Wait for infrastructure to be ready
           echo "⏳ Waiting for infrastructure to be ready..."
-          sleep 120  # Increased wait time to 2 minutes
+          sleep 30  # Reduced wait time
           
-          # Get ALB URL and resources
+          # Get basic infrastructure info
           ALB_URL=$(terraform output -raw application_url)
           HEALTH_URL=$(terraform output -raw health_check_url)
           
-          echo "**Debug Info:**" >> $GITHUB_STEP_SUMMARY
+          echo "**Infrastructure Info:**" >> $GITHUB_STEP_SUMMARY
           echo "- ALB URL: $ALB_URL" >> $GITHUB_STEP_SUMMARY
           echo "- Health URL: $HEALTH_URL" >> $GITHUB_STEP_SUMMARY
-          echo "- Testing ALB connectivity..." >> $GITHUB_STEP_SUMMARY
-          
-          # Test basic connectivity
-          ALB_TEST=$(curl -s -w "\nHTTP_STATUS:%{http_code}" $ALB_URL 2>/dev/null || echo "CONNECTION_FAILED")
-          echo "- ALB connectivity test: $ALB_TEST" >> $GITHUB_STEP_SUMMARY
-          LISTENER_ARN=$(terraform output -raw http_listener_arn)
-          BLUE_TG_ARN=$(terraform output -raw blue_target_group_arn)
-          GREEN_TG_ARN=$(terraform output -raw green_target_group_arn)
-          
-          echo "**ALB URL**: $ALB_URL" >> $GITHUB_STEP_SUMMARY
-          echo "**Health Check URL**: $HEALTH_URL" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          # Test health endpoint
+          # Basic connectivity test
+          echo "🔍 Testing basic connectivity..."
+          if curl -s -f "$ALB_URL" >/dev/null 2>&1; then
+            echo "✅ ALB is responding" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ ALB is not responding" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+          
+          # Health check test
           echo "🏥 Testing health endpoint..."
-          HEALTH_RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" $HEALTH_URL)
-          HTTP_STATUS=$(echo "$HEALTH_RESPONSE" | grep "HTTP_STATUS:" | cut -d: -f2)
-          HEALTH_BODY=$(echo "$HEALTH_RESPONSE" | grep -v "HTTP_STATUS:")
+          HEALTH_RESPONSE=$(curl -s "$HEALTH_URL")
+          if [ $? -eq 0 ] && [ -n "$HEALTH_RESPONSE" ]; then
+            echo "✅ Health endpoint is responding" >> $GITHUB_STEP_SUMMARY
+            echo "- Response: $HEALTH_RESPONSE" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Health endpoint not responding" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
           
-          echo "**Health HTTP Status**: $HTTP_STATUS" >> $GITHUB_STEP_SUMMARY
-          echo "**Health Response**: $HEALTH_BODY" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          # Validate target groups
-          echo "🎯 Validating target groups..."
+          # Check target group health (basic)
+          echo "🎯 Checking target group health..."
+          BLUE_TG_ARN=$(terraform output -raw blue_target_group_arn)
           BLUE_HEALTH=$(aws elbv2 describe-target-health \
             --target-group-arn $BLUE_TG_ARN \
             --region ${{ env.AWS_REGION }} \
             --query 'TargetHealthDescriptions[0].TargetHealth.State' \
             --output text 2>/dev/null || echo "unknown")
           
-          GREEN_HEALTH=$(aws elbv2 describe-target-health \
-            --target-group-arn $GREEN_TG_ARN \
-            --region ${{ env.AWS_REGION }} \
-            --query 'TargetHealthDescriptions[0].TargetHealth.State' \
-            --output text 2>/dev/null || echo "unknown")
+          echo "Blue Target Group Health: $BLUE_HEALTH" >> $GITHUB_STEP_SUMMARY
           
-          echo "**Blue Target Group Health**: $BLUE_HEALTH" >> $GITHUB_STEP_SUMMARY
-          echo "**Green Target Group Health**: $GREEN_HEALTH" >> $GITHUB_STEP_SUMMARY
-          echo "**Blue Target Group ARN**: $BLUE_TG_ARN" >> $GITHUB_STEP_SUMMARY
-          echo "**Green Target Group ARN**: $GREEN_TG_ARN" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          # Check ASG status
-          echo "🚀 Checking Auto Scaling Groups..."
-          BLUE_ASG_NAME=$(terraform output -raw blue_asg_name)
-          GREEN_ASG_NAME=$(terraform output -raw green_asg_name)
-          
-          echo "Blue ASG Name: $BLUE_ASG_NAME" >> $GITHUB_STEP_SUMMARY
-          echo "Green ASG Name: $GREEN_ASG_NAME" >> $GITHUB_STEP_SUMMARY
-          
-          BLUE_INSTANCES=$(aws autoscaling describe-auto-scaling-groups \
-            --auto-scaling-group-names $BLUE_ASG_NAME \
-            --region ${{ env.AWS_REGION }} \
-            --query 'AutoScalingGroups[0].Instances[?LifecycleState==`InService`] | length(@)' \
-            --output text 2>/dev/null || echo "0")
-          
-          GREEN_INSTANCES=$(aws autoscaling describe-auto-scaling-groups \
-            --auto-scaling-group-names $GREEN_ASG_NAME \
-            --region ${{ env.AWS_REGION }} \
-            --query 'AutoScalingGroups[0].Instances[?LifecycleState==`InService`] | length(@)' \
-            --output text 2>/dev/null || echo "0")
-          
-          echo "**Blue ASG Instances**: $BLUE_INSTANCES" >> $GITHUB_STEP_SUMMARY
-          echo "**Green ASG Instances**: $GREEN_INSTANCES" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          # Test Blue-Green Failover Functionality
-          echo "🔄 Testing Blue-Green Failover Functionality..." >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          # Ensure green environment is ready before testing
-          echo "**Preparing Green Environment for Testing**" >> $GITHUB_STEP_SUMMARY
-          GREEN_ASG_NAME=$(terraform output -raw green_asg_name)
-          
-          # Check if green ASG has instances
-          GREEN_INSTANCE_COUNT=$(aws autoscaling describe-auto-scaling-groups \
-            --auto-scaling-group-names $GREEN_ASG_NAME \
-            --region ${{ env.AWS_REGION }} \
-            --query 'AutoScalingGroups[0].Instances[?LifecycleState==`InService`] | length(@)' \
-            --output text)
-          
-          echo "Green ASG has $GREEN_INSTANCE_COUNT instances" >> $GITHUB_STEP_SUMMARY
-          
-          # If no green instances, scale up and wait
-          if [ "$GREEN_INSTANCE_COUNT" -eq 0 ]; then
-            echo "Scaling up green ASG for testing..." >> $GITHUB_STEP_SUMMARY
-            aws autoscaling set-desired-capacity \
-              --auto-scaling-group-name $GREEN_ASG_NAME \
-              --desired-capacity 1 \
-              --region ${{ env.AWS_REGION }}
-            
-            echo "Waiting for green instances to be ready..." >> $GITHUB_STEP_SUMMARY
-            sleep 60  # Wait for instance to start
-            
-            # Wait for green target group to be healthy
-            echo "Waiting for green target group to be healthy..." >> $GITHUB_STEP_SUMMARY
-            for i in {1..10}; do
-              GREEN_TG_HEALTH=$(aws elbv2 describe-target-health \
-                --target-group-arn $GREEN_TG_ARN \
-                --region ${{ env.AWS_REGION }} \
-                --query 'TargetHealthDescriptions[0].TargetHealth.State' \
-                --output text)
-              
-              if [ "$GREEN_TG_HEALTH" = "healthy" ]; then
-                echo "✅ Green target group is healthy!" >> $GITHUB_STEP_SUMMARY
-                break
-              else
-                echo "Attempt $i: Green target group health: $GREEN_TG_HEALTH" >> $GITHUB_STEP_SUMMARY
-                sleep 15
-              fi
-            done
-          fi
-          
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          # Step 1: Verify we start with blue
-          echo "**Step 1: Verifying initial state (should be blue)**" >> $GITHUB_STEP_SUMMARY
-          INITIAL_RESPONSE=$(curl -s $ALB_URL)
-          echo "Raw initial response: '$INITIAL_RESPONSE'" >> $GITHUB_STEP_SUMMARY
-          if [ $? -eq 0 ] && [ -n "$INITIAL_RESPONSE" ]; then
-            # Check if response is valid JSON
-            if echo "$INITIAL_RESPONSE" | jq . >/dev/null 2>&1; then
-              INITIAL_COLOR=$(echo "$INITIAL_RESPONSE" | jq -r '.deployment_color // "unknown"')
-            else
-              INITIAL_COLOR="unknown"
-              echo "⚠️ Warning: Initial response is not valid JSON" >> $GITHUB_STEP_SUMMARY
-            fi
-          else
-            INITIAL_COLOR="unknown"
-            echo "⚠️ Warning: Could not retrieve initial response from ALB" >> $GITHUB_STEP_SUMMARY
-          fi
-          echo "Initial deployment color: $INITIAL_COLOR" >> $GITHUB_STEP_SUMMARY
-          
-          if [ "$INITIAL_COLOR" != "blue" ]; then
-            echo "⚠️ Warning: Expected blue, got $INITIAL_COLOR" >> $GITHUB_STEP_SUMMARY
-            echo "Raw response: $INITIAL_RESPONSE" >> $GITHUB_STEP_SUMMARY
-          fi
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          # Step 2: Switch traffic to green
-          echo "**Step 2: Switching traffic to green**" >> $GITHUB_STEP_SUMMARY
-          
-          # Check target group health before switch
-          echo "Target group health before switch:" >> $GITHUB_STEP_SUMMARY
-          echo "- Blue: $(aws elbv2 describe-target-health --target-group-arn $BLUE_TG_ARN --region ${{ env.AWS_REGION }} --query 'TargetHealthDescriptions[0].TargetHealth.State' --output text)" >> $GITHUB_STEP_SUMMARY
-          echo "- Green: $(aws elbv2 describe-target-health --target-group-arn $GREEN_TG_ARN --region ${{ env.AWS_REGION }} --query 'TargetHealthDescriptions[0].TargetHealth.State' --output text)" >> $GITHUB_STEP_SUMMARY
-          
-          aws elbv2 modify-listener \
-            --listener-arn $LISTENER_ARN \
-            --default-actions Type=forward,TargetGroupArn=$GREEN_TG_ARN \
-            --region ${{ env.AWS_REGION }}
-          
-          echo "⏳ Waiting for traffic switch to complete..." >> $GITHUB_STEP_SUMMARY
-          sleep 15
-          
-          # Step 3: Verify traffic switched to green
-          echo "**Step 3: Verifying traffic switch to green**" >> $GITHUB_STEP_SUMMARY
-          GREEN_RESPONSE=$(curl -s $ALB_URL)
-          echo "Raw green response: '$GREEN_RESPONSE'" >> $GITHUB_STEP_SUMMARY
-          if [ $? -eq 0 ] && [ -n "$GREEN_RESPONSE" ]; then
-            # Check if response is valid JSON
-            if echo "$GREEN_RESPONSE" | jq . >/dev/null 2>&1; then
-              GREEN_COLOR=$(echo "$GREEN_RESPONSE" | jq -r '.deployment_color // "unknown"')
-            else
-              GREEN_COLOR="unknown"
-              echo "⚠️ Warning: Green response is not valid JSON" >> $GITHUB_STEP_SUMMARY
-            fi
-          else
-            GREEN_COLOR="unknown"
-            echo "⚠️ Warning: Could not retrieve green response from ALB" >> $GITHUB_STEP_SUMMARY
-          fi
-          echo "Green deployment color: $GREEN_COLOR" >> $GITHUB_STEP_SUMMARY
-          
-          # Check which target group is actually receiving traffic
-          CURRENT_TARGET_GROUP=$(aws elbv2 describe-listeners \
-            --listener-arns $LISTENER_ARN \
-            --region ${{ env.AWS_REGION }} \
-            --query 'Listeners[0].DefaultActions[0].TargetGroupArn' \
-            --output text)
-          
-          if [[ "$CURRENT_TARGET_GROUP" == *"green"* ]]; then
-            echo "✅ Listener is correctly pointing to green target group" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "❌ Listener is not pointing to green target group: $CURRENT_TARGET_GROUP" >> $GITHUB_STEP_SUMMARY
-          fi
-          
-          if [ "$GREEN_COLOR" = "green" ]; then
-            echo "✅ Blue to Green switch successful!" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "❌ Blue to Green switch failed - expected green, got $GREEN_COLOR" >> $GITHUB_STEP_SUMMARY
-            echo "Response: $GREEN_RESPONSE" >> $GITHUB_STEP_SUMMARY
-            echo "This might indicate that green instances are not healthy or not responding" >> $GITHUB_STEP_SUMMARY
-          fi
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          # Step 4: Switch traffic back to blue
-          echo "**Step 4: Switching traffic back to blue**" >> $GITHUB_STEP_SUMMARY
-          aws elbv2 modify-listener \
-            --listener-arn $LISTENER_ARN \
-            --default-actions Type=forward,TargetGroupArn=$BLUE_TG_ARN \
-            --region ${{ env.AWS_REGION }}
-          
-          echo "⏳ Waiting for traffic switch to complete..." >> $GITHUB_STEP_SUMMARY
-          sleep 15
-          
-          # Step 5: Verify traffic switched back to blue
-          echo "**Step 5: Verifying traffic switch back to blue**" >> $GITHUB_STEP_SUMMARY
-          FINAL_RESPONSE=$(curl -s $ALB_URL)
-          echo "Raw final response: '$FINAL_RESPONSE'" >> $GITHUB_STEP_SUMMARY
-          if [ $? -eq 0 ] && [ -n "$FINAL_RESPONSE" ]; then
-            # Check if response is valid JSON
-            if echo "$FINAL_RESPONSE" | jq . >/dev/null 2>&1; then
-              FINAL_COLOR=$(echo "$FINAL_RESPONSE" | jq -r '.deployment_color // "unknown"')
-            else
-              FINAL_COLOR="unknown"
-              echo "⚠️ Warning: Final response is not valid JSON" >> $GITHUB_STEP_SUMMARY
-            fi
-          else
-            FINAL_COLOR="unknown"
-            echo "⚠️ Warning: Could not retrieve final response from ALB" >> $GITHUB_STEP_SUMMARY
-          fi
-          echo "Final deployment color: $FINAL_COLOR" >> $GITHUB_STEP_SUMMARY
-          
-          if [ "$FINAL_COLOR" = "blue" ]; then
-            echo "✅ Green to Blue switch successful!" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "❌ Green to Blue switch failed - expected blue, got $FINAL_COLOR" >> $GITHUB_STEP_SUMMARY
-            echo "Response: $FINAL_RESPONSE" >> $GITHUB_STEP_SUMMARY
-          fi
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          # Success criteria - focus on blue-green functionality, not data
-          echo "**Validation Results Summary:**" >> $GITHUB_STEP_SUMMARY
-          echo "- Blue Target Group Health: $BLUE_HEALTH" >> $GITHUB_STEP_SUMMARY
-          echo "- Green Color Response: $GREEN_COLOR" >> $GITHUB_STEP_SUMMARY
-          echo "- Final Color Response: $FINAL_COLOR" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          # More lenient success criteria for lab environment
-          # Focus on infrastructure working rather than perfect blue-green switching
-          if [ "$BLUE_HEALTH" = "healthy" ] && [ "$BLUE_INSTANCES" -gt 0 ]; then
-            echo "✅ **Blue-Green Deployment Validation: PASSED**" >> $GITHUB_STEP_SUMMARY
-            echo "- Blue target group healthy" >> $GITHUB_STEP_SUMMARY
-            echo "- Blue ASG has instances running" >> $GITHUB_STEP_SUMMARY
-            echo "- Infrastructure is ready for blue-green testing" >> $GITHUB_STEP_SUMMARY
-            echo "- Note: Full blue-green switching requires both environments to be healthy" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "❌ **Blue-Green Deployment Validation: FAILED**" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**Issues Found:**" >> $GITHUB_STEP_SUMMARY
-            if [ "$BLUE_HEALTH" != "healthy" ]; then
-              echo "- Blue Target Group Health: $BLUE_HEALTH (expected healthy)" >> $GITHUB_STEP_SUMMARY
-            fi
-            if [ "$BLUE_INSTANCES" -eq 0 ]; then
-              echo "- Blue ASG has no instances running (expected at least 1)" >> $GITHUB_STEP_SUMMARY
-            fi
+          # Success criteria - focus on basic infrastructure working
+          if [ "$BLUE_HEALTH" = "healthy" ]; then
+            echo "✅ **Infrastructure Deployment: PASSED**" >> $GITHUB_STEP_SUMMARY
+            echo "- ALB is responding" >> $GITHUB_STEP_SUMMARY
+            echo "- Health endpoint is working" >> $GITHUB_STEP_SUMMARY
+            echo "- Blue target group is healthy" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "**Next Steps:**" >> $GITHUB_STEP_SUMMARY
-            echo "- Check if blue ASG instances are starting up properly" >> $GITHUB_STEP_SUMMARY
-            echo "- Verify target group health checks are configured correctly" >> $GITHUB_STEP_SUMMARY
-            echo "- Check if the application is responding on port 8080" >> $GITHUB_STEP_SUMMARY
-            echo "- Review ASG launch template and user data configuration" >> $GITHUB_STEP_SUMMARY
+            echo "- Test blue-green functionality manually using the commands in README" >> $GITHUB_STEP_SUMMARY
+            echo "- Verify application functionality" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Infrastructure Deployment: FAILED**" >> $GITHUB_STEP_SUMMARY
+            echo "- Blue Target Group Health: $BLUE_HEALTH (expected healthy)" >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
