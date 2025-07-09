@@ -231,7 +231,10 @@ sleep 120  # Increase from 60 to 120 seconds
 ### Manual Validation
 ```bash
 # Test the complete blue-green failover
-./scripts/blue-green-failover-test.sh staging us-east-2
+# Manual testing (recommended):
+curl -s $(terraform output -raw application_url) | jq -r .deployment_color
+aws elbv2 modify-listener --listener-arn $(terraform output -raw http_listener_arn) --default-actions Type=forward,TargetGroupArn=$(terraform output -raw green_target_group_arn) --region us-east-2
+curl -s $(terraform output -raw application_url) | jq -r .deployment_color
 ```
 
 ## Prevention Strategies
