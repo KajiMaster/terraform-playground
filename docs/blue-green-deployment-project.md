@@ -337,36 +337,138 @@ aws elbv2 describe-target-health \
 
 ### Automated Testing Scripts
 
-#### **Manual Blue-Green Testing Procedure**
-
-The simplest way to test blue-green deployment is using manual commands directly in the environment directory:
-
+#### **Complete Failover Test Script**
 ```bash
-# Navigate to your environment directory
-cd environments/dev  # or staging, production
+#!/bin/bash
+# scripts/blue-green-failover-test.sh
 
-# 1.) Check current deployment color
-curl -s $(terraform output -raw application_url) | jq -r .deployment_color
+set -e
 
-# 2.) Switch to green environment (simulate failover)
-aws elbv2 modify-listener --listener-arn $(terraform output -raw http_listener_arn) --default-actions Type=forward,TargetGroupArn=$(terraform output -raw green_target_group_arn) --region us-east-2
+echo "🚀 Starting Blue-Green Failover Test..."
 
-# 3.) Check deployment color again
-curl -s $(terraform output -raw application_url) | jq -r .deployment_color
+# Get environment variables
+ENVIRONMENT=${1:-dev}
+REGION=${2:-us-east-2}
 
-# 4.) Switch back to blue environment (rollback)
-aws elbv2 modify-listener --listener-arn $(terraform output -raw http_listener_arn) --default-actions Type=forward,TargetGroupArn=$(terraform output -raw blue_target_group_arn) --region us-east-2
+cd environments/$ENVIRONMENT
 
-# 5.) Final verification
-curl -s $(terraform output -raw application_url) | jq -r .deployment_color
+echo "📋 Current State:"
+echo "Blue ASG: $(terraform output -raw blue_asg_name)"
+echo "Green ASG: $(terraform output -raw green_asg_name)"
+echo "ALB URL: $(terraform output -raw application_url)"
+
+# Test 1: Blue to Green Switch
+echo "🔄 Testing Blue to Green Switch..."
+./scripts/test-blue-to-green.sh
+
+# Test 2: Green to Blue Rollback
+echo "🔄 Testing Green to Blue Rollback..."
+./scripts/test-green-to-blue.sh
+
+# Test 3: Health Check Validation
+echo "🏥 Testing Health Checks..."
+./scripts/test-health-checks.sh
+
+echo "✅ All failover tests completed successfully!"
 ```
 
-This manual approach is:
-- ✅ Simple and direct
-- ✅ No scripts to maintain
-- ✅ Easy to understand and modify
-- ✅ Works from any environment directory
-- ✅ Demonstrates the core blue-green concept
+#### **Blue to Green Switch Script**
+```bash
+#!/bin/bash
+# scripts/test-blue-to-green.sh
+set -e
+
+echo "🔄 Switching from Blue to Green..."
+
+# 1. Verify starting state
+echo "📋 Current deployment color:"
+CURRENT_COLOR=$(curl -s $(terraform output -raw application_url) | jq -r .deployment_color)
+echo "Current: $CURRENT_COLOR"
+
+if [ "$CURRENT_COLOR" != "blue" ]; then
+    echo "⚠️  Warning: Expected blue, got $CURRENT_COLOR"
+fi
+
+# 2. Switch traffic to green
+echo "🔄 Switching traffic to green..."
+aws elbv2 modify-listener \
+  --listener-arn $(terraform output -raw http_listener_arn) \
+  --default-actions Type=forward,TargetGroupArn=$(terraform output -raw green_target_group_arn) \
+  --region us-east-2
+
+# 3. Wait for health checks
+echo "⏳ Waiting for health checks to complete..."
+sleep 15
+
+# 4. Verify green target group health
+echo "🏥 Checking green target group health..."
+aws elbv2 describe-target-health \
+  --target-group-arn $(terraform output -raw green_target_group_arn) \
+  --region us-east-2 \
+  --query 'TargetHealthDescriptions[0].TargetHealth.State' \
+  --output text
+
+# 5. Verify application response
+echo "✅ Verifying application response..."
+NEW_COLOR=$(curl -s $(terraform output -raw application_url) | jq -r .deployment_color)
+echo "New deployment color: $NEW_COLOR"
+
+if [ "$NEW_COLOR" = "green" ]; then
+    echo "✅ Blue to Green switch successful!"
+else
+    echo "❌ Switch failed - expected green, got $NEW_COLOR"
+    exit 1
+fi
+```
+
+#### **Green to Blue Rollback Script**
+```bash
+#!/bin/bash
+# scripts/test-green-to-blue.sh
+set -e
+
+echo "🔄 Rolling back from Green to Blue..."
+
+# 1. Verify starting state
+echo "📋 Current deployment color:"
+CURRENT_COLOR=$(curl -s $(terraform output -raw application_url) | jq -r .deployment_color)
+echo "Current: $CURRENT_COLOR"
+
+if [ "$CURRENT_COLOR" != "green" ]; then
+    echo "⚠️  Warning: Expected green, got $CURRENT_COLOR"
+fi
+
+# 2. Switch traffic back to blue
+echo "🔄 Switching traffic to blue..."
+aws elbv2 modify-listener \
+  --listener-arn $(terraform output -raw http_listener_arn) \
+  --default-actions Type=forward,TargetGroupArn=$(terraform output -raw blue_target_group_arn) \
+  --region us-east-2
+
+# 3. Wait for health checks
+echo "⏳ Waiting for health checks to complete..."
+sleep 15
+
+# 4. Verify blue target group health
+echo "🏥 Checking blue target group health..."
+aws elbv2 describe-target-health \
+  --target-group-arn $(terraform output -raw blue_target_group_arn) \
+  --region us-east-2 \
+  --query 'TargetHealthDescriptions[0].TargetHealth.State' \
+  --output text
+
+# 5. Verify application response
+echo "✅ Verifying application response..."
+NEW_COLOR=$(curl -s $(terraform output -raw application_url) | jq -r .deployment_color)
+echo "New deployment color: $NEW_COLOR"
+
+if [ "$NEW_COLOR" = "blue" ]; then
+    echo "✅ Green to Blue rollback successful!"
+else
+    echo "❌ Rollback failed - expected blue, got $NEW_COLOR"
+    exit 1
+fi
+```
 
 #### **Health Check Validation Script**
 ```bash

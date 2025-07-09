@@ -166,25 +166,6 @@ terraform-playground/
    - Health check: `$(terraform output -raw health_check_url)`
    - Data endpoint: `$(terraform output -raw application_url)` (should return JSON with contacts and deployment color)
 
-4. **Test Blue-Green Deployment** (Manual Testing)
-
-   ```bash
-   # 1.) Check current deployment color
-   curl -s $(terraform output -raw application_url) | jq -r .deployment_color
-   
-   # 2.) Switch to green environment (simulate failover)
-   aws elbv2 modify-listener --listener-arn $(terraform output -raw http_listener_arn) --default-actions Type=forward,TargetGroupArn=$(terraform output -raw green_target_group_arn) --region us-east-2
-   
-   # 3.) Check deployment color again
-   curl -s $(terraform output -raw application_url) | jq -r .deployment_color
-   
-   # 4.) Switch back to blue environment (rollback)
-   aws elbv2 modify-listener --listener-arn $(terraform output -raw http_listener_arn) --default-actions Type=forward,TargetGroupArn=$(terraform output -raw blue_target_group_arn) --region us-east-2
-   
-   # 5.) Final verification
-   curl -s $(terraform output -raw application_url) | jq -r .deployment_color
-   ```
-
 ### Staging Environment
 
 1. **Deploy Infrastructure**
@@ -215,25 +196,6 @@ terraform-playground/
    - Health check: `$(terraform output -raw health_check_url)`
    - Data endpoint: `$(terraform output -raw application_url)` (should return JSON with contacts and deployment color)
 
-4. **Test Blue-Green Deployment** (Manual Testing)
-
-   ```bash
-   # 1.) Check current deployment color
-   curl -s $(terraform output -raw application_url) | jq -r .deployment_color
-   
-   # 2.) Switch to green environment (simulate failover)
-   aws elbv2 modify-listener --listener-arn $(terraform output -raw http_listener_arn) --default-actions Type=forward,TargetGroupArn=$(terraform output -raw green_target_group_arn) --region us-east-2
-   
-   # 3.) Check deployment color again
-   curl -s $(terraform output -raw application_url) | jq -r .deployment_color
-   
-   # 4.) Switch back to blue environment (rollback)
-   aws elbv2 modify-listener --listener-arn $(terraform output -raw http_listener_arn) --default-actions Type=forward,TargetGroupArn=$(terraform output -raw blue_target_group_arn) --region us-east-2
-   
-   # 5.) Final verification
-   curl -s $(terraform output -raw application_url) | jq -r .deployment_color
-   ```
-
 ### Production Environment
 
 1. **Deploy Infrastructure**
@@ -263,25 +225,6 @@ terraform-playground/
    - Check web application: `$(terraform output -raw application_url)`
    - Health check: `$(terraform output -raw health_check_url)`
    - Data endpoint: `$(terraform output -raw application_url)` (should return JSON with contacts and deployment color)
-
-4. **Test Blue-Green Deployment** (Manual Testing)
-
-   ```bash
-   # 1.) Check current deployment color
-   curl -s $(terraform output -raw application_url) | jq -r .deployment_color
-   
-   # 2.) Switch to green environment (simulate failover)
-   aws elbv2 modify-listener --listener-arn $(terraform output -raw http_listener_arn) --default-actions Type=forward,TargetGroupArn=$(terraform output -raw green_target_group_arn) --region us-east-2
-   
-   # 3.) Check deployment color again
-   curl -s $(terraform output -raw application_url) | jq -r .deployment_color
-   
-   # 4.) Switch back to blue environment (rollback)
-   aws elbv2 modify-listener --listener-arn $(terraform output -raw http_listener_arn) --default-actions Type=forward,TargetGroupArn=$(terraform output -raw blue_target_group_arn) --region us-east-2
-   
-   # 5.) Final verification
-   curl -s $(terraform output -raw application_url) | jq -r .deployment_color
-   ```
 
 **Note**: The database bootstrap is fully automated using AWS SSM. No manual SSH or database setup is required. The automation handles special characters in passwords and creates sample data automatically. The blue-green deployment architecture provides zero-downtime deployment capabilities.
 

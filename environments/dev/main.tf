@@ -73,16 +73,15 @@ module "loadbalancer" {
 
 # Database Module
 module "database" {
-  source                      = "../../modules/database"
-  environment                 = var.environment
-  vpc_id                      = module.networking.vpc_id
-  private_subnets             = module.networking.private_subnet_ids
-  webserver_security_group_ids = [module.blue_asg.security_group_id, module.green_asg.security_group_id]
-  db_instance_type            = var.db_instance_type
-  db_name                     = var.db_name
-  db_username                 = module.secrets.db_username
-  db_password                 = module.secrets.db_password
-  security_group_id           = module.networking.database_security_group_id
+  source            = "../../modules/database"
+  environment       = var.environment
+  vpc_id            = module.networking.vpc_id
+  private_subnets   = module.networking.private_subnet_ids
+  db_instance_type  = var.db_instance_type
+  db_name           = var.db_name
+  db_username       = module.secrets.db_username
+  db_password       = module.secrets.db_password
+  security_group_id = module.networking.database_security_group_id
 }
 
 # Blue Auto Scaling Group
