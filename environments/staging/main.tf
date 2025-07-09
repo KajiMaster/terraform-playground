@@ -66,7 +66,7 @@ module "loadbalancer" {
   security_group_id = module.networking.alb_security_group_id
 }
 
-# Comment line for trigger GHA (delete later)
+# Comment line for trigger GHA - testing staging workflow (delete later)
 # Database Module
 module "database" {
   source            = "../../modules/database"
@@ -153,3 +153,4 @@ module "oidc" {
 }
 
 # Security group rules are now managed by the networking module
+# Test trigger for staging workflow - $(date)
