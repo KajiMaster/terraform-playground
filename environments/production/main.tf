@@ -176,7 +176,7 @@ module "ssm" {
   database_name         = var.db_name
   database_username     = "tfplayground_user"
   database_password     = data.aws_secretsmanager_secret_version.db_password.secret_string
-}
+} 
 
 # OIDC Module removed - using global GitHub Actions role instead
 # The global environment manages the OIDC provider and GitHub Actions role
