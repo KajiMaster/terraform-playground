@@ -12,7 +12,6 @@ terraform {
   }
 }
 
-# Test comment: This change should trigger the production workflow
 provider "aws" {
   region = var.aws_region
   default_tags {
@@ -47,11 +46,28 @@ module "networking" {
   azs           = var.availability_zones
 }
 
-# Secrets Management Module
+# Centralized SSH Keys Module
+module "ssh_keys" {
+  source      = "../../modules/ssh-keys"
+  environment = var.environment
+}
+
+# Simplified Secrets Module (only for database credentials)
 module "secrets" {
   source          = "../../modules/secrets"
   environment     = var.environment
   create_resources = true
+}
+
+# Application Load Balancer Module
+module "loadbalancer" {
+  source = "../../modules/loadbalancer"
+
+  environment       = var.environment
+  vpc_id            = module.networking.vpc_id
+  public_subnets    = module.networking.public_subnet_ids
+  certificate_arn   = var.certificate_arn
+  security_group_id = module.networking.alb_security_group_id
 }
 
 # Database Module
@@ -67,29 +83,74 @@ module "database" {
   security_group_id = module.networking.database_security_group_id
 }
 
-# Compute Module (Web Server)
-module "webserver" {
-  source         = "../../modules/compute/webserver"
-  environment    = var.environment
-  vpc_id         = module.networking.vpc_id
-  public_subnets = module.networking.public_subnet_ids
-  instance_type  = var.webserver_instance_type
-  key_name       = var.key_name
-  db_host        = module.database.db_instance_address
-  db_name        = var.db_name
-  db_user        = module.secrets.db_username
-  db_password    = module.secrets.db_password
-  security_group_id = module.networking.webserver_security_group_id
+# Blue Auto Scaling Group
+module "blue_asg" {
+  source = "../../modules/compute/asg"
+
+  environment           = var.environment
+  deployment_color      = "blue"
+  vpc_id                = module.networking.vpc_id
+  subnet_ids            = module.networking.public_subnet_ids
+  alb_security_group_id = module.loadbalancer.alb_security_group_id
+  target_group_arn      = module.loadbalancer.blue_target_group_arn
+  instance_type         = var.webserver_instance_type
+  ami_id                = var.ami_id
+  desired_capacity      = var.blue_desired_capacity
+  max_size              = var.blue_max_size
+  min_size              = var.blue_min_size
+  db_host               = module.database.db_instance_address
+  db_name               = var.db_name
+  db_user               = module.secrets.db_username
+  db_password           = module.secrets.db_password
+  db_password_secret_name = module.secrets.secret_name
+  security_group_id     = module.networking.webserver_security_group_id
+  key_name              = module.ssh_keys.key_name
 }
 
-# SSM Module for Database Bootstrapping
+# Green Auto Scaling Group
+module "green_asg" {
+  source = "../../modules/compute/asg"
+
+  environment           = var.environment
+  deployment_color      = "green"
+  vpc_id                = module.networking.vpc_id
+  subnet_ids            = module.networking.public_subnet_ids
+  alb_security_group_id = module.loadbalancer.alb_security_group_id
+  target_group_arn      = module.loadbalancer.green_target_group_arn
+  instance_type         = var.webserver_instance_type
+  ami_id                = var.ami_id
+  desired_capacity      = var.green_desired_capacity
+  max_size              = var.green_max_size
+  min_size              = var.green_min_size
+  db_host               = module.database.db_instance_address
+  db_name               = var.db_name
+  db_user               = module.secrets.db_username
+  db_password           = module.secrets.db_password
+  db_password_secret_name = module.secrets.secret_name
+  security_group_id     = module.networking.webserver_security_group_id
+  key_name              = module.ssh_keys.key_name
+}
+
+# SSM Module for Database Bootstrapping (updated to use blue ASG)
 module "ssm" {
   source                = "../../modules/ssm"
   environment           = var.environment
-  webserver_instance_id = module.webserver.instance_id
-  webserver_public_ip   = module.webserver.public_ip
+  webserver_instance_id = module.blue_asg.asg_id           # Will need to get actual instance ID
+  webserver_public_ip   = module.loadbalancer.alb_dns_name # Use ALB DNS name instead
   database_endpoint     = module.database.db_instance_address
   database_name         = var.db_name
   database_username     = module.secrets.db_username
   database_password     = module.secrets.db_password
+}
+
+# OIDC Module for GitHub Actions (references existing global provider)
+module "oidc" {
+  source = "../../modules/oidc"
+
+  environment          = var.environment
+  github_repository    = "KajiMaster/terraform-playground"
+  state_bucket         = "tf-playground-state-vexus"
+  state_lock_table     = "tf-playground-locks"
+  aws_region           = var.aws_region
+  create_oidc_provider = false # Reference existing provider
 } 

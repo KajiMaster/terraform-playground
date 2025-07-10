@@ -14,6 +14,24 @@ output "alb_zone_id" {
   value       = module.loadbalancer.alb_zone_id
 }
 
+# SSH Key Outputs
+output "ssh_key_name" {
+  description = "Name of the SSH key pair"
+  value       = aws_key_pair.environment_key.key_name
+}
+
+output "ssh_private_key" {
+  description = "Private key for SSH access (sensitive)"
+  value       = data.aws_secretsmanager_secret_version.ssh_private.secret_string
+  sensitive   = true
+}
+
+output "ssh_public_key" {
+  description = "Public key content"
+  value       = data.aws_secretsmanager_secret_version.ssh_public.secret_string
+  sensitive   = true
+}
+
 # Blue Auto Scaling Group Outputs
 output "blue_asg_id" {
   description = "ID of the blue Auto Scaling Group"
@@ -102,20 +120,26 @@ output "ssm_automation_role_arn" {
   value       = module.ssm.ssm_automation_role_arn
 }
 
-# Secrets Outputs
-output "random_suffix" {
-  description = "Random suffix used for resource names"
-  value       = module.secrets.random_suffix
+# Database Outputs
+output "db_username" {
+  description = "Database username"
+  value       = "tfplayground_user"
 }
 
-output "secret_name" {
-  description = "Name of the database credentials secret"
-  value       = module.secrets.secret_name
+output "db_password" {
+  description = "Database password (sensitive)"
+  value       = data.aws_secretsmanager_secret_version.db_password.secret_string
+  sensitive   = true
 }
 
-output "secret_arn" {
-  description = "ARN of the database credentials secret"
-  value       = module.secrets.secret_arn
+output "db_secret_name" {
+  description = "Name of the centralized database credentials secret"
+  value       = data.aws_secretsmanager_secret.db_password.name
+}
+
+output "db_secret_arn" {
+  description = "ARN of the centralized database credentials secret"
+  value       = data.aws_secretsmanager_secret.db_password.arn
 }
 
 # Application URLs
@@ -136,7 +160,7 @@ output "deployment_validation_url" {
 
 # Environment Summary
 output "environment_summary" {
-  description = "Summary of the blue-green deployment environment"
+  description = "Summary of the staging blue-green deployment environment"
   value = {
     environment       = var.environment
     region            = var.aws_region
@@ -146,6 +170,7 @@ output "environment_summary" {
     blue_asg_name     = module.blue_asg.asg_name
     green_asg_name    = module.green_asg.asg_name
     database_endpoint = module.database.db_instance_endpoint
+    ssh_key_name      = aws_key_pair.environment_key.key_name
   }
 }
 
@@ -161,5 +186,5 @@ output "https_listener_arn" {
 
 output "deployment_timestamp" {
   description = "Timestamp of last deployment"
-  value       = "Deployed via GitFlow CI/CD - $(date)"
+  value       = "Deployed via GitFlow CI/CD - Staging Environment"
 }

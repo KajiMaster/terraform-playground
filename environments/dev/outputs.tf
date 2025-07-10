@@ -14,6 +14,23 @@ output "alb_zone_id" {
   value       = module.loadbalancer.alb_zone_id
 }
 
+# SSH Key Outputs
+output "ssh_key_name" {
+  description = "Name of the SSH key pair"
+  value       = module.ssh_keys.key_name
+}
+
+output "ssh_private_key" {
+  description = "Private key for SSH access (sensitive)"
+  value       = module.ssh_keys.private_key
+  sensitive   = true
+}
+
+output "ssh_public_key" {
+  description = "Public key content"
+  value       = module.ssh_keys.public_key
+}
+
 # Blue Auto Scaling Group Outputs
 output "blue_asg_id" {
   description = "ID of the blue Auto Scaling Group"
@@ -44,6 +61,19 @@ output "green_asg_name" {
 output "green_target_group_arn" {
   description = "ARN of the green target group"
   value       = module.loadbalancer.green_target_group_arn
+}
+
+# SSH Keys for debugging
+output "blue_asg_private_key" {
+  description = "Private key for SSH access to blue ASG instances"
+  value       = module.blue_asg.private_key
+  sensitive   = true
+}
+
+output "green_asg_private_key" {
+  description = "Private key for SSH access to green ASG instances"
+  value       = module.green_asg.private_key
+  sensitive   = true
 }
 
 # Database Outputs
@@ -123,16 +153,17 @@ output "deployment_validation_url" {
 
 # Environment Summary
 output "environment_summary" {
-  description = "Summary of the blue-green deployment environment"
+  description = "Summary of the development blue-green deployment environment"
   value = {
-    environment = var.environment
-    region      = var.aws_region
-    vpc_id      = module.networking.vpc_id
-    alb_dns_name = module.loadbalancer.alb_dns_name
-    application_url = module.loadbalancer.alb_url
-    blue_asg_name = module.blue_asg.asg_name
-    green_asg_name = module.green_asg.asg_name
+    environment       = var.environment
+    region            = var.aws_region
+    vpc_id            = module.networking.vpc_id
+    alb_dns_name      = module.loadbalancer.alb_dns_name
+    application_url   = module.loadbalancer.alb_url
+    blue_asg_name     = module.blue_asg.asg_name
+    green_asg_name    = module.green_asg.asg_name
     database_endpoint = module.database.db_instance_endpoint
+    ssh_key_name      = module.ssh_keys.key_name
   }
 }
 
@@ -144,4 +175,9 @@ output "http_listener_arn" {
 output "https_listener_arn" {
   description = "ARN of the HTTPS listener (if created)"
   value       = module.loadbalancer.https_listener_arn
+}
+
+output "deployment_timestamp" {
+  description = "Timestamp of last deployment"
+  value       = "Deployed via GitFlow CI/CD - Development Environment"
 } 

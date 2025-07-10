@@ -105,10 +105,4 @@ variable "key_name" {
   description = "Name of the SSH key pair to use for instances"
   type        = string
   default     = null
-}
-
-variable "db_password_secret_name" {
-  description = "Name of the secret containing database password"
-  type        = string
-  default     = null
 } 
