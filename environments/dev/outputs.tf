@@ -119,20 +119,17 @@ output "ssm_automation_role_arn" {
   value       = module.ssm.ssm_automation_role_arn
 }
 
-# Secrets Outputs
-output "random_suffix" {
-  description = "Random suffix used for resource names"
-  value       = module.secrets.random_suffix
+# Centralized Secrets Outputs (from global environment)
+output "db_username" {
+  description = "Database username from centralized secrets"
+  value       = data.terraform_remote_state.global.outputs.db_username
+  sensitive   = true
 }
 
-output "secret_name" {
-  description = "Name of the database credentials secret"
-  value       = module.secrets.secret_name
-}
-
-output "secret_arn" {
-  description = "ARN of the database credentials secret"
-  value       = module.secrets.secret_arn
+output "db_password" {
+  description = "Database password from centralized secrets"
+  value       = data.terraform_remote_state.global.outputs.db_password
+  sensitive   = true
 }
 
 # Application URLs
