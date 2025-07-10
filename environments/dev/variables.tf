@@ -62,4 +62,55 @@ variable "db_name" {
   description = "Name of the database"
   type        = string
   default     = "tfplayground"
+}
+
+# Blue-Green Deployment Variables
+variable "certificate_arn" {
+  description = "ARN of the SSL certificate for HTTPS listener (optional)"
+  type        = string
+  default     = null
+}
+
+variable "ami_id" {
+  description = "AMI ID for the EC2 instances"
+  type        = string
+  default     = "ami-06c8f2ec674c67112" # Amazon Linux 2023 AMI in us-east-2
+}
+
+# Blue Auto Scaling Group Configuration
+variable "blue_desired_capacity" {
+  description = "Desired number of instances in the blue Auto Scaling Group"
+  type        = number
+  default     = 1
+}
+
+variable "blue_max_size" {
+  description = "Maximum number of instances in the blue Auto Scaling Group"
+  type        = number
+  default     = 2
+}
+
+variable "blue_min_size" {
+  description = "Minimum number of instances in the blue Auto Scaling Group"
+  type        = number
+  default     = 1
+}
+
+# Green Auto Scaling Group Configuration
+variable "green_desired_capacity" {
+  description = "Desired number of instances in the green Auto Scaling Group"
+  type        = number
+  default     = 0  # Start with 0 for inactive environment
+}
+
+variable "green_max_size" {
+  description = "Maximum number of instances in the green Auto Scaling Group"
+  type        = number
+  default     = 2
+}
+
+variable "green_min_size" {
+  description = "Minimum number of instances in the green Auto Scaling Group"
+  type        = number
+  default     = 0  # Start with 0 for inactive environment
 } 

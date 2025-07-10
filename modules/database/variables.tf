@@ -13,10 +13,7 @@ variable "private_subnets" {
   type        = list(string)
 }
 
-variable "webserver_security_group_id" {
-  description = "Security group ID of the webserver to allow DB access"
-  type        = string
-}
+
 
 variable "db_instance_type" {
   description = "Instance type for the RDS instance"
@@ -37,4 +34,11 @@ variable "db_password" {
   description = "Master password for the database"
   type        = string
   sensitive   = true
-} 
+}
+
+variable "security_group_id" {
+  description = "Security group ID for the database (managed by networking module)"
+  type        = string
+}
+
+ 

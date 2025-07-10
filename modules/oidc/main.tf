@@ -140,7 +140,9 @@ resource "aws_iam_role_policy" "terraform_permissions" {
           "iam:DetachRolePolicy",
           "iam:DeleteRole",
           "iam:DeletePolicy",
+          "iam:DeletePolicyVersion",
           "iam:DeleteRolePolicy",
+          "iam:PutRolePolicy",
           "iam:TagRole",
           "iam:TagPolicy",
           "iam:UntagRole",
@@ -209,6 +211,14 @@ resource "aws_iam_role_policy" "terraform_permissions" {
         Effect = "Allow"
         Action = [
           "ssm:*"
+        ]
+        Resource = "*"
+      },
+      # CloudWatch permissions for monitoring and alarms
+      {
+        Effect = "Allow"
+        Action = [
+          "cloudwatch:*"
         ]
         Resource = "*"
       }

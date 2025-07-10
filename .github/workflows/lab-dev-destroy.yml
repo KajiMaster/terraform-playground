@@ -10,7 +10,7 @@ on:
         default: ""
 
 env:
-  TF_VERSION: "1.5.0"
+  TF_VERSION: "1.12.0"
   AWS_REGION: "us-east-2"
 
 permissions:
@@ -100,12 +100,22 @@ jobs:
           echo "**Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Cost Impact:" >> $GITHUB_STEP_SUMMARY
-          echo "- **EC2 Instances**: Terminated" >> $GITHUB_STEP_SUMMARY
+          echo "- **EC2 Instances (Blue/Green)**: Terminated" >> $GITHUB_STEP_SUMMARY
+          echo "- **Application Load Balancer**: Removed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Target Groups (Blue/Green)**: Deleted" >> $GITHUB_STEP_SUMMARY
+          echo "- **Auto Scaling Groups (Blue/Green)**: Terminated" >> $GITHUB_STEP_SUMMARY
           echo "- **RDS Databases**: Deleted" >> $GITHUB_STEP_SUMMARY
-          echo "- **Load Balancers**: Removed" >> $GITHUB_STEP_SUMMARY
           echo "- **NAT Gateways**: Deleted" >> $GITHUB_STEP_SUMMARY
           echo "- **Secrets**: Cleaned up" >> $GITHUB_STEP_SUMMARY
+          echo "- **Security Groups**: Removed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Blue-Green Infrastructure:" >> $GITHUB_STEP_SUMMARY
+          echo "- **Blue Environment**: Completely destroyed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Green Environment**: Completely destroyed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Load Balancer**: Removed with all listeners" >> $GITHUB_STEP_SUMMARY
+          echo "- **Database**: Terminated with all data" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Next Steps:" >> $GITHUB_STEP_SUMMARY
           echo "- **To rebuild**: Run terraform apply in environments/dev" >> $GITHUB_STEP_SUMMARY
-          echo "- **Or create feature branch**: Start new development work" >> $GITHUB_STEP_SUMMARY 
+          echo "- **Or create feature branch**: Start new development work" >> $GITHUB_STEP_SUMMARY
+          echo "- **Blue-Green setup**: Will be recreated with fresh instances" >> $GITHUB_STEP_SUMMARY 

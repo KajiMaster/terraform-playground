@@ -1,7 +1,6 @@
 # Staging environment variables
 # Managed by GitFlow CI/CD pipeline
-# TESTING: Workflow trigger - June 2025
-# FINAL TEST: Confirming staging workflow behavior
+# COST OPTIMIZED: Using smallest viable resources for lab environment
 
 variable "environment" {
   description = "Environment name"
@@ -40,9 +39,9 @@ variable "availability_zones" {
 }
 
 variable "webserver_instance_type" {
-  description = "Instance type for web server (staging test)"
+  description = "Instance type for web server (cost optimized for lab)"
   type        = string
-  default     = "t3.small"
+  default     = "t3.micro" # Changed from t3.small to t3.micro
 }
 
 variable "key_name" {
@@ -52,9 +51,9 @@ variable "key_name" {
 }
 
 variable "db_instance_type" {
-  description = "Instance type for RDS"
+  description = "Instance type for RDS (cost optimized for lab)"
   type        = string
-  default     = "db.t3.small"
+  default     = "db.t3.micro" # Changed from db.t3.small to db.t3.micro
 }
 
 variable "db_name" {
@@ -85,4 +84,56 @@ variable "state_lock_table" {
   description = "DynamoDB table for state locking"
   type        = string
   default     = "tf-playground-locks"
+}
+
+# Blue-Green Deployment Variables
+
+variable "ami_id" {
+  description = "AMI ID for EC2 instances"
+  type        = string
+  default     = "ami-06c8f2ec674c67112" # Amazon Linux 2023 AMI in us-east-2 (same as dev)
+}
+
+variable "certificate_arn" {
+  description = "ARN of SSL certificate for ALB"
+  type        = string
+  default     = null # No SSL for staging demo
+}
+
+# Blue Environment Configuration (cost optimized)
+variable "blue_desired_capacity" {
+  description = "Desired capacity for blue Auto Scaling Group"
+  type        = number
+  default     = 1
+}
+
+variable "blue_max_size" {
+  description = "Maximum size for blue Auto Scaling Group"
+  type        = number
+  default     = 2 # Allow temporary overlap during instance updates
+}
+
+variable "blue_min_size" {
+  description = "Minimum size for blue Auto Scaling Group"
+  type        = number
+  default     = 1
+}
+
+# Green Environment Configuration (cost optimized)
+variable "green_desired_capacity" {
+  description = "Desired capacity for green Auto Scaling Group"
+  type        = number
+  default     = 1 # Changed from 0 to 1 for blue-green testing
+}
+
+variable "green_max_size" {
+  description = "Maximum size for green Auto Scaling Group"
+  type        = number
+  default     = 2 # Allow temporary overlap during instance updates
+}
+
+variable "green_min_size" {
+  description = "Minimum size for green Auto Scaling Group"
+  type        = number
+  default     = 1 # Changed from 0 to 1 for blue-green testing
 } 
