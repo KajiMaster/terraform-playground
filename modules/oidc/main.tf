@@ -141,6 +141,7 @@ resource "aws_iam_role_policy" "terraform_permissions" {
           "iam:DeleteRole",
           "iam:DeletePolicy",
           "iam:DeletePolicyVersion",
+          "iam:CreatePolicyVersion",
           "iam:DeleteRolePolicy",
           "iam:PutRolePolicy",
           "iam:TagRole",
