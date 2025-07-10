@@ -20,6 +20,7 @@ provider "aws" {
       Project     = "tf-playground"
       ManagedBy   = "terraform"
       Pipeline    = "gitflow-cicd"
+      Tier        = "staging"
     }
   }
 }
@@ -28,9 +29,9 @@ provider "aws" {
 data "terraform_remote_state" "global" {
   backend = "s3"
   config = {
-    bucket = "tf-playground-state-vexus"
-    key    = "global/terraform.tfstate"
-    region = "us-east-2"
+    bucket         = "tf-playground-state-vexus"
+    key            = "global/terraform.tfstate"
+    region         = "us-east-2"
   }
 }
 
@@ -45,14 +46,54 @@ module "networking" {
   azs           = var.availability_zones
 }
 
-# Secrets Management Module
-module "secrets" {
-  source                    = "../../modules/secrets"
-  environment               = var.environment
-  create_resources          = true
-  ssh_private_key_secret_name = "/tf-playground/staging/ssh-key"
-  ssh_public_key_secret_name  = "/tf-playground/staging/ssh-key-public"
-  db_password_secret_name = "/tf-playground/staging/db-pword"
+# Create environment-specific AWS key pair using centralized SSH public key
+resource "aws_key_pair" "environment_key" {
+  key_name   = "tf-playground-${var.environment}-key"
+  public_key = data.aws_secretsmanager_secret_version.ssh_public.secret_string
+
+  tags = {
+    Name        = "tf-playground-${var.environment}-key"
+    Environment = var.environment
+    Project     = "tf-playground"
+    ManagedBy   = "terraform"
+    Purpose     = "centralized-ssh-key"
+  }
+}
+
+# Centralized Secrets Configuration
+# These can be changed to environment-specific secrets if needed
+locals {
+  # Secret paths - can be changed to environment-specific if needed
+  db_password_secret_name = "/tf-playground/all/db-pword"
+  ssh_private_key_secret_name = "/tf-playground/all/ssh-key"
+  ssh_public_key_secret_name = "/tf-playground/all/ssh-key-public"
+}
+
+# Get centralized database password
+data "aws_secretsmanager_secret" "db_password" {
+  name = local.db_password_secret_name
+}
+
+data "aws_secretsmanager_secret_version" "db_password" {
+  secret_id = data.aws_secretsmanager_secret.db_password.id
+}
+
+# Get centralized SSH private key
+data "aws_secretsmanager_secret" "ssh_private" {
+  name = local.ssh_private_key_secret_name
+}
+
+data "aws_secretsmanager_secret_version" "ssh_private" {
+  secret_id = data.aws_secretsmanager_secret.ssh_private.id
+}
+
+# Get centralized SSH public key
+data "aws_secretsmanager_secret" "ssh_public" {
+  name = local.ssh_public_key_secret_name
+}
+
+data "aws_secretsmanager_secret_version" "ssh_public" {
+  secret_id = data.aws_secretsmanager_secret.ssh_public.id
 }
 
 # Application Load Balancer Module
@@ -66,7 +107,6 @@ module "loadbalancer" {
   security_group_id = module.networking.alb_security_group_id
 }
 
-# Comment line for trigger GHA - testing staging workflow (delete later)
 # Database Module
 module "database" {
   source            = "../../modules/database"
@@ -75,8 +115,8 @@ module "database" {
   private_subnets   = module.networking.private_subnet_ids
   db_instance_type  = var.db_instance_type
   db_name           = var.db_name
-  db_username       = module.secrets.db_username
-  db_password       = module.secrets.db_password
+  db_username       = "tfplayground_user"
+  db_password       = data.aws_secretsmanager_secret_version.db_password.secret_string
   security_group_id = module.networking.database_security_group_id
 }
 
@@ -97,11 +137,10 @@ module "blue_asg" {
   min_size              = var.blue_min_size
   db_host               = module.database.db_instance_address
   db_name               = var.db_name
-  db_user               = module.secrets.db_username
-  db_password           = module.secrets.db_password
-  db_password_secret_name = "/tf-playground/staging/db-pword"
+  db_user               = "tfplayground_user"
+  db_password           = data.aws_secretsmanager_secret_version.db_password.secret_string
   security_group_id     = module.networking.webserver_security_group_id
-  key_name              = module.secrets.ssh_key_name
+  key_name              = aws_key_pair.environment_key.key_name
 }
 
 # Green Auto Scaling Group
@@ -121,11 +160,10 @@ module "green_asg" {
   min_size              = var.green_min_size
   db_host               = module.database.db_instance_address
   db_name               = var.db_name
-  db_user               = module.secrets.db_username
-  db_password           = module.secrets.db_password
-  db_password_secret_name = "/tf-playground/staging/db-pword"
+  db_user               = "tfplayground_user"
+  db_password           = data.aws_secretsmanager_secret_version.db_password.secret_string
   security_group_id     = module.networking.webserver_security_group_id
-  key_name              = module.secrets.ssh_key_name
+  key_name              = aws_key_pair.environment_key.key_name
 }
 
 # SSM Module for Database Bootstrapping (updated to use blue ASG)
@@ -136,8 +174,8 @@ module "ssm" {
   webserver_public_ip   = module.loadbalancer.alb_dns_name # Use ALB DNS name instead
   database_endpoint     = module.database.db_instance_address
   database_name         = var.db_name
-  database_username     = module.secrets.db_username
-  database_password     = module.secrets.db_password
+  database_username     = "tfplayground_user"
+  database_password     = data.aws_secretsmanager_secret_version.db_password.secret_string
 }
 
 # OIDC Module for GitHub Actions (references existing global provider)

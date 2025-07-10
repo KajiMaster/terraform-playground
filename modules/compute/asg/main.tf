@@ -147,7 +147,6 @@ data "template_file" "user_data" {
     db_name     = var.db_name
     db_user     = var.db_user
     db_password = var.db_password
-    db_password_secret_name = var.db_password_secret_name
     deployment_color = var.deployment_color
   }
 }

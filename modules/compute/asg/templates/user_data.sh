@@ -55,18 +55,28 @@ def get_db_password():
         region = region_response.text if region_response.status_code == 200 else 'us-east-2'
         
         client = boto3.client('secretsmanager', region_name=region)
-        secret_name = '${db_password_secret_name}' if '${db_password_secret_name}' != '' else '/tf-playground/staging/db-pword'
+        # Use centralized database password secret
+        secret_name = '/tf-playground/all/db-pword'
         response = client.get_secret_value(SecretId=secret_name)
-        return response['SecretString']
+        
+        # Parse the JSON response to get the password
+        import json
+        secret_data = json.loads(response['SecretString'])
+        return secret_data['password']
     except Exception as e:
         print(f"Failed to get password from Secrets Manager: {e}")
-        return '${db_password}'  # Fallback to template variable
+        return None  # No fallback - let the application handle the error
 
 # Database configuration
+password = get_db_password()
+if password is None:
+    print("ERROR: Could not retrieve database password from Secrets Manager")
+    sys.exit(1)
+
 db_config = {
     'host': '${db_host}',
     'user': '${db_user}',
-    'password': get_db_password(),
+    'password': password,
     'database': '${db_name}'
 }
 
