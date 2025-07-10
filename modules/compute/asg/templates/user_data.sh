@@ -28,6 +28,7 @@ import mysql.connector
 import os
 import psutil
 import time
+import sys
 from datetime import datetime
 import requests
 
@@ -59,10 +60,8 @@ def get_db_password():
         secret_name = '/tf-playground/all/db-pword'
         response = client.get_secret_value(SecretId=secret_name)
         
-        # Parse the JSON response to get the password
-        import json
-        secret_data = json.loads(response['SecretString'])
-        return secret_data['password']
+        # The password is stored as a plain string, not JSON
+        return response['SecretString']
     except Exception as e:
         print(f"Failed to get password from Secrets Manager: {e}")
         return None  # No fallback - let the application handle the error
