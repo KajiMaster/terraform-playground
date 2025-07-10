@@ -178,14 +178,6 @@ module "ssm" {
   database_password     = data.aws_secretsmanager_secret_version.db_password.secret_string
 }
 
-# OIDC Module for GitHub Actions (references existing global provider)
-module "oidc" {
-  source = "../../modules/oidc"
-
-  environment          = var.environment
-  github_repository    = "KajiMaster/terraform-playground"
-  state_bucket         = "tf-playground-state-vexus"
-  state_lock_table     = "tf-playground-locks"
-  aws_region           = var.aws_region
-  create_oidc_provider = false # Reference existing provider
-} 
+# OIDC Module removed - using global GitHub Actions role instead
+# The global environment manages the OIDC provider and GitHub Actions role
+# Staging and production environments use the global role via CI/CD workflows 
