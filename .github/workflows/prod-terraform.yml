@@ -5,13 +5,13 @@ on:
     branches: [main]
     paths:
       - 'environments/production/**'
-      - 'modules/**'
+      - '.github/workflows/prod-terraform.yml'
       - '!modules/oidc/**'
   push:
     branches: [main]
     paths:
       - 'environments/production/**'
-      - 'modules/**'
+      - '.github/workflows/prod-terraform.yml'
       - '!modules/oidc/**'
 
 env:
