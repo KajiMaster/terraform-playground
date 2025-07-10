@@ -9,14 +9,12 @@ on:
     branches: [develop]
     paths:
       - 'environments/staging/**'
-      - 'modules/**'
       - '.github/workflows/staging-terraform.yml'
       - '!modules/oidc/**'
   push:
     branches: [develop]
     paths:
       - 'environments/staging/**'
-      - 'modules/**'
       - '.github/workflows/staging-terraform.yml'
       - '!modules/oidc/**'
 
