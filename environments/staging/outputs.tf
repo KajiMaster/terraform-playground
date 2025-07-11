@@ -64,19 +64,6 @@ output "green_target_group_arn" {
   value       = module.loadbalancer.green_target_group_arn
 }
 
-# SSH Keys for debugging
-output "blue_asg_private_key" {
-  description = "Private key for SSH access to blue ASG instances"
-  value       = module.blue_asg.private_key
-  sensitive   = true
-}
-
-output "green_asg_private_key" {
-  description = "Private key for SSH access to green ASG instances"
-  value       = module.green_asg.private_key
-  sensitive   = true
-}
-
 # Database Outputs
 output "database_endpoint" {
   description = "The connection endpoint of the RDS instance"
@@ -187,4 +174,30 @@ output "https_listener_arn" {
 output "deployment_timestamp" {
   description = "Timestamp of last deployment"
   value       = "Deployed via GitFlow CI/CD - Staging Environment"
+}
+
+# Logging outputs
+output "cloudwatch_dashboard_url" {
+  description = "URL of the CloudWatch dashboard"
+  value       = module.logging.dashboard_url
+}
+
+output "application_log_group_name" {
+  description = "Application log group name"
+  value       = module.logging.application_log_group_name
+}
+
+output "system_log_group_name" {
+  description = "System log group name"
+  value       = module.logging.system_log_group_name
+}
+
+output "high_error_rate_alarm_arn" {
+  description = "High error rate alarm ARN"
+  value       = module.logging.high_error_rate_alarm_arn
+}
+
+output "slow_response_time_alarm_arn" {
+  description = "Slow response time alarm ARN"
+  value       = module.logging.slow_response_time_alarm_arn
 }

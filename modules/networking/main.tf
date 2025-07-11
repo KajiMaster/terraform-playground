@@ -174,7 +174,7 @@ resource "aws_security_group" "webserver" {
   }
 }
 
-# SSH access rule (separate to avoid conflicts) - temporarily commented out
+# SSH access rule (separate to avoid conflicts)
 # resource "aws_security_group_rule" "webserver_ssh_ingress" {
 #   type        = "ingress"
 #   from_port   = 22
@@ -184,6 +184,8 @@ resource "aws_security_group" "webserver" {
 #   security_group_id = aws_security_group.webserver.id
 #   description = "SSH access"
 # }
+
+
 
 # Separate security group rule to avoid circular dependency
 resource "aws_security_group_rule" "webserver_alb_ingress" {

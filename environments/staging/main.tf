@@ -178,6 +178,16 @@ module "ssm" {
   database_password     = data.aws_secretsmanager_secret_version.db_password.secret_string
 }
 
+# Logging Module
+module "logging" {
+  source = "../../modules/logging"
+
+  environment       = var.environment
+  aws_region        = var.aws_region
+  alb_name          = module.loadbalancer.alb_name
+  enable_cleanup    = true  # Demo environment
+}
+
 # OIDC Module removed - using global GitHub Actions role instead
 # The global environment manages the OIDC provider and GitHub Actions role
 # Staging and production environments use the global role via CI/CD workflows

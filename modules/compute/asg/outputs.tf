@@ -38,11 +38,6 @@ output "iam_instance_profile_name" {
   value       = aws_iam_instance_profile.asg.name
 }
 
-output "key_pair_name" {
-  description = "Name of the SSH key pair"
-  value       = var.key_name != null ? var.key_name : aws_key_pair.asg[0].key_name
-}
-
 output "desired_capacity" {
   description = "Desired capacity of the Auto Scaling Group"
   value       = aws_autoscaling_group.asg.desired_capacity
@@ -61,10 +56,4 @@ output "min_size" {
 output "deployment_color" {
   description = "Deployment color of this ASG"
   value       = var.deployment_color
-}
-
-output "private_key" {
-  description = "Private key for SSH access to instances"
-  value       = var.key_name == null ? tls_private_key.asg[0].private_key_pem : null
-  sensitive   = true
 } 

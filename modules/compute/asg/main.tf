@@ -118,6 +118,31 @@ resource "aws_iam_role_policy_attachment" "asg_rds" {
   policy_arn = aws_iam_policy.asg_rds.arn
 }
 
+# Add CloudWatch permissions to existing IAM role
+resource "aws_iam_role_policy" "asg_cloudwatch" {
+  name = "${var.environment}-${var.deployment_color}-asg-cloudwatch-policy"
+  role = aws_iam_role.asg.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+          "logs:DescribeLogStreams"
+        ]
+        Resource = [
+          "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/aws/application/*",
+          "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/aws/ec2/*"
+        ]
+      }
+    ]
+  })
+}
+
 # Get current region and account ID for the policy
 data "aws_region" "current" {}
 data "aws_caller_identity" "current" {}
@@ -129,20 +154,20 @@ resource "aws_iam_instance_profile" "asg" {
 }
 
 # SSH Key Pair - use provided key or generate one
-resource "tls_private_key" "asg" {
-  count = var.key_name == null ? 1 : 0
-  
-  algorithm = "RSA"
-  rsa_bits  = 4096
-}
+# resource "tls_private_key" "asg" {
+#   count = var.key_name == null ? 1 : 0
+#   
+#   algorithm = "RSA"
+#   rsa_bits  = 4096
+# }
 
 # SSH Key Pair
-resource "aws_key_pair" "asg" {
-  count = var.key_name == null ? 1 : 0
-  
-  key_name   = "${var.environment}-${var.deployment_color}-key"
-  public_key = tls_private_key.asg[0].public_key_openssh
-}
+# resource "aws_key_pair" "asg" {
+#   count = var.key_name == null ? 1 : 0
+#   
+#   key_name   = "${var.environment}-${var.deployment_color}-key"
+#   public_key = tls_private_key.asg[0].public_key_openssh
+# }
 
 # User data script for ASG instances
 data "template_file" "user_data" {
@@ -171,7 +196,8 @@ resource "aws_launch_template" "asg" {
     name = aws_iam_instance_profile.asg.name
   }
 
-  key_name = var.key_name != null ? var.key_name : aws_key_pair.asg[0].key_name
+  # Remove key_name to disable EC2 key pair
+  # key_name = var.key_name != null ? var.key_name : aws_key_pair.asg[0].key_name
 
   user_data = base64encode(data.template_file.user_data.rendered)
 

@@ -58,4 +58,9 @@ output "https_listener_arn" {
 output "alb_url" {
   description = "URL to access the application via ALB"
   value       = "http://${aws_lb.main.dns_name}"
+}
+
+output "alb_name" {
+  description = "Name of the Application Load Balancer (for CloudWatch metrics)"
+  value       = aws_lb.main.name
 } 
