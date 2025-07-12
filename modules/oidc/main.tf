@@ -250,6 +250,7 @@ resource "aws_iam_role_policy" "terraform_permissions" {
           "lambda:DeleteFunction",
           "lambda:GetFunctionConfiguration",
           "lambda:ListFunctions",
+          "lambda:ListVersionsByFunction",
           "lambda:TagResource",
           "lambda:UntagResource",
           "lambda:ListTags"
