@@ -253,6 +253,8 @@ resource "aws_iam_role_policy" "terraform_permissions" {
           "lambda:ListVersionsByFunction",
           "lambda:ListAliases",
           "lambda:DeleteFunctionConcurrency",
+          "lambda:GetFunctionCodeSigningConfig",
+          "lambda:GetRuntimeManagementConfig",
           "lambda:TagResource",
           "lambda:UntagResource",
           "lambda:ListTags"
