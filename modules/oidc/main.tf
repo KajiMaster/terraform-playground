@@ -238,6 +238,23 @@ resource "aws_iam_role_policy" "terraform_permissions" {
           "logs:UntagResource"
         ]
         Resource = "*"
+      },
+      # Lambda permissions for function management
+      {
+        Effect = "Allow"
+        Action = [
+          "lambda:GetFunction",
+          "lambda:CreateFunction",
+          "lambda:UpdateFunctionCode",
+          "lambda:UpdateFunctionConfiguration",
+          "lambda:DeleteFunction",
+          "lambda:GetFunctionConfiguration",
+          "lambda:ListFunctions",
+          "lambda:TagResource",
+          "lambda:UntagResource",
+          "lambda:ListTags"
+        ]
+        Resource = "*"
       }
     ]
   })
