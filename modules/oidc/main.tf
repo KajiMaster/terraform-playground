@@ -170,6 +170,7 @@ resource "aws_iam_role_policy" "terraform_permissions" {
           "arn:aws:iam::*:role/dev-*",
           "arn:aws:iam::*:role/prod-*",
           "arn:aws:iam::*:role/production-*",
+          "arn:aws:iam::*:role/cleanup-logs-lambda-*",
           "arn:aws:iam::*:policy/tf-playground-*",
           "arn:aws:iam::*:policy/staging-*",
           "arn:aws:iam::*:policy/dev-*",
