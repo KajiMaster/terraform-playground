@@ -47,7 +47,7 @@ resource "aws_cloudwatch_dashboard" "main" {
         height = 6
         properties = {
           metrics = [
-            ["AWS/ApplicationELB", "RequestCount", "LoadBalancer", var.alb_name],
+            ["AWS/ApplicationELB", "RequestCount", "LoadBalancer", "app/${var.alb_name}/99e60c16fce11186"],
             [".", "TargetResponseTime", ".", "."],
             [".", "HTTPCode_Target_5XX_Count", ".", "."],
             [".", "HTTPCode_Target_4XX_Count", ".", "."]
@@ -100,7 +100,7 @@ resource "aws_cloudwatch_metric_alarm" "high_error_rate" {
   alarm_actions       = var.alarm_actions
 
   dimensions = {
-    LoadBalancer = var.alb_name
+    LoadBalancer = "app/${var.alb_name}/99e60c16fce11186"
   }
 }
 
@@ -117,7 +117,7 @@ resource "aws_cloudwatch_metric_alarm" "slow_response_time" {
   alarm_actions       = var.alarm_actions
 
   dimensions = {
-    LoadBalancer = var.alb_name
+    LoadBalancer = "app/${var.alb_name}/99e60c16fce11186"
   }
 }
 

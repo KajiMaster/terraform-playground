@@ -10,11 +10,12 @@ This directory contains the active, portfolio-relevant documentation for the Ter
 - **[README.md](../README.md)** - Main project overview, features, and deployment instructions
 
 ### **Current Active Projects**
-- **[blue-green-deployment-project.md](blue-green-deployment-project.md)** - Active implementation of zero-downtime deployment strategy
+- **[blue-green-deployment-project.md](blue-green-deployment-project.md)** - Complete blue-green deployment implementation (COMPLETED)
 - **[kms-migration-to-aws-managed.md](kms-migration-to-aws-managed.md)** - Cost optimization migration from custom KMS keys to AWS managed keys
 
 ### **Operational Guides**
 - **[database-bootstrap.md](database-bootstrap.md)** - Complete guide for automated database setup and population
+- **[blue-green-failover-quick-reference.md](blue-green-failover-quick-reference.md)** - Quick commands for blue-green failover testing
 
 ### **Learning & Reference**
 - **[lessons-learned.md](lessons-learned.md)** - Real human notes from hands-on experience
@@ -22,6 +23,10 @@ This directory contains the active, portfolio-relevant documentation for the Ter
 
 ### **Strategic Planning**
 - **[future-roadmap.md](future-roadmap.md)** - Project roadmap and future enhancement planning
+- **[centralized-secrets-refactor.md](centralized-secrets-refactor.md)** - Secrets management improvements
+
+### **Project Management**
+- **[documentation-cleanup-summary.md](documentation-cleanup-summary.md)** - Documentation organization and cleanup process
 
 ## Documentation Philosophy
 
@@ -45,22 +50,26 @@ Historical and planning documents have been moved to `docs/archive/` to maintain
 
 This documentation showcases:
 
-- ✅ **Infrastructure as Code**: Complete AWS automation
-- ✅ **CI/CD Integration**: Automated deployment workflows
-- ✅ **Cost Optimization**: Strategic cost management decisions
-- ✅ **Security Best Practices**: IAM, OIDC, encryption
+- ✅ **Infrastructure as Code**: Complete AWS automation with blue-green deployments
+- ✅ **CI/CD Integration**: Automated deployment workflows with GitFlow
+- ✅ **Cost Optimization**: Strategic cost management decisions (KMS migration)
+- ✅ **Security Best Practices**: IAM, OIDC, encryption, centralized secrets
 - ✅ **Strategic Thinking**: Mature decision-making and prioritization
 - ✅ **Documentation Excellence**: Clear, professional communication
 - ✅ **Problem Solving**: Real-world challenge resolution
+- ✅ **Monitoring & Observability**: CloudWatch integration with chaos testing
+- ✅ **Project Management**: Documentation organization and cleanup
 
 ## For Potential Employers
 
 This documentation demonstrates:
-- **Technical Depth**: Real-world Terraform implementation
-- **Business Value**: Cost-conscious decision making
+- **Technical Depth**: Real-world Terraform implementation with advanced patterns
+- **Business Value**: Cost-conscious decision making and strategic thinking
 - **Professional Growth**: Strategic thinking and prioritization
 - **Communication Skills**: Clear, organized documentation
 - **Learning Ability**: Continuous improvement and adaptation
+- **Production Readiness**: Blue-green deployments, monitoring, and chaos testing
+- **Project Management**: Professional documentation organization
 
 ---
 
