@@ -222,6 +222,21 @@ resource "aws_iam_role_policy" "terraform_permissions" {
           "cloudwatch:*"
         ]
         Resource = "*"
+      },
+      # CloudWatch Logs permissions for Terraform and Lambda
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:DescribeLogGroups",
+          "logs:CreateLogGroup",
+          "logs:PutRetentionPolicy",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+          "logs:ListTagsForResource",
+          "logs:TagResource",
+          "logs:UntagResource"
+        ]
+        Resource = "*"
       }
     ]
   })
