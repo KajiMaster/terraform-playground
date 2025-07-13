@@ -8,31 +8,12 @@ terraform {
   }
 }
 
-# CloudWatch Log Groups
-resource "aws_cloudwatch_log_group" "application_logs" {
-  name              = "/aws/application/${var.environment}"
-  retention_in_days = var.log_retention_days
-  force_destroy     = true
-
-  tags = {
-    Environment = var.environment
-    Project     = "tf-playground"
-    AutoDelete  = "true"
-    DemoPeriod  = "24h"
-  }
-}
-
-resource "aws_cloudwatch_log_group" "system_logs" {
-  name              = "/aws/ec2/${var.environment}"
-  retention_in_days = var.log_retention_days
-  force_destroy     = true
-
-  tags = {
-    Environment = var.environment
-    Project     = "tf-playground"
-    AutoDelete  = "true"
-    DemoPeriod  = "24h"
-  }
+# CloudWatch Log Groups - Now managed globally
+# These are referenced from the global environment
+locals {
+  application_log_group_name = var.application_log_group_name
+  system_log_group_name      = var.system_log_group_name
+  alarm_log_group_name       = var.alarm_log_group_name
 }
 
 # CloudWatch Dashboard
@@ -137,8 +118,8 @@ resource "aws_lambda_function" "cleanup_logs" {
   environment {
     variables = {
       LOG_GROUP_NAMES = jsonencode([
-        aws_cloudwatch_log_group.application_logs.name,
-        aws_cloudwatch_log_group.system_logs.name
+        local.application_log_group_name,
+        local.system_log_group_name
       ])
     }
   }

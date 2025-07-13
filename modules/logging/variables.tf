@@ -15,6 +15,21 @@ variable "log_retention_days" {
   default     = 1
 }
 
+variable "application_log_group_name" {
+  description = "Application log group name from global environment"
+  type        = string
+}
+
+variable "system_log_group_name" {
+  description = "System log group name from global environment"
+  type        = string
+}
+
+variable "alarm_log_group_name" {
+  description = "Alarm log group name from global environment"
+  type        = string
+}
+
 variable "alb_name" {
   description = "ALB name for metrics (CloudWatch LoadBalancer dimension)"
   type        = string

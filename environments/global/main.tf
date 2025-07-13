@@ -38,4 +38,11 @@ module "oidc" {
   state_lock_table    = "tf-playground-locks"
   aws_region          = "us-east-2"
   create_oidc_provider = true
+}
+
+# Global CloudWatch Log Groups - Shared across environments
+module "log_groups" {
+  source = "../../modules/log-groups"
+  
+  log_retention_days = 1  # Demo environment - 1 day retention
 } 
