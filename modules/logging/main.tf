@@ -12,6 +12,7 @@ terraform {
 resource "aws_cloudwatch_log_group" "application_logs" {
   name              = "/aws/application/${var.environment}"
   retention_in_days = var.log_retention_days
+  force_destroy     = true
 
   tags = {
     Environment = var.environment
@@ -24,6 +25,7 @@ resource "aws_cloudwatch_log_group" "application_logs" {
 resource "aws_cloudwatch_log_group" "system_logs" {
   name              = "/aws/ec2/${var.environment}"
   retention_in_days = var.log_retention_days
+  force_destroy     = true
 
   tags = {
     Environment = var.environment
