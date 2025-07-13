@@ -13,9 +13,15 @@ This module manages global CloudWatch log groups that are shared across all envi
 
 ```
 Global Environment
-├── /aws/application/tf-playground    # Application logs from all environments
-├── /aws/ec2/tf-playground           # System logs from all environments
-└── /aws/cloudwatch/alarms/tf-playground  # Alarm notifications from all environments
+├── /aws/application/tf-playground/dev        # Development application logs
+├── /aws/application/tf-playground/staging    # Staging application logs
+├── /aws/application/tf-playground/production # Production application logs
+├── /aws/ec2/tf-playground/dev               # Development system logs
+├── /aws/ec2/tf-playground/staging           # Staging system logs
+├── /aws/ec2/tf-playground/production        # Production system logs
+├── /aws/cloudwatch/alarms/tf-playground/dev        # Development alarm logs
+├── /aws/cloudwatch/alarms/tf-playground/staging    # Staging alarm logs
+└── /aws/cloudwatch/alarms/tf-playground/production # Production alarm logs
 ```
 
 ## 📋 Features
@@ -48,11 +54,12 @@ data "terraform_remote_state" "global" {
   }
 }
 
-# Use global log group names
+# Use environment-specific log group names
 locals {
-  application_log_group = data.terraform_remote_state.global.outputs.application_log_group_name
-  system_log_group      = data.terraform_remote_state.global.outputs.system_log_group_name
-  alarm_log_group       = data.terraform_remote_state.global.outputs.alarm_log_group_name
+  environment = "staging"  # or "dev", "production"
+  application_log_group = data.terraform_remote_state.global.outputs.application_log_groups[local.environment]
+  system_log_group      = data.terraform_remote_state.global.outputs.system_log_groups[local.environment]
+  alarm_log_group       = data.terraform_remote_state.global.outputs.alarm_log_groups[local.environment]
 }
 ```
 

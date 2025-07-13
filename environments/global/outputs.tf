@@ -15,32 +15,32 @@ output "oidc_provider_arn" {
 }
 
 # Log Groups outputs
-output "application_log_group_name" {
-  description = "Global application log group name"
-  value       = module.log_groups.application_log_group_name
+output "application_log_groups" {
+  description = "Map of environment to application log group names"
+  value       = module.log_groups.application_log_groups
 }
 
-output "application_log_group_arn" {
-  description = "Global application log group ARN"
-  value       = module.log_groups.application_log_group_arn
+output "application_log_group_arns" {
+  description = "Map of environment to application log group ARNs"
+  value       = module.log_groups.application_log_group_arns
 }
 
-output "system_log_group_name" {
-  description = "Global system log group name"
-  value       = module.log_groups.system_log_group_name
+output "system_log_groups" {
+  description = "Map of environment to system log group names"
+  value       = module.log_groups.system_log_groups
 }
 
-output "system_log_group_arn" {
-  description = "Global system log group ARN"
-  value       = module.log_groups.system_log_group_arn
+output "system_log_group_arns" {
+  description = "Map of environment to system log group ARNs"
+  value       = module.log_groups.system_log_group_arns
 }
 
-output "alarm_log_group_name" {
-  description = "Global alarm log group name"
-  value       = module.log_groups.alarm_log_group_name
+output "alarm_log_groups" {
+  description = "Map of environment to alarm log group names"
+  value       = module.log_groups.alarm_log_groups
 }
 
-output "alarm_log_group_arn" {
-  description = "Global alarm log group ARN"
-  value       = module.log_groups.alarm_log_group_arn
+output "alarm_log_group_arns" {
+  description = "Map of environment to alarm log group ARNs"
+  value       = module.log_groups.alarm_log_group_arns
 } 
