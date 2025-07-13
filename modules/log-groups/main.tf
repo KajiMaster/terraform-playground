@@ -14,7 +14,6 @@ resource "aws_cloudwatch_log_group" "application_logs" {
   
   name              = "/aws/application/tf-playground/${each.key}"
   retention_in_days = var.log_retention_days
-  force_destroy     = true
 
   tags = {
     Environment = each.key
@@ -29,7 +28,6 @@ resource "aws_cloudwatch_log_group" "system_logs" {
   
   name              = "/aws/ec2/tf-playground/${each.key}"
   retention_in_days = var.log_retention_days
-  force_destroy     = true
 
   tags = {
     Environment = each.key
@@ -44,7 +42,6 @@ resource "aws_cloudwatch_log_group" "alarm_logs" {
   
   name              = "/aws/cloudwatch/alarms/tf-playground/${each.key}"
   retention_in_days = var.log_retention_days
-  force_destroy     = true
 
   tags = {
     Environment = each.key
