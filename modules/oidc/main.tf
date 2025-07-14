@@ -233,6 +233,7 @@ resource "aws_iam_role_policy" "terraform_permissions" {
           "logs:PutRetentionPolicy",
           "logs:CreateLogStream",
           "logs:PutLogEvents",
+          "logs:DeleteLogGroup",
           "logs:ListTagsForResource",
           "logs:TagResource",
           "logs:UntagResource"
@@ -253,6 +254,8 @@ resource "aws_iam_role_policy" "terraform_permissions" {
           "lambda:ListVersionsByFunction",
           "lambda:ListAliases",
           "lambda:DeleteFunctionConcurrency",
+          "lambda:GetFunctionCodeSigningConfig",
+          "lambda:GetRuntimeManagementConfig",
           "lambda:TagResource",
           "lambda:UntagResource",
           "lambda:ListTags"

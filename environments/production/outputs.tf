@@ -64,18 +64,8 @@ output "green_target_group_arn" {
   value       = module.loadbalancer.green_target_group_arn
 }
 
-# SSH Keys for debugging
-output "blue_asg_private_key" {
-  description = "Private key for SSH access to blue ASG instances"
-  value       = module.blue_asg.private_key
-  sensitive   = true
-}
-
-output "green_asg_private_key" {
-  description = "Private key for SSH access to green ASG instances"
-  value       = module.green_asg.private_key
-  sensitive   = true
-}
+# SSH Keys for debugging - using centralized SSH keys
+# Private keys are available via AWS Secrets Manager
 
 # Database Outputs
 output "database_endpoint" {
@@ -187,4 +177,56 @@ output "https_listener_arn" {
 output "deployment_timestamp" {
   description = "Timestamp of last deployment"
   value       = "Deployed via GitFlow CI/CD - Production Environment"
+}
+
+# Logging outputs
+output "cloudwatch_dashboard_url" {
+  description = "URL of the CloudWatch dashboard"
+  value       = module.logging.dashboard_url
+}
+
+output "application_log_group_name" {
+  description = "Application log group name"
+  value       = module.logging.application_log_group_name
+}
+
+output "system_log_group_name" {
+  description = "System log group name"
+  value       = module.logging.system_log_group_name
+}
+
+output "high_error_rate_alarm_arn" {
+  description = "High error rate alarm ARN"
+  value       = module.logging.high_error_rate_alarm_arn
+}
+
+output "slow_response_time_alarm_arn" {
+  description = "Slow response time alarm ARN"
+  value       = module.logging.slow_response_time_alarm_arn
+}
+
+# Global Log Group ARNs (from shared remote state)
+output "global_application_log_group_arn" {
+  description = "Application log group ARN from global environment"
+  value       = data.terraform_remote_state.global.outputs.application_log_group_arns[var.environment]
+}
+
+output "global_system_log_group_arn" {
+  description = "System log group ARN from global environment"
+  value       = data.terraform_remote_state.global.outputs.system_log_group_arns[var.environment]
+}
+
+output "global_alarm_log_group_arn" {
+  description = "Alarm log group ARN from global environment"
+  value       = data.terraform_remote_state.global.outputs.alarm_log_group_arns[var.environment]
+}
+
+# All global log group ARNs for this environment
+output "global_log_group_arns" {
+  description = "All log group ARNs from global environment for this environment"
+  value = {
+    application = data.terraform_remote_state.global.outputs.application_log_group_arns[var.environment]
+    system      = data.terraform_remote_state.global.outputs.system_log_group_arns[var.environment]
+    alarm       = data.terraform_remote_state.global.outputs.alarm_log_group_arns[var.environment]
+  }
 } 

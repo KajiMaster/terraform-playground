@@ -4,13 +4,13 @@ output "dashboard_url" {
 }
 
 output "application_log_group_name" {
-  description = "Application log group name"
-  value       = aws_cloudwatch_log_group.application_logs.name
+  description = "Application log group name (from global)"
+  value       = var.application_log_group_name
 }
 
 output "system_log_group_name" {
-  description = "System log group name"
-  value       = aws_cloudwatch_log_group.system_logs.name
+  description = "System log group name (from global)"
+  value       = var.system_log_group_name
 }
 
 output "high_error_rate_alarm_arn" {

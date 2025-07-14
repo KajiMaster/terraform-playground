@@ -22,9 +22,16 @@ done
 
 # Test 2: Generate Slow Responses
 echo "🐌 Generating slow responses..."
+for i in {1..10}; do
+    echo "  Slow request $i: $(curl -s -w "HTTP %{http_code} Time: %{time_total}s" "$BASE_URL/error/slow" -o /dev/null --max-time 10)"
+    sleep 0.5
+done
+
+# Test 2b: Generate Very Slow Responses (should trigger alarm)
+echo "🐌🐌 Generating very slow responses..."
 for i in {1..5}; do
-    echo "  Slow request $i: $(curl -s -w "HTTP %{http_code}" "$BASE_URL/error/slow" -o /dev/null)"
-    sleep 1
+    echo "  Very slow request $i: $(curl -s -w "HTTP %{http_code} Time: %{time_total}s" "$BASE_URL/error/slow" -o /dev/null --max-time 15)"
+    sleep 0.3
 done
 
 # Test 3: Generate Database Errors

@@ -7,7 +7,7 @@ This module provides comprehensive logging infrastructure for the Terraform play
 - **CloudWatch Log Groups**: Centralized log aggregation for application and system logs
 - **CloudWatch Dashboard**: Real-time monitoring with metrics and log visualization
 - **CloudWatch Alarms**: Automated alerting for high error rates and slow response times
-- **Demo Cleanup**: Automatic log cleanup to control costs in demo environments
+- **Centralized Log Groups**: Uses global log groups with 1-day retention for cost control
 - **Cost Optimized**: 1-day log retention for demo environments
 
 ## Usage
@@ -19,7 +19,7 @@ module "logging" {
   environment       = "staging"
   aws_region        = "us-east-2"
   alb_name_suffix   = module.loadbalancer.alb_name_suffix
-  enable_cleanup    = true  # Demo environment
+
 }
 ```
 
@@ -32,7 +32,7 @@ module "logging" {
 | log_retention_days | Number of days to retain logs | `number` | `1` | no |
 | alb_name_suffix | ALB name suffix for metrics | `string` | n/a | yes |
 | alarm_actions | List of ARNs for alarm actions | `list(string)` | `[]` | no |
-| enable_cleanup | Enable automatic log cleanup | `bool` | `true` | no |
+
 
 ## Outputs
 
@@ -49,13 +49,12 @@ module "logging" {
 - CloudWatch Log Groups (application and system logs)
 - CloudWatch Dashboard with metrics and log widgets
 - CloudWatch Alarms for error rates and response times
-- Lambda function for automated log cleanup (optional)
-- IAM roles and policies for Lambda cleanup
+
 
 ## Cost Considerations
 
 - **Log Retention**: 1 day for demo environments (vs. 90+ days in production)
-- **Cleanup Automation**: Automatic deletion of old log streams
+
 - **Minimal Metrics**: Focus on key application metrics only
 - **Demo Tags**: Resources tagged for easy identification and cleanup
 

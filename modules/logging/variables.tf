@@ -15,8 +15,28 @@ variable "log_retention_days" {
   default     = 1
 }
 
+variable "application_log_group_name" {
+  description = "Application log group name from global environment"
+  type        = string
+}
+
+variable "system_log_group_name" {
+  description = "System log group name from global environment"
+  type        = string
+}
+
+variable "alarm_log_group_name" {
+  description = "Alarm log group name from global environment"
+  type        = string
+}
+
 variable "alb_name" {
   description = "ALB name for metrics (CloudWatch LoadBalancer dimension)"
+  type        = string
+}
+
+variable "alb_identifier" {
+  description = "Full ALB identifier for CloudWatch metrics (e.g., app/staging-alb/00157f7cffd3b5e8)"
   type        = string
 }
 
@@ -26,8 +46,4 @@ variable "alarm_actions" {
   default     = []
 }
 
-variable "enable_cleanup" {
-  description = "Enable automatic log cleanup for demo environments"
-  type        = bool
-  default     = true
-} 
+ 

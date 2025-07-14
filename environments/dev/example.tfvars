@@ -10,8 +10,8 @@ availability_zones   = ["us-east-2a", "us-east-2b"]
 
 # Compute Configuration
 webserver_instance_type = "t3.micro"
-key_name               = "tf-playground-dev"  # Replace with your key name
+key_name                = "tf-playground-dev" # Replace with your key name
 
 # Database Configuration
 db_instance_type = "db.t3.micro"
-db_name         = "tfplayground"
+db_name          = "tfplayground"
