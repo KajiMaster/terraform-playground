@@ -29,9 +29,9 @@ provider "aws" {
 data "terraform_remote_state" "global" {
   backend = "s3"
   config = {
-    bucket         = "tf-playground-state-vexus"
-    key            = "global/terraform.tfstate"
-    region         = "us-east-2"
+    bucket = "tf-playground-state-vexus"
+    key    = "global/terraform.tfstate"
+    region = "us-east-2"
   }
 }
 
@@ -50,9 +50,9 @@ module "networking" {
 # These can be changed to environment-specific secrets if needed
 locals {
   # Secret paths - can be changed to environment-specific if needed
-  db_password_secret_name = "/tf-playground/all/db-pword"
+  db_password_secret_name     = "/tf-playground/all/db-pword"
   ssh_private_key_secret_name = "/tf-playground/all/ssh-key"
-  ssh_public_key_secret_name = "/tf-playground/all/ssh-key-public"
+  ssh_public_key_secret_name  = "/tf-playground/all/ssh-key-public"
 }
 
 # Get centralized database password
@@ -176,7 +176,22 @@ module "ssm" {
   database_name         = var.db_name
   database_username     = "tfplayground_user"
   database_password     = data.aws_secretsmanager_secret_version.db_password.secret_string
-} 
+}
+
+# Logging Module
+module "logging" {
+  source = "../../modules/logging"
+
+  environment    = var.environment
+  aws_region     = var.aws_region
+  alb_name       = module.loadbalancer.alb_name
+
+
+  # Use log group names from global environment
+  application_log_group_name = data.terraform_remote_state.global.outputs.application_log_groups[var.environment]
+  system_log_group_name      = data.terraform_remote_state.global.outputs.system_log_groups[var.environment]
+  alarm_log_group_name       = data.terraform_remote_state.global.outputs.alarm_log_groups[var.environment]
+}
 
 # OIDC Module removed - using global GitHub Actions role instead
 # The global environment manages the OIDC provider and GitHub Actions role

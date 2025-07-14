@@ -201,3 +201,29 @@ output "slow_response_time_alarm_arn" {
   description = "Slow response time alarm ARN"
   value       = module.logging.slow_response_time_alarm_arn
 }
+
+# Global Log Group ARNs (from shared remote state)
+output "global_application_log_group_arn" {
+  description = "Application log group ARN from global environment"
+  value       = data.terraform_remote_state.global.outputs.application_log_group_arns[var.environment]
+}
+
+output "global_system_log_group_arn" {
+  description = "System log group ARN from global environment"
+  value       = data.terraform_remote_state.global.outputs.system_log_group_arns[var.environment]
+}
+
+output "global_alarm_log_group_arn" {
+  description = "Alarm log group ARN from global environment"
+  value       = data.terraform_remote_state.global.outputs.alarm_log_group_arns[var.environment]
+}
+
+# All global log group ARNs for this environment
+output "global_log_group_arns" {
+  description = "All log group ARNs from global environment for this environment"
+  value = {
+    application = data.terraform_remote_state.global.outputs.application_log_group_arns[var.environment]
+    system      = data.terraform_remote_state.global.outputs.system_log_group_arns[var.environment]
+    alarm       = data.terraform_remote_state.global.outputs.alarm_log_group_arns[var.environment]
+  }
+}

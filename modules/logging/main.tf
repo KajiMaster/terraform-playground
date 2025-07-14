@@ -30,7 +30,7 @@ resource "aws_cloudwatch_dashboard" "main" {
         height = 6
         properties = {
           metrics = [
-            ["AWS/ApplicationELB", "RequestCount", "LoadBalancer", "app/${var.alb_name}/99e60c16fce11186"],
+            ["AWS/ApplicationELB", "RequestCount", "LoadBalancer", var.alb_identifier],
             [".", "TargetResponseTime", ".", "."],
             [".", "HTTPCode_Target_5XX_Count", ".", "."],
             [".", "HTTPCode_Target_4XX_Count", ".", "."]
@@ -48,9 +48,9 @@ resource "aws_cloudwatch_dashboard" "main" {
         width  = 12
         height = 6
         properties = {
-          query   = "SOURCE '/aws/application/${var.environment}'\n| fields @timestamp, @message\n| sort @timestamp desc\n| limit 20"
-          region  = var.aws_region
-          title   = "Recent Application Logs"
+          query  = "SOURCE '/aws/application/${var.environment}'\n| fields @timestamp, @message\n| sort @timestamp desc\n| limit 20"
+          region = var.aws_region
+          title  = "Recent Application Logs"
         }
       },
       {
@@ -60,9 +60,9 @@ resource "aws_cloudwatch_dashboard" "main" {
         width  = 12
         height = 6
         properties = {
-          query   = "SOURCE '/aws/application/${var.environment}'\n| filter @message like /ERROR/\n| fields @timestamp, @message\n| sort @timestamp desc\n| limit 10"
-          region  = var.aws_region
-          title   = "Recent Errors"
+          query  = "SOURCE '/aws/application/${var.environment}'\n| filter @message like /ERROR/\n| fields @timestamp, @message\n| sort @timestamp desc\n| limit 10"
+          region = var.aws_region
+          title  = "Recent Errors"
         }
       }
     ]
@@ -83,7 +83,7 @@ resource "aws_cloudwatch_metric_alarm" "high_error_rate" {
   alarm_actions       = var.alarm_actions
 
   dimensions = {
-    LoadBalancer = "app/${var.alb_name}/99e60c16fce11186"
+    LoadBalancer = var.alb_identifier
   }
 }
 
@@ -100,130 +100,8 @@ resource "aws_cloudwatch_metric_alarm" "slow_response_time" {
   alarm_actions       = var.alarm_actions
 
   dimensions = {
-    LoadBalancer = "app/${var.alb_name}/99e60c16fce11186"
+    LoadBalancer = var.alb_identifier
   }
 }
 
-# Demo Cleanup Lambda (Optional - for cost control)
-resource "aws_lambda_function" "cleanup_logs" {
-  count = var.enable_cleanup ? 1 : 0
-  
-  filename         = data.archive_file.cleanup_zip[0].output_path
-  function_name    = "cleanup-logs-${var.environment}"
-  role            = aws_iam_role.cleanup_lambda[0].arn
-  handler         = "index.handler"
-  runtime         = "python3.9"
-  timeout         = 300
-
-  environment {
-    variables = {
-      LOG_GROUP_NAMES = jsonencode([
-        local.application_log_group_name,
-        local.system_log_group_name
-      ])
-    }
-  }
-
-  tags = {
-    Environment = var.environment
-    Project     = "tf-playground"
-    Purpose     = "demo-cleanup"
-  }
-}
-
-data "archive_file" "cleanup_zip" {
-  count = var.enable_cleanup ? 1 : 0
-  
-  type        = "zip"
-  output_path = "${path.module}/cleanup-lambda.zip"
-  source {
-    content = <<EOF
-import boto3
-import json
-import os
-from datetime import datetime, timedelta
-
-def handler(event, context):
-    logs_client = boto3.client('logs')
-    log_group_names = json.loads(os.environ['LOG_GROUP_NAMES'])
-    
-    cutoff_time = datetime.now() - timedelta(days=1)
-    
-    for log_group in log_group_names:
-        try:
-            # Delete log streams older than 1 day
-            response = logs_client.describe_log_streams(
-                logGroupName=log_group,
-                orderBy='LastEventTime',
-                descending=True
-            )
-            
-            for stream in response['logStreams']:
-                if 'lastEventTimestamp' in stream:
-                    stream_time = datetime.fromtimestamp(stream['lastEventTimestamp'] / 1000)
-                    if stream_time < cutoff_time:
-                        logs_client.delete_log_stream(
-                            logGroupName=log_group,
-                            logStreamName=stream['logStreamName']
-                        )
-                        print(f"Deleted stream: {stream['logStreamName']}")
-        except Exception as e:
-            print(f"Error cleaning up {log_group}: {e}")
-    
-    return {"statusCode": 200, "body": "Cleanup completed"}
-EOF
-    filename = "index.py"
-  }
-}
-
-resource "aws_iam_role" "cleanup_lambda" {
-  count = var.enable_cleanup ? 1 : 0
-  
-  name = "cleanup-logs-lambda-${var.environment}"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "lambda.amazonaws.com"
-        }
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role_policy" "cleanup_lambda" {
-  count = var.enable_cleanup ? 1 : 0
-  
-  name = "cleanup-logs-policy-${var.environment}"
-  role = aws_iam_role.cleanup_lambda[0].id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "logs:DescribeLogStreams",
-          "logs:DeleteLogStream"
-        ]
-        Resource = [
-          aws_cloudwatch_log_group.application_logs.arn,
-          aws_cloudwatch_log_group.system_logs.arn
-        ]
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "logs:CreateLogGroup",
-          "logs:CreateLogStream",
-          "logs:PutLogEvents"
-        ]
-        Resource = "arn:aws:logs:*:*:*"
-      }
-    ]
-  })
-} 
+ 

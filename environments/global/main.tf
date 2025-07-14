@@ -32,17 +32,17 @@ provider "aws" {
 module "oidc" {
   source = "../../modules/oidc"
 
-  environment         = "global"
-  github_repository   = "KajiMaster/terraform-playground"
-  state_bucket        = "tf-playground-state-vexus"
-  state_lock_table    = "tf-playground-locks"
-  aws_region          = "us-east-2"
+  environment          = "global"
+  github_repository    = "KajiMaster/terraform-playground"
+  state_bucket         = "tf-playground-state-vexus"
+  state_lock_table     = "tf-playground-locks"
+  aws_region           = "us-east-2"
   create_oidc_provider = true
 }
 
 # Global CloudWatch Log Groups - Shared across environments
 module "log_groups" {
   source = "../../modules/log-groups"
-  
-  log_retention_days = 1  # Demo environment - 1 day retention
+
+  log_retention_days = 1 # Demo environment - 1 day retention
 } 

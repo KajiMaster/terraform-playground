@@ -41,13 +41,13 @@ variable "availability_zones" {
 variable "webserver_instance_type" {
   description = "EC2 instance type for web server (cost optimized for demo)"
   type        = string
-  default     = "t3.micro"  # Cost optimized - same as staging
+  default     = "t3.micro" # Cost optimized - same as staging
 }
 
 variable "db_instance_type" {
   description = "RDS instance type (cost optimized for demo)"
   type        = string
-  default     = "db.t3.micro"  # Cost optimized - same as staging
+  default     = "db.t3.micro" # Cost optimized - same as staging
 }
 
 variable "db_name" {
@@ -104,36 +104,36 @@ variable "certificate_arn" {
 variable "blue_desired_capacity" {
   description = "Desired capacity for blue Auto Scaling Group"
   type        = number
-  default     = 1  # Cost optimized - same as staging
+  default     = 1 # Cost optimized - same as staging
 }
 
 variable "blue_max_size" {
   description = "Maximum size for blue Auto Scaling Group"
   type        = number
-  default     = 2  # Cost optimized - same as staging
+  default     = 2 # Cost optimized - same as staging
 }
 
 variable "blue_min_size" {
   description = "Minimum size for blue Auto Scaling Group"
   type        = number
-  default     = 1  # Cost optimized - same as staging
+  default     = 1 # Cost optimized - same as staging
 }
 
 # Green Environment Configuration (cost optimized for demo)
 variable "green_desired_capacity" {
   description = "Desired capacity for green Auto Scaling Group"
   type        = number
-  default     = 1  # Cost optimized - same as staging
+  default     = 1 # Cost optimized - same as staging
 }
 
 variable "green_max_size" {
   description = "Maximum size for green Auto Scaling Group"
   type        = number
-  default     = 2  # Cost optimized - same as staging
+  default     = 2 # Cost optimized - same as staging
 }
 
 variable "green_min_size" {
   description = "Minimum size for green Auto Scaling Group"
   type        = number
-  default     = 1  # Cost optimized - same as staging
+  default     = 1 # Cost optimized - same as staging
 } 

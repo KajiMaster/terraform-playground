@@ -35,14 +35,15 @@ variable "alb_name" {
   type        = string
 }
 
+variable "alb_identifier" {
+  description = "Full ALB identifier for CloudWatch metrics (e.g., app/staging-alb/00157f7cffd3b5e8)"
+  type        = string
+}
+
 variable "alarm_actions" {
   description = "List of ARNs for alarm actions (SNS topics, etc.)"
   type        = list(string)
   default     = []
 }
 
-variable "enable_cleanup" {
-  description = "Enable automatic log cleanup for demo environments"
-  type        = bool
-  default     = true
-} 
+ 

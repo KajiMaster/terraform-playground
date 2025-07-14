@@ -11,7 +11,7 @@ terraform {
 # Global CloudWatch Log Groups - Environment-specific paths
 resource "aws_cloudwatch_log_group" "application_logs" {
   for_each = toset(var.environments)
-  
+
   name              = "/aws/application/tf-playground/${each.key}"
   retention_in_days = var.log_retention_days
 
@@ -25,7 +25,7 @@ resource "aws_cloudwatch_log_group" "application_logs" {
 
 resource "aws_cloudwatch_log_group" "system_logs" {
   for_each = toset(var.environments)
-  
+
   name              = "/aws/ec2/tf-playground/${each.key}"
   retention_in_days = var.log_retention_days
 
@@ -39,7 +39,7 @@ resource "aws_cloudwatch_log_group" "system_logs" {
 
 resource "aws_cloudwatch_log_group" "alarm_logs" {
   for_each = toset(var.environments)
-  
+
   name              = "/aws/cloudwatch/alarms/tf-playground/${each.key}"
   retention_in_days = var.log_retention_days
 
