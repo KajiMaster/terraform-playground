@@ -351,13 +351,13 @@ cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json << 'EOF'
         "collect_list": [
           {
             "file_path": "/var/log/flask-app.log",
-            "log_group_name": "/aws/application/staging",
+            "log_group_name": "${application_log_group_name}",
             "log_stream_name": "{instance_id}",
             "timezone": "UTC"
           },
           {
             "file_path": "/var/log/messages",
-            "log_group_name": "/aws/ec2/staging",
+            "log_group_name": "${system_log_group_name}",
             "log_stream_name": "{instance_id}",
             "timezone": "UTC"
           }

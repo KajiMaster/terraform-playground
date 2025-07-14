@@ -106,3 +106,13 @@ variable "key_name" {
   type        = string
   default     = null
 }
+
+variable "application_log_group_name" {
+  description = "Application log group name from global environment"
+  type        = string
+}
+
+variable "system_log_group_name" {
+  description = "System log group name from global environment"
+  type        = string
+}

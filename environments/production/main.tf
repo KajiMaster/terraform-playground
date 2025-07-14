@@ -141,6 +141,8 @@ module "blue_asg" {
   db_password           = data.aws_secretsmanager_secret_version.db_password.secret_string
   security_group_id     = module.networking.webserver_security_group_id
   key_name              = aws_key_pair.environment_key.key_name
+  application_log_group_name = data.terraform_remote_state.global.outputs.application_log_groups[var.environment]
+  system_log_group_name      = data.terraform_remote_state.global.outputs.system_log_groups[var.environment]
 }
 
 # Green Auto Scaling Group
@@ -164,6 +166,8 @@ module "green_asg" {
   db_password           = data.aws_secretsmanager_secret_version.db_password.secret_string
   security_group_id     = module.networking.webserver_security_group_id
   key_name              = aws_key_pair.environment_key.key_name
+  application_log_group_name = data.terraform_remote_state.global.outputs.application_log_groups[var.environment]
+  system_log_group_name      = data.terraform_remote_state.global.outputs.system_log_groups[var.environment]
 }
 
 # SSM Module for Database Bootstrapping (updated to use blue ASG)
