@@ -175,11 +175,13 @@ resource "aws_iam_instance_profile" "asg" {
 data "template_file" "user_data" {
   template = file("${path.module}/templates/user_data.sh")
   vars = {
-    db_host          = var.db_host
-    db_name          = var.db_name
-    db_user          = var.db_user
-    db_password      = var.db_password
-    deployment_color = var.deployment_color
+    db_host                    = var.db_host
+    db_name                    = var.db_name
+    db_user                    = var.db_user
+    db_password                = var.db_password
+    deployment_color           = var.deployment_color
+    application_log_group_name = var.application_log_group_name
+    system_log_group_name      = var.system_log_group_name
   }
 }
 
