@@ -105,6 +105,7 @@ module "loadbalancer" {
   public_subnets    = module.networking.public_subnet_ids
   certificate_arn   = var.certificate_arn
   security_group_id = module.networking.alb_security_group_id
+  waf_web_acl_arn   = data.terraform_remote_state.global.outputs.waf_web_acl_arn
 }
 
 # Database Module
@@ -189,7 +190,7 @@ module "logging" {
   environment    = var.environment
   aws_region     = var.aws_region
   alb_name       = module.loadbalancer.alb_name
-
+  alb_identifier = module.loadbalancer.alb_identifier
 
   # Use log group names from global environment
   application_log_group_name = data.terraform_remote_state.global.outputs.application_log_groups[var.environment]

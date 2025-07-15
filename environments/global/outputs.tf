@@ -43,4 +43,25 @@ output "alarm_log_groups" {
 output "alarm_log_group_arns" {
   description = "Map of environment to alarm log group ARNs"
   value       = module.log_groups.alarm_log_group_arns
+}
+
+# WAF outputs
+output "waf_web_acl_arn" {
+  description = "ARN of the WAF Web ACL"
+  value       = module.waf.waf_web_acl_arn
+}
+
+output "waf_web_acl_id" {
+  description = "ID of the WAF Web ACL"
+  value       = module.waf.waf_web_acl_id
+}
+
+output "waf_enabled" {
+  description = "Whether WAF is enabled"
+  value       = module.waf.waf_enabled
+}
+
+output "waf_logging_enabled" {
+  description = "Whether WAF logging is enabled"
+  value       = module.waf.waf_logging_enabled
 } 
