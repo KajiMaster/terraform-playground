@@ -261,6 +261,22 @@ resource "aws_iam_role_policy" "terraform_permissions" {
           "lambda:ListTags"
         ]
         Resource = "*"
+      },
+      # WAF permissions for Web ACL management
+      {
+        Effect = "Allow"
+        Action = [
+          "wafv2:*"
+        ]
+        Resource = "*"
+      },
+      # Kinesis Firehose permissions for WAF logging
+      {
+        Effect = "Allow"
+        Action = [
+          "firehose:*"
+        ]
+        Resource = "*"
       }
     ]
   })

@@ -48,7 +48,7 @@ resource "aws_cloudwatch_dashboard" "main" {
         width  = 12
         height = 6
         properties = {
-          query  = "SOURCE '/aws/application/${var.environment}'\n| fields @timestamp, @message\n| sort @timestamp desc\n| limit 20"
+          query  = "SOURCE '${var.application_log_group_name}'\n| fields @timestamp, @message\n| sort @timestamp desc\n| limit 20"
           region = var.aws_region
           title  = "Recent Application Logs"
         }
@@ -60,7 +60,7 @@ resource "aws_cloudwatch_dashboard" "main" {
         width  = 12
         height = 6
         properties = {
-          query  = "SOURCE '/aws/application/${var.environment}'\n| filter @message like /ERROR/\n| fields @timestamp, @message\n| sort @timestamp desc\n| limit 10"
+          query  = "SOURCE '${var.application_log_group_name}'\n| filter @message like /ERROR/\n| fields @timestamp, @message\n| sort @timestamp desc\n| limit 10"
           region = var.aws_region
           title  = "Recent Errors"
         }
