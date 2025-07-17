@@ -229,4 +229,30 @@ output "global_log_group_arns" {
     system      = data.terraform_remote_state.global.outputs.system_log_group_arns[var.environment]
     alarm       = data.terraform_remote_state.global.outputs.alarm_log_group_arns[var.environment]
   }
+}
+
+# WAF Outputs (from global environment)
+output "waf_web_acl_arn" {
+  description = "WAF Web ACL ARN from global environment"
+  value       = try(data.terraform_remote_state.global.outputs.waf_web_acl_arn, null)
+}
+
+output "waf_web_acl_id" {
+  description = "WAF Web ACL ID from global environment"
+  value       = try(data.terraform_remote_state.global.outputs.waf_web_acl_id, null)
+}
+
+output "waf_enabled" {
+  description = "Whether WAF is enabled"
+  value       = data.terraform_remote_state.global.outputs.waf_enabled
+}
+
+output "waf_logging_enabled" {
+  description = "Whether WAF logging is enabled"
+  value       = data.terraform_remote_state.global.outputs.waf_logging_enabled
+}
+
+output "waf_status" {
+  description = "Current WAF status (enabled/disabled)"
+  value       = data.terraform_remote_state.global.outputs.waf_enabled ? "enabled" : "disabled"
 } 

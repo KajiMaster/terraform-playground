@@ -25,5 +25,5 @@ output "waf_logging_enabled" {
 
 output "waf_log_bucket_name" {
   description = "Name of the S3 bucket storing WAF logs"
-  value       = var.enable_waf && var.enable_logging ? aws_s3_bucket.waf_logs[0].bucket : null
+  value       = aws_s3_bucket.waf_logs.bucket
 } 

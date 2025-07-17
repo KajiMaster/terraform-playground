@@ -70,6 +70,52 @@ resource "aws_wafv2_web_acl" "main" {
     }
   }
 
+  # Rate limiting rule
+  rule {
+    name     = "RateLimit"
+    priority = 3
+
+    action {
+      block {}
+    }
+
+    statement {
+      rate_based_statement {
+        limit              = var.rate_limit
+        aggregate_key_type = "IP"
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "RateLimit"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  # IP reputation rule (if enabled)
+  rule {
+    name     = "IPReputation"
+    priority = 4
+
+    override_action {
+      none {}
+    }
+
+    statement {
+      managed_rule_group_statement {
+        name        = "AWSManagedRulesAmazonIpReputationList"
+        vendor_name = "AWS"
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "IPReputation"
+      sampled_requests_enabled   = true
+    }
+  }
+
   visibility_config {
     cloudwatch_metrics_enabled = true
     metric_name                = "WAFWebACL"
@@ -93,7 +139,7 @@ resource "aws_wafv2_web_acl_logging_configuration" "main" {
   resource_arn            = aws_wafv2_web_acl.main[0].arn
 }
 
-# Kinesis Firehose for WAF logs
+# Kinesis Firehose for WAF logs - Conditional (only when WAF is enabled)
 resource "aws_kinesis_firehose_delivery_stream" "waf_logs" {
   count = var.enable_waf && var.enable_logging ? 1 : 0
 
@@ -102,7 +148,7 @@ resource "aws_kinesis_firehose_delivery_stream" "waf_logs" {
 
   extended_s3_configuration {
     role_arn   = aws_iam_role.firehose_role[0].arn
-    bucket_arn = aws_s3_bucket.waf_logs[0].arn
+    bucket_arn = aws_s3_bucket.waf_logs.arn
     prefix     = "waf-logs/"
   }
 
@@ -111,37 +157,33 @@ resource "aws_kinesis_firehose_delivery_stream" "waf_logs" {
     Environment = "global"
     Project     = "tf-playground"
     ManagedBy   = "terraform"
+    Purpose     = "conditional-waf-logs"
   }
 }
 
-# S3 bucket for WAF logs
+# S3 bucket for WAF logs - Persistent (doesn't delete when WAF is disabled)
 resource "aws_s3_bucket" "waf_logs" {
-  count = var.enable_waf && var.enable_logging ? 1 : 0
-
-  bucket = "tf-playground-waf-logs-${random_string.bucket_suffix[0].result}"
+  bucket = "tf-playground-waf-logs-${random_string.bucket_suffix.result}"
 
   tags = {
     Name        = "waf-logs-bucket"
     Environment = "global"
     Project     = "tf-playground"
     ManagedBy   = "terraform"
+    Purpose     = "persistent-waf-logs"
   }
 }
 
-# Random string for unique bucket name
+# Random string for unique bucket name - Persistent
 resource "random_string" "bucket_suffix" {
-  count = var.enable_waf && var.enable_logging ? 1 : 0
-
   length  = 8
   special = false
   upper   = false
 }
 
-# S3 bucket lifecycle for log retention
+# S3 bucket lifecycle for log retention - Persistent
 resource "aws_s3_bucket_lifecycle_configuration" "waf_logs" {
-  count = var.enable_waf && var.enable_logging ? 1 : 0
-
-  bucket = aws_s3_bucket.waf_logs[0].id
+  bucket = aws_s3_bucket.waf_logs.id
 
   rule {
     id     = "log_retention"
@@ -157,7 +199,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "waf_logs" {
   }
 }
 
-# IAM role for Firehose
+# IAM role for Firehose - Conditional (only when WAF is enabled)
 resource "aws_iam_role" "firehose_role" {
   count = var.enable_waf && var.enable_logging ? 1 : 0
 
@@ -181,10 +223,11 @@ resource "aws_iam_role" "firehose_role" {
     Environment = "global"
     Project     = "tf-playground"
     ManagedBy   = "terraform"
+    Purpose     = "conditional-waf-logs"
   }
 }
 
-# IAM policy for Firehose
+# IAM policy for Firehose - Conditional (only when WAF is enabled)
 resource "aws_iam_role_policy" "firehose_policy" {
   count = var.enable_waf && var.enable_logging ? 1 : 0
 
@@ -205,8 +248,8 @@ resource "aws_iam_role_policy" "firehose_policy" {
           "s3:PutObject"
         ]
         Resource = [
-          aws_s3_bucket.waf_logs[0].arn,
-          "${aws_s3_bucket.waf_logs[0].arn}/*"
+          aws_s3_bucket.waf_logs.arn,
+          "${aws_s3_bucket.waf_logs.arn}/*"
         ]
       }
     ]

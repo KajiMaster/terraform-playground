@@ -55,10 +55,10 @@ module "log_groups" {
 module "waf" {
   source = "../../modules/waf"
 
-  enable_waf           = true
-  enable_logging       = true
-  rate_limit           = 1000
-  enable_ip_reputation = true
-  blocked_paths        = null  # Temporarily disable custom path blocking
-  log_retention_days   = 7
+  enable_waf           = var.enable_waf
+  enable_logging       = var.enable_logging
+  rate_limit           = var.waf_rate_limit
+  enable_ip_reputation = var.enable_ip_reputation
+  blocked_paths        = var.waf_blocked_paths
+  log_retention_days   = var.waf_log_retention_days
 } 
