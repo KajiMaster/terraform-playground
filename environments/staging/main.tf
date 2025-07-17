@@ -105,7 +105,7 @@ module "loadbalancer" {
   public_subnets    = module.networking.public_subnet_ids
   certificate_arn   = var.certificate_arn
   security_group_id = module.networking.alb_security_group_id
-  waf_web_acl_arn   = data.terraform_remote_state.global.outputs.waf_web_acl_arn
+  waf_web_acl_arn   = var.environment_waf_use ? try(data.terraform_remote_state.global.outputs.waf_web_acl_arn, null) : null
 }
 
 # Database Module

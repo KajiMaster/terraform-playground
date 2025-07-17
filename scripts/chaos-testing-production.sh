@@ -49,6 +49,15 @@ fi
 REGION="us-east-2"
 
 echo "📋 Production Base URL: $BASE_URL"
+
+# Get WAF information
+echo "🔍 Getting WAF information..."
+if WAF_ARN=$(terraform output -raw waf_web_acl_arn 2>/dev/null); then
+    echo "🛡️  WAF Web ACL ARN: $WAF_ARN"
+else
+    echo "⚠️  WAF information not available"
+fi
+
 echo "⚠️  WARNING: This is PRODUCTION environment!"
 echo "   Proceeding with reduced intensity for safety..."
 
