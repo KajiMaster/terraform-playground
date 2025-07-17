@@ -100,7 +100,7 @@ variable "blue_min_size" {
 variable "green_desired_capacity" {
   description = "Desired number of instances in the green Auto Scaling Group"
   type        = number
-  default     = 0  # Start with 0 for inactive environment
+  default     = 0 # Start with 0 for inactive environment
 }
 
 variable "green_max_size" {
@@ -112,5 +112,5 @@ variable "green_max_size" {
 variable "green_min_size" {
   description = "Minimum number of instances in the green Auto Scaling Group"
   type        = number
-  default     = 0  # Start with 0 for inactive environment
+  default     = 0 # Start with 0 for inactive environment
 } 

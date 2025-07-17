@@ -29,9 +29,9 @@ provider "aws" {
 data "terraform_remote_state" "global" {
   backend = "s3"
   config = {
-    bucket         = "tf-playground-state-vexus"
-    key            = "global/terraform.tfstate"
-    region         = "us-east-2"
+    bucket = "tf-playground-state-vexus"
+    key    = "global/terraform.tfstate"
+    region = "us-east-2"
   }
 }
 
@@ -64,9 +64,9 @@ resource "aws_key_pair" "environment_key" {
 # These can be changed to environment-specific secrets if needed
 locals {
   # Secret paths - can be changed to environment-specific if needed
-  db_password_secret_name = "/tf-playground/all/db-pword"
+  db_password_secret_name     = "/tf-playground/all/db-pword"
   ssh_private_key_secret_name = "/tf-playground/all/ssh-key"
-  ssh_public_key_secret_name = "/tf-playground/all/ssh-key-public"
+  ssh_public_key_secret_name  = "/tf-playground/all/ssh-key-public"
 }
 
 # Get centralized database password
@@ -105,6 +105,7 @@ module "loadbalancer" {
   public_subnets    = module.networking.public_subnet_ids
   certificate_arn   = var.certificate_arn
   security_group_id = module.networking.alb_security_group_id
+  waf_web_acl_arn   = data.terraform_remote_state.global.outputs.waf_web_acl_arn
 }
 
 # Database Module
@@ -141,6 +142,8 @@ module "blue_asg" {
   db_password           = data.aws_secretsmanager_secret_version.db_password.secret_string
   security_group_id     = module.networking.webserver_security_group_id
   key_name              = aws_key_pair.environment_key.key_name
+  application_log_group_name = data.terraform_remote_state.global.outputs.application_log_groups[var.environment]
+  system_log_group_name      = data.terraform_remote_state.global.outputs.system_log_groups[var.environment]
 }
 
 # Green Auto Scaling Group
@@ -164,6 +167,8 @@ module "green_asg" {
   db_password           = data.aws_secretsmanager_secret_version.db_password.secret_string
   security_group_id     = module.networking.webserver_security_group_id
   key_name              = aws_key_pair.environment_key.key_name
+  application_log_group_name = data.terraform_remote_state.global.outputs.application_log_groups[var.environment]
+  system_log_group_name      = data.terraform_remote_state.global.outputs.system_log_groups[var.environment]
 }
 
 # SSM Module for Database Bootstrapping (updated to use blue ASG)
@@ -176,6 +181,22 @@ module "ssm" {
   database_name         = var.db_name
   database_username     = "tfplayground_user"
   database_password     = data.aws_secretsmanager_secret_version.db_password.secret_string
+}
+
+# Logging Module
+module "logging" {
+  source = "../../modules/logging"
+
+  environment    = var.environment
+  aws_region     = var.aws_region
+  alb_name       = module.loadbalancer.alb_name
+  alb_identifier = module.loadbalancer.alb_identifier
+
+
+  # Use log group names from global environment
+  application_log_group_name = data.terraform_remote_state.global.outputs.application_log_groups[var.environment]
+  system_log_group_name      = data.terraform_remote_state.global.outputs.system_log_groups[var.environment]
+  alarm_log_group_name       = data.terraform_remote_state.global.outputs.alarm_log_groups[var.environment]
 }
 
 # OIDC Module removed - using global GitHub Actions role instead

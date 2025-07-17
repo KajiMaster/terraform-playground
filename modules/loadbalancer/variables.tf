@@ -52,4 +52,10 @@ variable "health_check_unhealthy_threshold" {
 variable "security_group_id" {
   description = "Security group ID for the ALB (managed by networking module)"
   type        = string
+}
+
+variable "waf_web_acl_arn" {
+  description = "ARN of the WAF Web ACL to attach to the ALB"
+  type        = string
+  default     = null
 } 

@@ -97,7 +97,7 @@ resource "aws_route_table_association" "public" {
 # NAT Gateway (cost optimized - can be shared across environments)
 resource "aws_eip" "nat" {
   count = var.create_nat_gateway ? 1 : 0
-  
+
   domain = "vpc"
 
   tags = {
@@ -110,7 +110,7 @@ resource "aws_eip" "nat" {
 
 resource "aws_nat_gateway" "main" {
   count = var.create_nat_gateway ? 1 : 0
-  
+
   allocation_id = aws_eip.nat[0].id
   subnet_id     = aws_subnet.public[0].id
 
@@ -174,7 +174,7 @@ resource "aws_security_group" "webserver" {
   }
 }
 
-# SSH access rule (separate to avoid conflicts) - temporarily commented out
+# SSH access rule (separate to avoid conflicts)
 # resource "aws_security_group_rule" "webserver_ssh_ingress" {
 #   type        = "ingress"
 #   from_port   = 22
@@ -184,6 +184,8 @@ resource "aws_security_group" "webserver" {
 #   security_group_id = aws_security_group.webserver.id
 #   description = "SSH access"
 # }
+
+
 
 # Separate security group rule to avoid circular dependency
 resource "aws_security_group_rule" "webserver_alb_ingress" {

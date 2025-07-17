@@ -170,6 +170,7 @@ resource "aws_iam_role_policy" "terraform_permissions" {
           "arn:aws:iam::*:role/dev-*",
           "arn:aws:iam::*:role/prod-*",
           "arn:aws:iam::*:role/production-*",
+          "arn:aws:iam::*:role/cleanup-logs-lambda-*",
           "arn:aws:iam::*:policy/tf-playground-*",
           "arn:aws:iam::*:policy/staging-*",
           "arn:aws:iam::*:policy/dev-*",
@@ -220,6 +221,60 @@ resource "aws_iam_role_policy" "terraform_permissions" {
         Effect = "Allow"
         Action = [
           "cloudwatch:*"
+        ]
+        Resource = "*"
+      },
+      # CloudWatch Logs permissions for Terraform and Lambda
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:DescribeLogGroups",
+          "logs:CreateLogGroup",
+          "logs:PutRetentionPolicy",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+          "logs:DeleteLogGroup",
+          "logs:ListTagsForResource",
+          "logs:TagResource",
+          "logs:UntagResource"
+        ]
+        Resource = "*"
+      },
+      # Lambda permissions for function management
+      {
+        Effect = "Allow"
+        Action = [
+          "lambda:GetFunction",
+          "lambda:CreateFunction",
+          "lambda:UpdateFunctionCode",
+          "lambda:UpdateFunctionConfiguration",
+          "lambda:DeleteFunction",
+          "lambda:GetFunctionConfiguration",
+          "lambda:ListFunctions",
+          "lambda:ListVersionsByFunction",
+          "lambda:ListAliases",
+          "lambda:DeleteFunctionConcurrency",
+          "lambda:GetFunctionCodeSigningConfig",
+          "lambda:GetRuntimeManagementConfig",
+          "lambda:TagResource",
+          "lambda:UntagResource",
+          "lambda:ListTags"
+        ]
+        Resource = "*"
+      },
+      # WAF permissions for Web ACL management
+      {
+        Effect = "Allow"
+        Action = [
+          "wafv2:*"
+        ]
+        Resource = "*"
+      },
+      # Kinesis Firehose permissions for WAF logging
+      {
+        Effect = "Allow"
+        Action = [
+          "firehose:*"
         ]
         Resource = "*"
       }

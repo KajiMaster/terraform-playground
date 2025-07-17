@@ -3,8 +3,8 @@
 # Update system packages
 yum update -y
 
-# Install required packages
-yum install -y python3 python3-pip git mariadb1011-client-utils jq
+# Install required packages (ADD CloudWatch agent)
+yum install -y python3 python3-pip git mariadb1011-client-utils jq amazon-cloudwatch-agent
 
 # Create application directory
 mkdir -p /var/www/webapp
@@ -21,7 +21,7 @@ pip install flask mysql-connector-python requests psutil boto3
 INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
 export INSTANCE_ID
 
-# Create enhanced application files
+# Create enhanced application files with structured logging
 cat > app.py << 'EOF'
 from flask import Flask, jsonify, request
 import mysql.connector
@@ -31,11 +31,23 @@ import time
 import sys
 from datetime import datetime
 import requests
+import logging
+import json
 
 app = Flask(__name__)
 
+# Configure structured logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('/var/log/flask-app.log'),
+        logging.StreamHandler()  # Also log to stdout for CloudWatch
+    ]
+)
+logger = logging.getLogger(__name__)
+
 # Get database password from Secrets Manager
-import json
 import boto3
 
 def get_instance_id():
@@ -136,6 +148,30 @@ def check_response_times():
     except Exception:
         return False
 
+# Request logging middleware
+@app.before_request
+def log_request():
+    request.start_time = time.time()
+
+@app.after_request
+def log_response(response):
+    duration = time.time() - request.start_time
+    
+    log_data = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "method": request.method,
+        "path": request.path,
+        "status_code": response.status_code,
+        "duration_ms": round(duration * 1000, 2),
+        "user_agent": request.headers.get('User-Agent'),
+        "ip_address": request.remote_addr,
+        "deployment_color": '${deployment_color}',
+        "instance_id": get_instance_id()
+    }
+    
+    logger.info(json.dumps(log_data))
+    return response
+
 @app.route('/')
 def index():
     try:
@@ -152,6 +188,7 @@ def index():
             'instance_id': get_instance_id()
         })
     except Exception as e:
+        logger.error(f"Database query failed: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/health')
@@ -172,7 +209,7 @@ def health():
         # Overall health status
         all_healthy = all([db_status, app_status, memory_status, disk_status, response_status])
         
-        return jsonify({
+        health_data = {
             'status': 'healthy' if all_healthy else 'unhealthy',
             'checks': {
                 'database_connectivity': db_status,
@@ -184,8 +221,12 @@ def health():
             'deployment_color': '${deployment_color}',
             'timestamp': datetime.utcnow().isoformat(),
             'instance_id': get_instance_id()
-        }), 200 if all_healthy else 503
+        }
+        
+        logger.info(f"Health check: {json.dumps(health_data)}")
+        return jsonify(health_data), 200 if all_healthy else 503
     except Exception as e:
+        logger.error(f"Health check failed: {str(e)}")
         return jsonify({
             'status': 'unhealthy',
             'error': str(e),
@@ -207,6 +248,7 @@ def health_simple():
             'message': 'Application is running'
         }), 200
     except Exception as e:
+        logger.error(f"Simple health check failed: {str(e)}")
         return jsonify({
             'status': 'unhealthy',
             'error': str(e),
@@ -229,14 +271,18 @@ def deployment_validation():
         
         all_passed = all(checks.values())
         
-        return jsonify({
+        validation_data = {
             'deployment_ready': all_passed,
             'checks': checks,
             'deployment_color': '${deployment_color}',
             'timestamp': datetime.utcnow().isoformat(),
             'instance_id': get_instance_id()
-        }), 200 if all_passed else 503
+        }
+        
+        logger.info(f"Deployment validation: {json.dumps(validation_data)}")
+        return jsonify(validation_data), 200 if all_passed else 503
     except Exception as e:
+        logger.error(f"Deployment validation failed: {str(e)}")
         return jsonify({
             'deployment_ready': False,
             'error': str(e),
@@ -263,11 +309,71 @@ def info():
             'timestamp': datetime.utcnow().isoformat()
         })
     except Exception as e:
+        logger.error(f"Info endpoint failed: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+# Chaos testing endpoints
+@app.route('/error/500')
+def generate_500_error():
+    logger.error("Intentional 500 error generated for testing")
+    return {"error": "Intentional server error"}, 500
+
+@app.route('/error/slow')
+def generate_slow_response():
+    logger.warning("Intentional slow response generated for testing")
+    time.sleep(3)  # Simulate slow database query
+    return {"message": "Slow response completed"}
+
+@app.route('/error/db')
+def generate_db_error():
+    logger.error("Intentional database error generated for testing")
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM nonexistent_table")
+        cursor.fetchall()
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        logger.error(f"Database error: {str(e)}")
+        return {"error": "Database error", "details": str(e)}, 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)
 EOF
+
+# Configure CloudWatch agent
+cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json << 'EOF'
+{
+  "logs": {
+    "logs_collected": {
+      "files": {
+        "collect_list": [
+          {
+            "file_path": "/var/log/flask-app.log",
+            "log_group_name": "${application_log_group_name}",
+            "log_stream_name": "{instance_id}",
+            "timezone": "UTC"
+          },
+          {
+            "file_path": "/var/log/messages",
+            "log_group_name": "${system_log_group_name}",
+            "log_stream_name": "{instance_id}",
+            "timezone": "UTC"
+          }
+        ]
+      }
+    }
+  }
+}
+EOF
+
+# Start CloudWatch agent
+/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+  -a fetch-config \
+  -m ec2 \
+  -s \
+  -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
 
 # Create systemd service file
 cat > /etc/systemd/system/webapp.service << 'EOF'
@@ -282,6 +388,8 @@ Environment="PATH=/var/www/webapp/venv/bin"
 ExecStart=/var/www/webapp/venv/bin/python app.py
 Restart=always
 RestartSec=10
+StandardOutput=append:/var/log/flask-app.log
+StandardError=append:/var/log/flask-app.log
 
 [Install]
 WantedBy=multi-user.target

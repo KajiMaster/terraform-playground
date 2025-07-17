@@ -6,6 +6,15 @@ This directory contains documentation that has been archived to maintain a clean
 
 ## Archived Files
 
+### **Historical Implementation Documents**
+- `production-environment-audit-report.md` - Historical audit report (issues resolved)
+- `staging-troubleshooting.md` - Outdated troubleshooting (consolidated into lessons-learned.md)
+- `terraform-circular-dep-sg-conf.md` - Historical circular dependency issue (resolved)
+- `branch-environment-mapping-fix.md` - Historical GitFlow issue (resolved)
+- `workspace-architecture-proposal.md` - Outdated architecture proposal
+- `module-versioning-strategy.md` - Future consideration (not implemented yet)
+- `strategic-prioritization-and-decision-making.md` - Consolidated into lessons-learned.md
+
 ### **Planning and Design Documents**
 - `sketch-01-environment-hierarchy.md` - Early environment design sketches
 - `sketch-02-module-consistency.md` - Module design planning
@@ -15,14 +24,10 @@ This directory contains documentation that has been archived to maintain a clean
 - `sketch-06-environment-variables.md` - Environment variable design
 
 ### **Historical Implementation Documents**
-- `ai-briefing.md` - Outdated AI context (references old Git sync issues)
 - `version-2-improvements.md` - Historical improvements summary
 - `multi-environment-playground.md` - Redundant with current README
 - `manual-state-setup.md` - Outdated manual setup instructions
 - `simple-feature-branch-workflow.md` - Redundant workflow documentation
-- `ssh-modernization-notes.md` - Brief implementation notes
-- `avid-tf-tech.md` - Technical notes (content unknown)
-- `strategic-prioritization-and-decision-making.md` - Consolidated into lessons-learned.md
 
 ### **Advanced Workflow Documents**
 - `team-development-workflow.md` - Detailed team workflow (too detailed for portfolio)
@@ -37,10 +42,11 @@ This directory contains documentation that has been archived to maintain a clean
 - **Professional Appearance**: Organized, portfolio-ready structure
 
 ### **Current Relevance**
-- **Outdated Content**: References old issues and workflows
+- **Outdated Content**: References old issues and workflows that have been resolved
 - **Redundant Information**: Duplicated in current documentation
 - **Over-Detailed**: Too much information for portfolio purposes
 - **Consolidated**: Key insights moved to active documentation
+- **Historical**: Past problems that have been solved
 
 ### **Maintenance Efficiency**
 - **Easier Updates**: Fewer documents to maintain
@@ -51,13 +57,15 @@ This directory contains documentation that has been archived to maintain a clean
 
 The main `docs/` directory now contains only portfolio-relevant documentation:
 
-- `README.md` - Main project overview
-- `blue-green-deployment-project.md` - Active project documentation
+- `README.md` - Documentation index and overview
+- `blue-green-deployment-project.md` - **COMPLETED** blue-green deployment implementation
+- `blue-green-failover-quick-reference.md` - Quick commands for testing
 - `database-bootstrap.md` - Essential operational guide
 - `kms-migration-to-aws-managed.md` - Cost optimization documentation
 - `lessons-learned.md` - Real human notes from hands-on experience
 - `git-gitflow-lessons.md` - Practical Git and GitFlow workflows
 - `future-roadmap.md` - Project planning and roadmap
+- `centralized-secrets-refactor.md` - Secrets management improvements
 
 ## Accessing Archived Content
 
@@ -73,4 +81,4 @@ If any of these documents become relevant again, they can be moved back to the m
 
 ---
 
-**Note**: This archive demonstrates the project's evolution and the decision-making process behind maintaining a clean, professional repository structure.
+**Note**: This archive demonstrates the project's evolution and the decision-making process behind maintaining a clean, professional repository structure. The cleanup shows strategic thinking about what information is valuable for portfolio presentation.

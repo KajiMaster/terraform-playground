@@ -29,9 +29,9 @@ provider "aws" {
 data "terraform_remote_state" "global" {
   backend = "s3"
   config = {
-    bucket         = "tf-playground-state-vexus"
-    key            = "global/terraform.tfstate"
-    region         = "us-east-2"
+    bucket = "tf-playground-state-vexus"
+    key    = "global/terraform.tfstate"
+    region = "us-east-2"
   }
 }
 
