@@ -64,4 +64,9 @@ output "waf_enabled" {
 output "waf_logging_enabled" {
   description = "Whether WAF logging is enabled"
   value       = module.waf.waf_logging_enabled
+}
+
+output "waf_log_bucket_name" {
+  description = "Name of the S3 bucket storing WAF logs"
+  value       = module.waf.waf_log_bucket_name
 } 

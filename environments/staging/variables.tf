@@ -136,4 +136,11 @@ variable "green_min_size" {
   description = "Minimum size for green Auto Scaling Group"
   type        = number
   default     = 1 # Changed from 0 to 1 for blue-green testing
+}
+
+# WAF Configuration
+variable "environment_waf_use" {
+  description = "Use WAF for this environment (set to false to detach WAF)"
+  type        = bool
+  default     = true
 } 
