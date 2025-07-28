@@ -29,10 +29,7 @@ variable "alb_security_group_id" {
   type        = string
 }
 
-variable "database_security_group_id" {
-  description = "Security group ID for the database"
-  type        = string
-}
+
 
 variable "blue_target_group_arn" {
   description = "ARN of the blue target group"

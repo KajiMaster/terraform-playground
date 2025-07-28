@@ -45,6 +45,7 @@ module "networking" {
   private_cidrs = var.private_subnet_cidrs
   azs           = var.availability_zones
   enable_ecs    = var.enable_ecs
+  ecs_tasks_security_group_id = var.enable_ecs ? module.ecs[0].ecs_tasks_security_group_id : null
 }
 
 # Create environment-specific AWS key pair using centralized SSH public key
@@ -123,6 +124,8 @@ module "database" {
   db_password       = data.aws_secretsmanager_secret_version.db_password.secret_string
   security_group_id = module.networking.database_security_group_id
 }
+
+
 
 # Blue Auto Scaling Group (conditionally created)
 module "blue_asg" {
@@ -205,17 +208,11 @@ module "logging" {
   alarm_log_group_name       = data.terraform_remote_state.global.outputs.alarm_log_groups[var.environment]
 }
 
-# ECS-to-Database Security Group Rule (created after both modules exist)
-resource "aws_security_group_rule" "database_ecs_tasks_ingress" {
-  count                    = var.enable_ecs ? 1 : 0
-  type                     = "ingress"
-  from_port                = 3306
-  to_port                  = 3306
-  protocol                 = "tcp"
-  source_security_group_id = module.ecs[0].ecs_tasks_security_group_id
-  security_group_id        = module.networking.database_security_group_id
-  description              = "Allow ECS tasks to access database on port 3306"
-}
+
+
+
+
+
 
 # ALB-to-ECS Security Group Rule (created after both modules exist)
 resource "aws_security_group_rule" "alb_ecs_tasks_egress" {

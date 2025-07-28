@@ -20,10 +20,9 @@ module "ecs" {
   ecr_repository_url = data.terraform_remote_state.global.outputs.ecr_repository_url
 
   # Network Configuration
-  vpc_id                     = module.networking.vpc_id
-  private_subnets            = module.networking.private_subnet_ids
-  alb_security_group_id      = module.networking.alb_security_group_id
-  database_security_group_id = module.networking.database_security_group_id
+  vpc_id                = module.networking.vpc_id
+  private_subnets       = module.networking.private_subnet_ids
+  alb_security_group_id = module.networking.alb_security_group_id
 
   # Load Balancer Integration (uses existing ALB)
   blue_target_group_arn  = module.loadbalancer.blue_target_group_arn

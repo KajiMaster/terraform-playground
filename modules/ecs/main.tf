@@ -187,14 +187,7 @@ resource "aws_security_group" "ecs_tasks" {
     description      = "Allow traffic from ALB"
   }
 
-  # Allow ECS tasks to access database
-  ingress {
-    protocol         = "tcp"
-    from_port        = 3306
-    to_port          = 3306
-    security_groups  = [var.database_security_group_id]
-    description      = "Allow ECS tasks to access database"
-  }
+
 
   egress {
     protocol    = "-1"
