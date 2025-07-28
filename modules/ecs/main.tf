@@ -8,44 +8,10 @@ terraform {
   }
 }
 
-# ECR Repository for container images
-resource "aws_ecr_repository" "app" {
-  name                 = "${var.environment}-flask-app"
-  image_tag_mutability = "MUTABLE"
+# Using external ECR repository from global environment
+# ECR repository is managed in the global environment and referenced here
 
-  image_scanning_configuration {
-    scan_on_push = true
-  }
-
-  tags = {
-    Name        = "${var.environment}-flask-app"
-    Environment = var.environment
-    Project     = "tf-playground"
-    ManagedBy   = "terraform"
-  }
-}
-
-# ECR Repository Policy (commented out due to policy conflicts)
-# resource "aws_ecr_repository_policy" "app" {
-#   repository = aws_ecr_repository.app.name
-#   policy     = jsonencode({
-#     Version = "2012-10-17"
-#     Statement = [
-#       {
-#         Sid    = "AllowPullFromECSTasks"
-#         Effect = "Allow"
-#         Principal = {
-#           Service = "ecs-tasks.amazonaws.com"
-#         }
-#         Action = [
-#           "ecr:GetDownloadUrlForLayer",
-#           "ecr:BatchGetImage"
-#         ]
-#         Resource = aws_ecr_repository.app.arn
-#       }
-#     ]
-#   })
-# }
+data "aws_caller_identity" "current" {}
 
 # ECS Cluster
 resource "aws_ecs_cluster" "main" {
@@ -231,7 +197,7 @@ resource "aws_ecs_task_definition" "blue" {
   container_definitions = jsonencode([
     {
       name  = "flask-app"
-      image = "${aws_ecr_repository.app.repository_url}:latest"
+      image = "${var.ecr_repository_url}:latest"
 
       portMappings = [
         {
@@ -305,7 +271,7 @@ resource "aws_ecs_task_definition" "green" {
   container_definitions = jsonencode([
     {
       name  = "flask-app"
-      image = "${aws_ecr_repository.app.repository_url}:latest"
+      image = "${var.ecr_repository_url}:latest"
 
       portMappings = [
         {

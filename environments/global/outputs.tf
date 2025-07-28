@@ -69,4 +69,25 @@ output "waf_logging_enabled" {
 output "waf_log_bucket_name" {
   description = "Name of the S3 bucket storing WAF logs"
   value       = module.waf.waf_log_bucket_name
+}
+
+# ECR Repository outputs
+output "ecr_repository_url" {
+  description = "The URL of the global ECR repository"
+  value       = module.ecr.repository_url
+}
+
+output "ecr_repository_name" {
+  description = "The name of the global ECR repository"
+  value       = module.ecr.repository_name
+}
+
+output "ecr_repository_arn" {
+  description = "The ARN of the global ECR repository"
+  value       = module.ecr.repository_arn
+}
+
+output "ecr_registry_id" {
+  description = "The registry ID where the global ECR repository was created"
+  value       = module.ecr.registry_id
 } 

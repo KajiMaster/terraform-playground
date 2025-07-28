@@ -1,17 +1,17 @@
-# ECR Repository Outputs
+# ECR Repository Outputs (using external ECR from global environment)
 output "ecr_repository_url" {
-  description = "URL of the ECR repository"
-  value       = aws_ecr_repository.app.repository_url
+  description = "URL of the ECR repository (from global environment)"
+  value       = var.ecr_repository_url
 }
 
 output "ecr_repository_arn" {
-  description = "ARN of the ECR repository"
-  value       = aws_ecr_repository.app.arn
+  description = "ARN of the ECR repository (from global environment)"
+  value       = "arn:aws:ecr:${var.aws_region}:${data.aws_caller_identity.current.account_id}:repository/${split("/", var.ecr_repository_url)[1]}"
 }
 
 output "ecr_repository_name" {
-  description = "Name of the ECR repository"
-  value       = aws_ecr_repository.app.name
+  description = "Name of the ECR repository (from global environment)"
+  value       = split("/", var.ecr_repository_url)[1]
 }
 
 # ECS Cluster Outputs
@@ -102,7 +102,7 @@ output "green_service_arn" {
 # Container Image Outputs
 output "container_image_url" {
   description = "Full URL for the container image"
-  value       = "${aws_ecr_repository.app.repository_url}:latest"
+  value       = "${var.ecr_repository_url}:latest"
 }
 
 # Environment Summary
@@ -110,7 +110,7 @@ output "ecs_environment_summary" {
   description = "Summary of the ECS environment"
   value = {
     environment           = var.environment
-    ecr_repository_url    = aws_ecr_repository.app.repository_url
+    ecr_repository_url    = var.ecr_repository_url
     ecs_cluster_name      = aws_ecs_cluster.main.name
     blue_service_name     = aws_ecs_service.blue.name
     green_service_name    = aws_ecs_service.green.name
