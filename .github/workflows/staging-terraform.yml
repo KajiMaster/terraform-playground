@@ -30,6 +30,11 @@ on:
         required: false
         default: false
         type: boolean
+      branch:
+        description: 'Branch to use for deployment'
+        required: false
+        default: 'develop'
+        type: string
 
 env:
   TF_VERSION: "1.12.0"
@@ -51,7 +56,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: develop
+          ref: ${{ github.event.inputs.branch || 'develop' }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -138,11 +143,13 @@ jobs:
     runs-on: ubuntu-latest
     if: |
       (github.event_name == 'push' && github.ref == 'refs/heads/develop') ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.force_rebuild == 'true')
+      (github.event_name == 'workflow_dispatch' && (github.event.inputs.force_rebuild == 'true' || github.event.inputs.branch != ''))
     
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch || 'develop' }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -295,7 +302,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: develop
+          ref: ${{ github.event.inputs.branch || 'develop' }}
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
