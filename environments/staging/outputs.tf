@@ -228,11 +228,7 @@ output "global_log_group_arns" {
   }
 }
 
-# ECR Repository Output (from global environment)
-output "ecr_repository_url" {
-  description = "ECR repository URL for container images (from global environment)"
-  value       = data.terraform_remote_state.global.outputs.ecr_repository_url
-}
+
 
 
 
