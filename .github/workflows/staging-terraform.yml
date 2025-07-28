@@ -4,6 +4,7 @@ name: Staging Terraform
 # - Changes to staging environment files
 # - Changes to Terraform modules (except OIDC)
 # - Changes to this workflow file itself (for testing workflow updates)
+# - Manual trigger via workflow_dispatch
 on:
   pull_request:
     branches: [develop]
@@ -17,6 +18,18 @@ on:
       - 'environments/staging/**'
       - '.github/workflows/staging-terraform.yml'
       - '!modules/oidc/**'
+  workflow_dispatch:
+    inputs:
+      force_rebuild:
+        description: 'Force rebuild infrastructure and containers'
+        required: false
+        default: false
+        type: boolean
+      rebuild_containers_only:
+        description: 'Rebuild containers only (skip infrastructure)'
+        required: false
+        default: false
+        type: boolean
 
 env:
   TF_VERSION: "1.12.0"
@@ -121,7 +134,9 @@ jobs:
   terraform-apply:
     name: Terraform Apply
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/develop') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.force_rebuild == 'true')
     
     steps:
       - name: Checkout
@@ -170,6 +185,75 @@ jobs:
           echo "### Infrastructure Outputs:" >> $GITHUB_STEP_SUMMARY
           terraform output >> $GITHUB_STEP_SUMMARY
 
+      - name: Build and Push Docker Image
+        if: success()
+        run: |
+          echo "## 🐳 Building and Pushing Docker Image" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Get ECR repository URL from Terraform output
+          ECR_REPO=$(cd environments/staging && terraform output -raw ecr_repository_url)
+          
+          if [ -z "$ECR_REPO" ]; then
+            echo "❌ ECR repository not found. ECS may not be enabled." >> $GITHUB_STEP_SUMMARY
+            echo "Skipping Docker build and push." >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+          
+          echo "**ECR Repository:** $ECR_REPO" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Login to ECR
+          echo "🔐 Logging in to ECR..."
+          aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin $ECR_REPO
+          
+          # Build Docker image
+          echo "🔨 Building Docker image..."
+          docker build -t flask-app:latest app/
+          
+          # Tag for ECR
+          echo "🏷️ Tagging image for ECR..."
+          docker tag flask-app:latest $ECR_REPO:latest
+          
+          # Push to ECR
+          echo "📤 Pushing image to ECR..."
+          docker push $ECR_REPO:latest
+          
+          echo "✅ Docker image built and pushed successfully" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** $ECR_REPO:latest" >> $GITHUB_STEP_SUMMARY
+
+      - name: Deploy to ECS
+        if: success()
+        working-directory: environments/staging
+        run: |
+          echo "## 🚀 Deploying to ECS" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Get ECS service information
+          CLUSTER_NAME=$(terraform output -raw ecs_cluster_name 2>/dev/null || echo "")
+          BLUE_SERVICE=$(terraform output -raw blue_ecs_service_name 2>/dev/null || echo "")
+          
+          if [ -z "$CLUSTER_NAME" ] || [ -z "$BLUE_SERVICE" ]; then
+            echo "❌ ECS services not found. ECS may not be enabled." >> $GITHUB_STEP_SUMMARY
+            echo "Skipping ECS deployment." >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+          
+          echo "**ECS Cluster:** $CLUSTER_NAME" >> $GITHUB_STEP_SUMMARY
+          echo "**Blue Service:** $BLUE_SERVICE" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Deploy to blue service
+          echo "🔄 Deploying to blue service..."
+          aws ecs update-service \
+            --cluster $CLUSTER_NAME \
+            --service $BLUE_SERVICE \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
+          
+          echo "✅ ECS deployment initiated" >> $GITHUB_STEP_SUMMARY
+          echo "**Service:** $BLUE_SERVICE" >> $GITHUB_STEP_SUMMARY
+
       - name: Quick Infrastructure Validation
         working-directory: environments/staging
         run: |
@@ -199,3 +283,111 @@ jobs:
             echo "❌ **Infrastructure Deployment: FAILED**" >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
+
+  rebuild-containers-only:
+    name: Rebuild Containers Only
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.rebuild_containers_only == 'true'
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::123324351829:role/github-actions-global
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: staging-containers-${{ github.run_id }}-${{ github.run_number }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init
+        working-directory: environments/staging
+        run: terraform init
+
+      - name: Build and Push Docker Image
+        run: |
+          echo "## 🐳 Building and Pushing Docker Image (Manual Trigger)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Get ECR repository URL from Terraform output
+          ECR_REPO=$(cd environments/staging && terraform output -raw ecr_repository_url)
+          
+          if [ -z "$ECR_REPO" ]; then
+            echo "❌ ECR repository not found. ECS may not be enabled." >> $GITHUB_STEP_SUMMARY
+            echo "Skipping Docker build and push." >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+          
+          echo "**ECR Repository:** $ECR_REPO" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Login to ECR
+          echo "🔐 Logging in to ECR..."
+          aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin $ECR_REPO
+          
+          # Build Docker image
+          echo "🔨 Building Docker image..."
+          docker build -t flask-app:latest app/
+          
+          # Tag for ECR
+          echo "🏷️ Tagging image for ECR..."
+          docker tag flask-app:latest $ECR_REPO:latest
+          
+          # Push to ECR
+          echo "📤 Pushing image to ECR..."
+          docker push $ECR_REPO:latest
+          
+          echo "✅ Docker image built and pushed successfully" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** $ECR_REPO:latest" >> $GITHUB_STEP_SUMMARY
+
+      - name: Deploy to ECS
+        working-directory: environments/staging
+        run: |
+          echo "## 🚀 Deploying to ECS (Manual Trigger)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Get ECS service information
+          CLUSTER_NAME=$(terraform output -raw ecs_cluster_name 2>/dev/null || echo "")
+          BLUE_SERVICE=$(terraform output -raw blue_ecs_service_name 2>/dev/null || echo "")
+          
+          if [ -z "$CLUSTER_NAME" ] || [ -z "$BLUE_SERVICE" ]; then
+            echo "❌ ECS services not found. ECS may not be enabled." >> $GITHUB_STEP_SUMMARY
+            echo "Skipping ECS deployment." >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+          
+          echo "**ECS Cluster:** $CLUSTER_NAME" >> $GITHUB_STEP_SUMMARY
+          echo "**Blue Service:** $BLUE_SERVICE" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Deploy to blue service
+          echo "🔄 Deploying to blue service..."
+          aws ecs update-service \
+            --cluster $CLUSTER_NAME \
+            --service $BLUE_SERVICE \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
+          
+          echo "✅ ECS deployment initiated" >> $GITHUB_STEP_SUMMARY
+          echo "**Service:** $BLUE_SERVICE" >> $GITHUB_STEP_SUMMARY
+
+      - name: Manual Rebuild Complete
+        run: |
+          echo "## 🎉 Manual Container Rebuild Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Containers have been rebuilt and deployed successfully!**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### What was done:" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Docker image rebuilt from latest code" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Image pushed to ECR repository" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ ECS service updated with new image" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps:" >> $GITHUB_STEP_SUMMARY
+          echo "- Monitor ECS service deployment status" >> $GITHUB_STEP_SUMMARY
+          echo "- Verify application is accessible and working" >> $GITHUB_STEP_SUMMARY
+          echo "- Check application logs for any issues" >> $GITHUB_STEP_SUMMARY
