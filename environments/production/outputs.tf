@@ -35,12 +35,12 @@ output "ssh_public_key" {
 # Blue Auto Scaling Group Outputs
 output "blue_asg_id" {
   description = "ID of the blue Auto Scaling Group"
-  value       = module.blue_asg.asg_id
+  value       = var.disable_asg ? null : module.blue_asg[0].asg_id
 }
 
 output "blue_asg_name" {
   description = "Name of the blue Auto Scaling Group"
-  value       = module.blue_asg.asg_name
+  value       = var.disable_asg ? null : module.blue_asg[0].asg_name
 }
 
 output "blue_target_group_arn" {
@@ -51,12 +51,12 @@ output "blue_target_group_arn" {
 # Green Auto Scaling Group Outputs
 output "green_asg_id" {
   description = "ID of the green Auto Scaling Group"
-  value       = module.green_asg.asg_id
+  value       = var.disable_asg ? null : module.green_asg[0].asg_id
 }
 
 output "green_asg_name" {
   description = "Name of the green Auto Scaling Group"
-  value       = module.green_asg.asg_name
+  value       = var.disable_asg ? null : module.green_asg[0].asg_name
 }
 
 output "green_target_group_arn" {
@@ -102,12 +102,12 @@ output "private_subnet_ids" {
 # SSM Outputs
 output "ssm_automation_name" {
   description = "Name of the SSM automation for database initialization"
-  value       = module.ssm.ssm_automation_name
+  value       = var.disable_asg ? null : module.ssm[0].ssm_automation_name
 }
 
 output "ssm_automation_role_arn" {
   description = "ARN of the SSM automation role"
-  value       = module.ssm.ssm_automation_role_arn
+  value       = var.disable_asg ? null : module.ssm[0].ssm_automation_role_arn
 }
 
 # Database Outputs
@@ -157,8 +157,8 @@ output "environment_summary" {
     vpc_id            = module.networking.vpc_id
     alb_dns_name      = module.loadbalancer.alb_dns_name
     application_url   = module.loadbalancer.alb_url
-    blue_asg_name     = module.blue_asg.asg_name
-    green_asg_name    = module.green_asg.asg_name
+    blue_asg_name     = var.disable_asg ? null : module.blue_asg[0].asg_name
+    green_asg_name    = var.disable_asg ? null : module.green_asg[0].asg_name
     database_endpoint = module.database.db_instance_endpoint
     ssh_key_name      = aws_key_pair.environment_key.key_name
   }
@@ -255,4 +255,40 @@ output "waf_logging_enabled" {
 output "waf_status" {
   description = "Current WAF status (enabled/disabled)"
   value       = data.terraform_remote_state.global.outputs.waf_enabled ? "enabled" : "disabled"
+}
+
+# ECS Outputs (only when enabled)
+output "ecr_repository_url" {
+  description = "ECR repository URL for container images (from global environment)"
+  value       = var.enable_ecs ? data.terraform_remote_state.global.outputs.ecr_repository_url : null
+}
+
+output "ecs_cluster_name" {
+  description = "ECS cluster name"
+  value       = var.enable_ecs ? module.ecs[0].ecs_cluster_name : null
+}
+
+output "ecs_tasks_security_group_id" {
+  description = "ECS tasks security group ID"
+  value       = var.enable_ecs ? module.ecs[0].ecs_tasks_security_group_id : null
+}
+
+output "blue_ecs_service_name" {
+  description = "Blue ECS service name"
+  value       = var.enable_ecs ? module.ecs[0].blue_service_name : null
+}
+
+output "green_ecs_service_name" {
+  description = "Green ECS service name"
+  value       = var.enable_ecs ? module.ecs[0].green_service_name : null
+}
+
+output "container_image_url" {
+  description = "Full container image URL for deployment"
+  value       = var.enable_ecs ? "${data.terraform_remote_state.global.outputs.ecr_repository_url}:latest" : null
+}
+
+output "ecs_environment_summary" {
+  description = "ECS environment summary"
+  value       = var.enable_ecs ? module.ecs[0].ecs_environment_summary : null
 } 
