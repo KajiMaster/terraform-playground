@@ -35,10 +35,11 @@ resource "aws_wafv2_web_acl_association" "alb" {
 
 # Target Group for Blue Environment
 resource "aws_lb_target_group" "blue" {
-  name     = "${var.environment}-blue-tg"
-  port     = 8080
-  protocol = "HTTP"
-  vpc_id   = var.vpc_id
+  name        = var.target_type == "ip" ? "${var.environment}-blue-tg-ecs" : "${var.environment}-blue-tg"
+  port        = 8080
+  protocol    = "HTTP"
+  vpc_id      = var.vpc_id
+  target_type = var.target_type
 
   health_check {
     enabled             = true
@@ -53,16 +54,17 @@ resource "aws_lb_target_group" "blue" {
   }
 
   tags = {
-    Name = "${var.environment}-blue-tg"
+    Name = var.target_type == "ip" ? "${var.environment}-blue-tg-ecs" : "${var.environment}-blue-tg"
   }
 }
 
 # Target Group for Green Environment
 resource "aws_lb_target_group" "green" {
-  name     = "${var.environment}-green-tg"
-  port     = 8080
-  protocol = "HTTP"
-  vpc_id   = var.vpc_id
+  name        = var.target_type == "ip" ? "${var.environment}-green-tg-ecs" : "${var.environment}-green-tg"
+  port        = 8080
+  protocol    = "HTTP"
+  vpc_id      = var.vpc_id
+  target_type = var.target_type
 
   health_check {
     enabled             = true
@@ -77,7 +79,7 @@ resource "aws_lb_target_group" "green" {
   }
 
   tags = {
-    Name = "${var.environment}-green-tg"
+    Name = var.target_type == "ip" ? "${var.environment}-green-tg-ecs" : "${var.environment}-green-tg"
   }
 }
 
@@ -97,8 +99,27 @@ resource "aws_lb_listener" "http" {
   }
 }
 
-# Note: Listener rules removed for proper blue-green deployment
-# Traffic switching is handled by modifying the listener's default action
+# Listener Rule for Green Environment (for blue-green deployments)
+resource "aws_lb_listener_rule" "green" {
+  count        = var.create_green_listener_rule ? 1 : 0
+  listener_arn = aws_lb_listener.http.arn
+  priority     = 100
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.green.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/green*", "/green/*"]
+    }
+  }
+
+  tags = {
+    Name = "${var.environment}-green-listener-rule"
+  }
+}
 
 # HTTPS Listener (Port 443) - for future SSL implementation
 resource "aws_lb_listener" "https" {

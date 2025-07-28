@@ -44,6 +44,8 @@ module "networking" {
   public_cidrs  = var.public_subnet_cidrs
   private_cidrs = var.private_subnet_cidrs
   azs           = var.availability_zones
+  enable_ecs    = var.enable_ecs
+  ecs_tasks_security_group_id = var.enable_ecs ? module.ecs[0].ecs_tasks_security_group_id : null
 }
 
 # Create environment-specific AWS key pair using centralized SSH public key
@@ -100,12 +102,14 @@ data "aws_secretsmanager_secret_version" "ssh_public" {
 module "loadbalancer" {
   source = "../../modules/loadbalancer"
 
-  environment       = var.environment
-  vpc_id            = module.networking.vpc_id
-  public_subnets    = module.networking.public_subnet_ids
-  certificate_arn   = var.certificate_arn
-  security_group_id = module.networking.alb_security_group_id
-  waf_web_acl_arn   = var.environment_waf_use ? try(data.terraform_remote_state.global.outputs.waf_web_acl_arn, null) : null
+  environment                = var.environment
+  vpc_id                     = module.networking.vpc_id
+  public_subnets             = module.networking.public_subnet_ids
+  certificate_arn            = var.certificate_arn
+  security_group_id          = module.networking.alb_security_group_id
+  waf_web_acl_arn            = var.environment_waf_use ? try(data.terraform_remote_state.global.outputs.waf_web_acl_arn, null) : null
+  target_type                = var.enable_ecs ? "ip" : "instance"
+  create_green_listener_rule = var.enable_ecs  # Enable green rule for ECS
 }
 
 # Database Module
@@ -121,8 +125,11 @@ module "database" {
   security_group_id = module.networking.database_security_group_id
 }
 
-# Blue Auto Scaling Group
+
+
+# Blue Auto Scaling Group (conditionally created)
 module "blue_asg" {
+  count  = var.disable_asg ? 0 : 1
   source = "../../modules/compute/asg"
 
   environment           = var.environment
@@ -146,8 +153,9 @@ module "blue_asg" {
   system_log_group_name      = data.terraform_remote_state.global.outputs.system_log_groups[var.environment]
 }
 
-# Green Auto Scaling Group
+# Green Auto Scaling Group (conditionally created)
 module "green_asg" {
+  count  = var.disable_asg ? 0 : 1
   source = "../../modules/compute/asg"
 
   environment           = var.environment
@@ -171,11 +179,12 @@ module "green_asg" {
   system_log_group_name      = data.terraform_remote_state.global.outputs.system_log_groups[var.environment]
 }
 
-# SSM Module for Database Bootstrapping (updated to use blue ASG)
+# SSM Module for Database Bootstrapping (conditionally created)
 module "ssm" {
+  count                 = var.disable_asg ? 0 : 1
   source                = "../../modules/ssm"
   environment           = var.environment
-  webserver_instance_id = module.blue_asg.asg_id           # Will need to get actual instance ID
+  webserver_instance_id = module.blue_asg[0].asg_id           # Will need to get actual instance ID
   webserver_public_ip   = module.loadbalancer.alb_dns_name # Use ALB DNS name instead
   database_endpoint     = module.database.db_instance_address
   database_name         = var.db_name
@@ -197,6 +206,24 @@ module "logging" {
   application_log_group_name = data.terraform_remote_state.global.outputs.application_log_groups[var.environment]
   system_log_group_name      = data.terraform_remote_state.global.outputs.system_log_groups[var.environment]
   alarm_log_group_name       = data.terraform_remote_state.global.outputs.alarm_log_groups[var.environment]
+}
+
+
+
+
+
+
+
+# ALB-to-ECS Security Group Rule (created after both modules exist)
+resource "aws_security_group_rule" "alb_ecs_tasks_egress" {
+  count                    = var.enable_ecs ? 1 : 0
+  type                     = "egress"
+  from_port                = 8080
+  to_port                  = 8080
+  protocol                 = "tcp"
+  source_security_group_id = module.ecs[0].ecs_tasks_security_group_id
+  security_group_id        = module.networking.alb_security_group_id
+  description              = "Allow outbound traffic to ECS tasks on port 8080"
 }
 
 # OIDC Module removed - using global GitHub Actions role instead

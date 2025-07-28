@@ -58,4 +58,22 @@ variable "waf_web_acl_arn" {
   description = "ARN of the WAF Web ACL to attach to the ALB"
   type        = string
   default     = null
+}
+
+variable "target_type" {
+  description = "Target type for ALB target groups (instance, ip, or lambda)"
+  type        = string
+  default     = "instance"
+}
+
+variable "create_target_groups" {
+  description = "Whether to create target groups (set to false if they already exist)"
+  type        = bool
+  default     = true
+}
+
+variable "create_green_listener_rule" {
+  description = "Whether to create a listener rule for green environment"
+  type        = bool
+  default     = false
 } 

@@ -13,6 +13,10 @@ crash.*.log
 *.tfvars
 *.tfvars.json
 
+# But allow example and environment-specific tfvars files
+!*.tfvars.example
+!environments/*/terraform.tfvars
+
 # Ignore override files as they are usually used for local dev
 override.tf
 override.tf.json

@@ -30,6 +30,11 @@ on:
         required: false
         default: false
         type: boolean
+      branch:
+        description: 'Branch to use for deployment'
+        required: false
+        default: 'develop'
+        type: string
 
 env:
   TF_VERSION: "1.12.0"
@@ -50,6 +55,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.event.inputs.branch || 'develop' }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -136,11 +143,38 @@ jobs:
     runs-on: ubuntu-latest
     if: |
       (github.event_name == 'push' && github.ref == 'refs/heads/develop') ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.force_rebuild == 'true')
+      (github.event_name == 'workflow_dispatch' && (github.event.inputs.force_rebuild == 'true' || github.event.inputs.branch != ''))
     
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.event.inputs.branch || 'develop' }}
+
+      - name: Debug Branch and Files
+        run: |
+          echo "## 🔍 DEBUG INFORMATION" >> $GITHUB_STEP_SUMMARY
+          echo "**Current Branch:** $(git branch --show-current)" >> $GITHUB_STEP_SUMMARY
+          echo "**Git Head:** $(git rev-parse HEAD)" >> $GITHUB_STEP_SUMMARY
+          echo "**Git Status:**" >> $GITHUB_STEP_SUMMARY
+          git status >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Staging Directory Contents:**" >> $GITHUB_STEP_SUMMARY
+          ls -la environments/staging/ >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Terraform Variables (if exists):**" >> $GITHUB_STEP_SUMMARY
+          if [ -f "environments/staging/terraform.tfvars" ]; then
+            cat environments/staging/terraform.tfvars >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ terraform.tfvars file NOT FOUND!" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**ECS Integration File (if exists):**" >> $GITHUB_STEP_SUMMARY
+          if [ -f "environments/staging/ecs-integration.tf" ]; then
+            cat environments/staging/ecs-integration.tf >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ ecs-integration.tf file NOT FOUND!" >> $GITHUB_STEP_SUMMARY
+          fi
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -292,6 +326,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.event.inputs.branch || 'develop' }}
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4

@@ -35,12 +35,12 @@ output "ssh_public_key" {
 # Blue Auto Scaling Group Outputs
 output "blue_asg_id" {
   description = "ID of the blue Auto Scaling Group"
-  value       = module.blue_asg.asg_id
+  value       = var.disable_asg ? null : module.blue_asg[0].asg_id
 }
 
 output "blue_asg_name" {
   description = "Name of the blue Auto Scaling Group"
-  value       = module.blue_asg.asg_name
+  value       = var.disable_asg ? null : module.blue_asg[0].asg_name
 }
 
 output "blue_target_group_arn" {
@@ -51,12 +51,12 @@ output "blue_target_group_arn" {
 # Green Auto Scaling Group Outputs
 output "green_asg_id" {
   description = "ID of the green Auto Scaling Group"
-  value       = module.green_asg.asg_id
+  value       = var.disable_asg ? null : module.green_asg[0].asg_id
 }
 
 output "green_asg_name" {
   description = "Name of the green Auto Scaling Group"
-  value       = module.green_asg.asg_name
+  value       = var.disable_asg ? null : module.green_asg[0].asg_name
 }
 
 output "green_target_group_arn" {
@@ -99,12 +99,12 @@ output "private_subnet_ids" {
 # SSM Outputs
 output "ssm_automation_name" {
   description = "Name of the SSM automation for database initialization"
-  value       = module.ssm.ssm_automation_name
+  value       = var.disable_asg ? null : module.ssm[0].ssm_automation_name
 }
 
 output "ssm_automation_role_arn" {
   description = "ARN of the SSM automation role"
-  value       = module.ssm.ssm_automation_role_arn
+  value       = var.disable_asg ? null : module.ssm[0].ssm_automation_role_arn
 }
 
 # Database Outputs
@@ -154,8 +154,8 @@ output "environment_summary" {
     vpc_id            = module.networking.vpc_id
     alb_dns_name      = module.loadbalancer.alb_dns_name
     application_url   = module.loadbalancer.alb_url
-    blue_asg_name     = module.blue_asg.asg_name
-    green_asg_name    = module.green_asg.asg_name
+    blue_asg_name     = var.disable_asg ? null : module.blue_asg[0].asg_name
+    green_asg_name    = var.disable_asg ? null : module.green_asg[0].asg_name
     database_endpoint = module.database.db_instance_endpoint
     ssh_key_name      = aws_key_pair.environment_key.key_name
   }
@@ -220,10 +220,19 @@ output "global_alarm_log_group_arn" {
 
 # All global log group ARNs for this environment
 output "global_log_group_arns" {
-  description = "All log group ARNs from global environment for this environment"
+  description = "Map of global log group ARNs"
   value = {
-    application = data.terraform_remote_state.global.outputs.application_log_group_arns[var.environment]
-    system      = data.terraform_remote_state.global.outputs.system_log_group_arns[var.environment]
-    alarm       = data.terraform_remote_state.global.outputs.alarm_log_group_arns[var.environment]
+    application = data.terraform_remote_state.global.outputs.application_log_group_arns["staging"]
+    system      = data.terraform_remote_state.global.outputs.system_log_group_arns["staging"]
+    alarm       = data.terraform_remote_state.global.outputs.alarm_log_group_arns["staging"]
   }
 }
+
+
+
+
+
+
+
+
+
