@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y \
     default-libmysqlclient-dev \
     pkg-config \
     curl \
+    default-mysql-client \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching

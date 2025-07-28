@@ -44,6 +44,8 @@ module "networking" {
   public_cidrs  = var.public_subnet_cidrs
   private_cidrs = var.private_subnet_cidrs
   azs           = var.availability_zones
+  enable_ecs    = var.enable_ecs
+  ecs_tasks_security_group_id = var.enable_ecs ? module.ecs[0].ecs_tasks_security_group_id : null
 }
 
 # Create environment-specific AWS key pair using centralized SSH public key
@@ -122,6 +124,8 @@ module "database" {
   db_password       = data.aws_secretsmanager_secret_version.db_password.secret_string
   security_group_id = module.networking.database_security_group_id
 }
+
+
 
 # Blue Auto Scaling Group (conditionally created)
 module "blue_asg" {
@@ -209,6 +213,18 @@ module "logging" {
 
 
 
+
+# ALB-to-ECS Security Group Rule (created after both modules exist)
+resource "aws_security_group_rule" "alb_ecs_tasks_egress" {
+  count                    = var.enable_ecs ? 1 : 0
+  type                     = "egress"
+  from_port                = 8080
+  to_port                  = 8080
+  protocol                 = "tcp"
+  source_security_group_id = module.ecs[0].ecs_tasks_security_group_id
+  security_group_id        = module.networking.alb_security_group_id
+  description              = "Allow outbound traffic to ECS tasks on port 8080"
+}
 
 # OIDC Module removed - using global GitHub Actions role instead
 # The global environment manages the OIDC provider and GitHub Actions role

@@ -20,18 +20,18 @@ module "ecs" {
   ecr_repository_url = data.terraform_remote_state.global.outputs.ecr_repository_url
 
   # Network Configuration
-  vpc_id                     = module.networking.vpc_id
-  private_subnets            = module.networking.private_subnet_ids
-  alb_security_group_id      = module.networking.alb_security_group_id
-  database_security_group_id = module.networking.database_security_group_id
+  vpc_id                = module.networking.vpc_id
+  private_subnets       = module.networking.private_subnet_ids
+  alb_security_group_id = module.networking.alb_security_group_id
 
   # Load Balancer Integration (uses existing ALB)
   blue_target_group_arn  = module.loadbalancer.blue_target_group_arn
   green_target_group_arn = module.loadbalancer.green_target_group_arn
 
   # Database Configuration
-  db_host = module.database.db_instance_endpoint
+  db_host = module.database.db_instance_address
   db_user = "tfplayground_user"
+  db_password = data.aws_secretsmanager_secret_version.db_password.secret_string
   db_name = var.db_name
 
   # Logging (uses existing CloudWatch log groups)
@@ -55,6 +55,11 @@ output "ecr_repository_url" {
 output "ecs_cluster_name" {
   description = "ECS cluster name"
   value       = var.enable_ecs ? module.ecs[0].ecs_cluster_name : null
+}
+
+output "ecs_tasks_security_group_id" {
+  description = "ECS tasks security group ID"
+  value       = var.enable_ecs ? module.ecs[0].ecs_tasks_security_group_id : null
 }
 
 output "blue_ecs_service_name" {

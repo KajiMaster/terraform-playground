@@ -42,4 +42,16 @@ variable "shared_nat_gateway_id" {
   description = "ID of shared NAT Gateway to use (when create_nat_gateway is false)"
   type        = string
   default     = null
+}
+
+variable "enable_ecs" {
+  description = "Enable ECS deployment (affects security group rules)"
+  type        = bool
+  default     = false
+}
+
+variable "ecs_tasks_security_group_id" {
+  description = "Security group ID for ECS tasks (required when enable_ecs is true)"
+  type        = string
+  default     = null
 } 

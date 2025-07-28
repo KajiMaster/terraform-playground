@@ -146,6 +146,34 @@ resource "aws_iam_role_policy_attachment" "ecs_task_role_cloudwatch_logs" {
   policy_arn = aws_iam_policy.cloudwatch_logs_access.arn
 }
 
+# IAM Policy for ECS Exec access
+resource "aws_iam_policy" "ecs_exec_access" {
+  name        = "${var.environment}-ecs-exec-access"
+  description = "Allow ECS tasks to use ECS Exec"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ssmmessages:CreateControlChannel",
+          "ssmmessages:CreateDataChannel",
+          "ssmmessages:OpenControlChannel",
+          "ssmmessages:OpenDataChannel"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+# Attach ECS Exec policy to task role
+resource "aws_iam_role_policy_attachment" "ecs_task_role_ecs_exec" {
+  role       = aws_iam_role.ecs_task_role.name
+  policy_arn = aws_iam_policy.ecs_exec_access.arn
+}
+
 # Security Group for ECS Tasks
 resource "aws_security_group" "ecs_tasks" {
   name_prefix = "${var.environment}-ecs-tasks-"
@@ -159,14 +187,7 @@ resource "aws_security_group" "ecs_tasks" {
     description      = "Allow traffic from ALB"
   }
 
-  # Allow ECS tasks to access database
-  ingress {
-    protocol         = "tcp"
-    from_port        = 3306
-    to_port          = 3306
-    security_groups  = [var.database_security_group_id]
-    description      = "Allow ECS tasks to access database"
-  }
+
 
   egress {
     protocol    = "-1"
@@ -214,6 +235,10 @@ resource "aws_ecs_task_definition" "blue" {
         {
           name  = "DB_USER"
           value = var.db_user
+        },
+        {
+          name  = "DB_PASSWORD"
+          value = var.db_password
         },
         {
           name  = "DB_NAME"
@@ -290,6 +315,10 @@ resource "aws_ecs_task_definition" "green" {
           value = var.db_user
         },
         {
+          name  = "DB_PASSWORD"
+          value = var.db_password
+        },
+        {
           name  = "DB_NAME"
           value = var.db_name
         },
@@ -361,6 +390,8 @@ resource "aws_ecs_service" "blue" {
     type = "ECS"
   }
 
+  enable_execute_command = true
+
   depends_on = [aws_ecs_task_definition.blue]
 
   tags = {
@@ -399,6 +430,8 @@ resource "aws_ecs_service" "green" {
   deployment_controller {
     type = "ECS"
   }
+
+  enable_execute_command = true
 
   depends_on = [aws_ecs_task_definition.green]
 

@@ -212,6 +212,15 @@ resource "aws_security_group" "database" {
     security_groups = [aws_security_group.webserver.id]
   }
 
+  # Allow MySQL access from ECS tasks (when ECS is enabled)
+  ingress {
+    description     = "Allow ECS tasks to access database on port 3306"
+    from_port       = 3306
+    to_port         = 3306
+    protocol        = "tcp"
+    security_groups = [var.ecs_tasks_security_group_id]
+  }
+
   # Allow all outbound traffic
   egress {
     from_port   = 0
