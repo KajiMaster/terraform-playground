@@ -159,11 +159,22 @@ jobs:
           echo "**Git Status:**" >> $GITHUB_STEP_SUMMARY
           git status >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Terraform Variables:**" >> $GITHUB_STEP_SUMMARY
-          cat environments/staging/terraform.tfvars >> $GITHUB_STEP_SUMMARY
+          echo "**Staging Directory Contents:**" >> $GITHUB_STEP_SUMMARY
+          ls -la environments/staging/ >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**ECS Integration File:**" >> $GITHUB_STEP_SUMMARY
-          cat environments/staging/ecs-integration.tf >> $GITHUB_STEP_SUMMARY
+          echo "**Terraform Variables (if exists):**" >> $GITHUB_STEP_SUMMARY
+          if [ -f "environments/staging/terraform.tfvars" ]; then
+            cat environments/staging/terraform.tfvars >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ terraform.tfvars file NOT FOUND!" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**ECS Integration File (if exists):**" >> $GITHUB_STEP_SUMMARY
+          if [ -f "environments/staging/ecs-integration.tf" ]; then
+            cat environments/staging/ecs-integration.tf >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ ecs-integration.tf file NOT FOUND!" >> $GITHUB_STEP_SUMMARY
+          fi
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
