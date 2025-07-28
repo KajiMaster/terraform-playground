@@ -257,38 +257,4 @@ output "waf_status" {
   value       = data.terraform_remote_state.global.outputs.waf_enabled ? "enabled" : "disabled"
 }
 
-# ECS Outputs (only when enabled)
-output "ecr_repository_url" {
-  description = "ECR repository URL for container images (from global environment)"
-  value       = var.enable_ecs ? data.terraform_remote_state.global.outputs.ecr_repository_url : null
-}
-
-output "ecs_cluster_name" {
-  description = "ECS cluster name"
-  value       = var.enable_ecs ? module.ecs[0].ecs_cluster_name : null
-}
-
-output "ecs_tasks_security_group_id" {
-  description = "ECS tasks security group ID"
-  value       = var.enable_ecs ? module.ecs[0].ecs_tasks_security_group_id : null
-}
-
-output "blue_ecs_service_name" {
-  description = "Blue ECS service name"
-  value       = var.enable_ecs ? module.ecs[0].blue_service_name : null
-}
-
-output "green_ecs_service_name" {
-  description = "Green ECS service name"
-  value       = var.enable_ecs ? module.ecs[0].green_service_name : null
-}
-
-output "container_image_url" {
-  description = "Full container image URL for deployment"
-  value       = var.enable_ecs ? "${data.terraform_remote_state.global.outputs.ecr_repository_url}:latest" : null
-}
-
-output "ecs_environment_summary" {
-  description = "ECS environment summary"
-  value       = var.enable_ecs ? module.ecs[0].ecs_environment_summary : null
-} 
+ 
