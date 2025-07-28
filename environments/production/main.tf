@@ -44,6 +44,8 @@ module "networking" {
   public_cidrs  = var.public_subnet_cidrs
   private_cidrs = var.private_subnet_cidrs
   azs           = var.availability_zones
+  enable_ecs    = var.enable_ecs
+  ecs_tasks_security_group_id = var.enable_ecs ? module.ecs[0].ecs_tasks_security_group_id : null
 }
 
 # Centralized Secrets Configuration
@@ -106,6 +108,8 @@ module "loadbalancer" {
   certificate_arn   = var.certificate_arn
   security_group_id = module.networking.alb_security_group_id
   waf_web_acl_arn   = var.environment_waf_use ? try(data.terraform_remote_state.global.outputs.waf_web_acl_arn, null) : null
+  target_type       = var.enable_ecs ? "ip" : "instance"
+  create_green_listener_rule = var.enable_ecs  # Enable green rule for ECS
 }
 
 # Database Module
@@ -196,6 +200,18 @@ module "logging" {
   application_log_group_name = data.terraform_remote_state.global.outputs.application_log_groups[var.environment]
   system_log_group_name      = data.terraform_remote_state.global.outputs.system_log_groups[var.environment]
   alarm_log_group_name       = data.terraform_remote_state.global.outputs.alarm_log_groups[var.environment]
+}
+
+# ALB-to-ECS Security Group Rule (created after both modules exist)
+resource "aws_security_group_rule" "alb_ecs_tasks_egress" {
+  count                    = var.enable_ecs ? 1 : 0
+  type                     = "egress"
+  from_port                = 8080
+  to_port                  = 8080
+  protocol                 = "tcp"
+  source_security_group_id = module.ecs[0].ecs_tasks_security_group_id
+  security_group_id        = module.networking.alb_security_group_id
+  description              = "Allow outbound traffic to ECS tasks on port 8080"
 }
 
 # OIDC Module removed - using global GitHub Actions role instead
