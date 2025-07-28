@@ -170,6 +170,75 @@ jobs:
           echo "### Infrastructure Outputs:" >> $GITHUB_STEP_SUMMARY
           terraform output >> $GITHUB_STEP_SUMMARY
 
+      - name: Build and Push Docker Image
+        if: success()
+        run: |
+          echo "## 🐳 Building and Pushing Docker Image" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Get ECR repository URL from Terraform output
+          ECR_REPO=$(cd environments/staging && terraform output -raw ecr_repository_url)
+          
+          if [ -z "$ECR_REPO" ]; then
+            echo "❌ ECR repository not found. ECS may not be enabled." >> $GITHUB_STEP_SUMMARY
+            echo "Skipping Docker build and push." >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+          
+          echo "**ECR Repository:** $ECR_REPO" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Login to ECR
+          echo "🔐 Logging in to ECR..."
+          aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin $ECR_REPO
+          
+          # Build Docker image
+          echo "🔨 Building Docker image..."
+          docker build -t flask-app:latest app/
+          
+          # Tag for ECR
+          echo "🏷️ Tagging image for ECR..."
+          docker tag flask-app:latest $ECR_REPO:latest
+          
+          # Push to ECR
+          echo "📤 Pushing image to ECR..."
+          docker push $ECR_REPO:latest
+          
+          echo "✅ Docker image built and pushed successfully" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** $ECR_REPO:latest" >> $GITHUB_STEP_SUMMARY
+
+      - name: Deploy to ECS
+        if: success()
+        working-directory: environments/staging
+        run: |
+          echo "## 🚀 Deploying to ECS" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Get ECS service information
+          CLUSTER_NAME=$(terraform output -raw ecs_cluster_name 2>/dev/null || echo "")
+          BLUE_SERVICE=$(terraform output -raw blue_ecs_service_name 2>/dev/null || echo "")
+          
+          if [ -z "$CLUSTER_NAME" ] || [ -z "$BLUE_SERVICE" ]; then
+            echo "❌ ECS services not found. ECS may not be enabled." >> $GITHUB_STEP_SUMMARY
+            echo "Skipping ECS deployment." >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+          
+          echo "**ECS Cluster:** $CLUSTER_NAME" >> $GITHUB_STEP_SUMMARY
+          echo "**Blue Service:** $BLUE_SERVICE" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Deploy to blue service
+          echo "🔄 Deploying to blue service..."
+          aws ecs update-service \
+            --cluster $CLUSTER_NAME \
+            --service $BLUE_SERVICE \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
+          
+          echo "✅ ECS deployment initiated" >> $GITHUB_STEP_SUMMARY
+          echo "**Service:** $BLUE_SERVICE" >> $GITHUB_STEP_SUMMARY
+
       - name: Quick Infrastructure Validation
         working-directory: environments/staging
         run: |
