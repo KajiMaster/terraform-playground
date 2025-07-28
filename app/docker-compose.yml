@@ -1,0 +1,42 @@
+
+
+services:
+  flask-app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_HOST=mysql
+      - DB_USER=tfplayground_user
+      - DB_NAME=tfplayground
+      - DB_PASSWORD=tfplayground_password
+      - DEPLOYMENT_COLOR=local
+      - AWS_REGION=us-east-2
+    depends_on:
+      - mysql
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      - MYSQL_ROOT_PASSWORD=rootpassword
+      - MYSQL_DATABASE=tfplayground
+      - MYSQL_USER=tfplayground_user
+      - MYSQL_PASSWORD=tfplayground_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - app-network
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
+
+networks:
+  app-network:
+    driver: bridge 
