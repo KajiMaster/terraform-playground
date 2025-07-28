@@ -100,12 +100,14 @@ data "aws_secretsmanager_secret_version" "ssh_public" {
 module "loadbalancer" {
   source = "../../modules/loadbalancer"
 
-  environment       = var.environment
-  vpc_id            = module.networking.vpc_id
-  public_subnets    = module.networking.public_subnet_ids
-  certificate_arn   = var.certificate_arn
-  security_group_id = module.networking.alb_security_group_id
-  waf_web_acl_arn   = var.environment_waf_use ? try(data.terraform_remote_state.global.outputs.waf_web_acl_arn, null) : null
+  environment                = var.environment
+  vpc_id                     = module.networking.vpc_id
+  public_subnets             = module.networking.public_subnet_ids
+  certificate_arn            = var.certificate_arn
+  security_group_id          = module.networking.alb_security_group_id
+  waf_web_acl_arn            = var.environment_waf_use ? try(data.terraform_remote_state.global.outputs.waf_web_acl_arn, null) : null
+  target_type                = var.enable_ecs ? "ip" : "instance"
+  create_green_listener_rule = var.enable_ecs  # Enable green rule for ECS
 }
 
 # Database Module
@@ -121,8 +123,9 @@ module "database" {
   security_group_id = module.networking.database_security_group_id
 }
 
-# Blue Auto Scaling Group
+# Blue Auto Scaling Group (conditionally created)
 module "blue_asg" {
+  count  = var.disable_asg ? 0 : 1
   source = "../../modules/compute/asg"
 
   environment           = var.environment
@@ -146,8 +149,9 @@ module "blue_asg" {
   system_log_group_name      = data.terraform_remote_state.global.outputs.system_log_groups[var.environment]
 }
 
-# Green Auto Scaling Group
+# Green Auto Scaling Group (conditionally created)
 module "green_asg" {
+  count  = var.disable_asg ? 0 : 1
   source = "../../modules/compute/asg"
 
   environment           = var.environment
@@ -171,11 +175,12 @@ module "green_asg" {
   system_log_group_name      = data.terraform_remote_state.global.outputs.system_log_groups[var.environment]
 }
 
-# SSM Module for Database Bootstrapping (updated to use blue ASG)
+# SSM Module for Database Bootstrapping (conditionally created)
 module "ssm" {
+  count                 = var.disable_asg ? 0 : 1
   source                = "../../modules/ssm"
   environment           = var.environment
-  webserver_instance_id = module.blue_asg.asg_id           # Will need to get actual instance ID
+  webserver_instance_id = module.blue_asg[0].asg_id           # Will need to get actual instance ID
   webserver_public_ip   = module.loadbalancer.alb_dns_name # Use ALB DNS name instead
   database_endpoint     = module.database.db_instance_address
   database_name         = var.db_name
@@ -197,6 +202,41 @@ module "logging" {
   application_log_group_name = data.terraform_remote_state.global.outputs.application_log_groups[var.environment]
   system_log_group_name      = data.terraform_remote_state.global.outputs.system_log_groups[var.environment]
   alarm_log_group_name       = data.terraform_remote_state.global.outputs.alarm_log_groups[var.environment]
+}
+
+# ECS Module (conditionally created)
+module "ecs" {
+  count  = var.enable_ecs ? 1 : 0
+  source = "../../modules/ecs"
+
+  environment = var.environment
+  aws_region  = var.aws_region
+
+  # Network Configuration
+  vpc_id                     = module.networking.vpc_id
+  private_subnets            = module.networking.private_subnet_ids
+  alb_security_group_id      = module.networking.alb_security_group_id
+  database_security_group_id = module.networking.database_security_group_id
+
+  # Load Balancer Integration (uses existing ALB)
+  blue_target_group_arn  = module.loadbalancer.blue_target_group_arn
+  green_target_group_arn = module.loadbalancer.green_target_group_arn
+
+  # Database Configuration
+  db_host = module.database.db_instance_endpoint
+  db_user = "tfplayground_user"
+  db_name = var.db_name
+
+  # Logging (uses existing CloudWatch log groups)
+  application_log_group_name = module.logging.application_log_group_name
+
+  # Resource Configuration (start with minimal resources)
+  task_cpu    = 512   # 0.5 vCPU
+  task_memory = 1024  # 1 GB
+
+  # Service Configuration (use variables)
+  blue_desired_count  = var.blue_ecs_desired_count
+  green_desired_count = var.green_ecs_desired_count
 }
 
 # OIDC Module removed - using global GitHub Actions role instead

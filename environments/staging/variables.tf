@@ -143,4 +143,29 @@ variable "environment_waf_use" {
   description = "Use WAF for this environment (set to false to detach WAF)"
   type        = bool
   default     = true
+}
+
+# ECS Migration Variables
+variable "enable_ecs" {
+  description = "Enable ECS Fargate deployment alongside ASG"
+  type        = bool
+  default     = false
+}
+
+variable "disable_asg" {
+  description = "Disable ASG and use ECS only"
+  type        = bool
+  default     = false
+}
+
+variable "blue_ecs_desired_count" {
+  description = "Desired number of blue ECS service tasks"
+  type        = number
+  default     = 1
+}
+
+variable "green_ecs_desired_count" {
+  description = "Desired number of green ECS service tasks"
+  type        = number
+  default     = 0
 } 
