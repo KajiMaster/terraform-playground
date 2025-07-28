@@ -277,6 +277,22 @@ resource "aws_iam_role_policy" "terraform_permissions" {
           "firehose:*"
         ]
         Resource = "*"
+      },
+      # ECS permissions for container orchestration
+      {
+        Effect = "Allow"
+        Action = [
+          "ecs:*"
+        ]
+        Resource = "*"
+      },
+      # ECR permissions for container registry
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:*"
+        ]
+        Resource = "*"
       }
     ]
   })
