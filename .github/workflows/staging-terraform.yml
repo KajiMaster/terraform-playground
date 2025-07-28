@@ -151,6 +151,20 @@ jobs:
         with:
           ref: ${{ github.event.inputs.branch || 'develop' }}
 
+      - name: Debug Branch and Files
+        run: |
+          echo "## 🔍 DEBUG INFORMATION" >> $GITHUB_STEP_SUMMARY
+          echo "**Current Branch:** $(git branch --show-current)" >> $GITHUB_STEP_SUMMARY
+          echo "**Git Head:** $(git rev-parse HEAD)" >> $GITHUB_STEP_SUMMARY
+          echo "**Git Status:**" >> $GITHUB_STEP_SUMMARY
+          git status >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Terraform Variables:**" >> $GITHUB_STEP_SUMMARY
+          cat environments/staging/terraform.tfvars >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**ECS Integration File:**" >> $GITHUB_STEP_SUMMARY
+          cat environments/staging/ecs-integration.tf >> $GITHUB_STEP_SUMMARY
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
