@@ -204,40 +204,7 @@ module "logging" {
   alarm_log_group_name       = data.terraform_remote_state.global.outputs.alarm_log_groups[var.environment]
 }
 
-# ECS Module (conditionally created)
-module "ecs" {
-  count  = var.enable_ecs ? 1 : 0
-  source = "../../modules/ecs"
 
-  environment = var.environment
-  aws_region  = var.aws_region
-
-  # Network Configuration
-  vpc_id                     = module.networking.vpc_id
-  private_subnets            = module.networking.private_subnet_ids
-  alb_security_group_id      = module.networking.alb_security_group_id
-  database_security_group_id = module.networking.database_security_group_id
-
-  # Load Balancer Integration (uses existing ALB)
-  blue_target_group_arn  = module.loadbalancer.blue_target_group_arn
-  green_target_group_arn = module.loadbalancer.green_target_group_arn
-
-  # Database Configuration
-  db_host = module.database.db_instance_endpoint
-  db_user = "tfplayground_user"
-  db_name = var.db_name
-
-  # Logging (uses existing CloudWatch log groups)
-  application_log_group_name = module.logging.application_log_group_name
-
-  # Resource Configuration (start with minimal resources)
-  task_cpu    = 512   # 0.5 vCPU
-  task_memory = 1024  # 1 GB
-
-  # Service Configuration (use variables)
-  blue_desired_count  = var.blue_ecs_desired_count
-  green_desired_count = var.green_ecs_desired_count
-}
 
 # OIDC Module removed - using global GitHub Actions role instead
 # The global environment manages the OIDC provider and GitHub Actions role

@@ -146,12 +146,6 @@ variable "environment_waf_use" {
 }
 
 # ECS Migration Variables
-variable "enable_ecs" {
-  description = "Enable ECS Fargate deployment alongside ASG"
-  type        = bool
-  default     = false
-}
-
 variable "disable_asg" {
   description = "Disable ASG and use ECS only"
   type        = bool
