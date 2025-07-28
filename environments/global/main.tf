@@ -61,4 +61,15 @@ module "waf" {
   enable_ip_reputation = var.enable_ip_reputation
   blocked_paths        = var.waf_blocked_paths
   log_retention_days   = var.waf_log_retention_days
+}
+
+# Global ECR Repository - Shared across environments
+module "ecr" {
+  source = "../../modules/ecr"
+
+  environment = "global"
+  app_name    = "tf-pg-ecr"
+  tags = {
+    Purpose = "shared-container-registry"
+  }
 } 

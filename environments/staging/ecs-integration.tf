@@ -8,6 +8,7 @@ variable "enable_ecs" {
   default     = false
 }
 
+
 # ECS Module (conditionally created)
 module "ecs" {
   count  = var.enable_ecs ? 1 : 0
@@ -15,6 +16,9 @@ module "ecs" {
 
   environment = var.environment
   aws_region  = var.aws_region
+
+  # Use global ECR repository instead of creating local one
+  ecr_repository_url = data.terraform_remote_state.global.outputs.ecr_repository_url
 
   # Network Configuration
   vpc_id                     = module.networking.vpc_id
@@ -45,8 +49,8 @@ module "ecs" {
 
 # Outputs for ECS (only when enabled)
 output "ecr_repository_url" {
-  description = "ECR repository URL for container images"
-  value       = var.enable_ecs ? module.ecs[0].ecr_repository_url : null
+  description = "ECR repository URL for container images (from global environment)"
+  value       = var.enable_ecs ? data.terraform_remote_state.global.outputs.ecr_repository_url : null
 }
 
 output "ecs_cluster_name" {
@@ -66,7 +70,7 @@ output "green_ecs_service_name" {
 
 output "container_image_url" {
   description = "Full container image URL for deployment"
-  value       = var.enable_ecs ? module.ecs[0].container_image_url : null
+  value       = var.enable_ecs ? "${data.terraform_remote_state.global.outputs.ecr_repository_url}:latest" : null
 }
 
 output "ecs_environment_summary" {

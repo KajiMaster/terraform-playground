@@ -208,6 +208,8 @@ module "logging" {
 
 
 
+
+
 # OIDC Module removed - using global GitHub Actions role instead
 # The global environment manages the OIDC provider and GitHub Actions role
 # Staging and production environments use the global role via CI/CD workflows

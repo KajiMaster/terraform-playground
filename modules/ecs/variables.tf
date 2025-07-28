@@ -9,6 +9,11 @@ variable "aws_region" {
   default     = "us-east-2"
 }
 
+variable "ecr_repository_url" {
+  description = "External ECR repository URL (from global environment)"
+  type        = string
+}
+
 variable "vpc_id" {
   description = "VPC ID where ECS resources will be created"
   type        = string
