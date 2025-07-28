@@ -125,8 +125,9 @@ module "database" {
   security_group_id = module.networking.database_security_group_id
 }
 
-# Blue Auto Scaling Group
+# Blue Auto Scaling Group (conditionally created)
 module "blue_asg" {
+  count  = var.disable_asg ? 0 : 1
   source = "../../modules/compute/asg"
 
   environment           = var.environment
@@ -150,8 +151,9 @@ module "blue_asg" {
   system_log_group_name      = data.terraform_remote_state.global.outputs.system_log_groups[var.environment]
 }
 
-# Green Auto Scaling Group
+# Green Auto Scaling Group (conditionally created)
 module "green_asg" {
+  count  = var.disable_asg ? 0 : 1
   source = "../../modules/compute/asg"
 
   environment           = var.environment
@@ -175,11 +177,12 @@ module "green_asg" {
   system_log_group_name      = data.terraform_remote_state.global.outputs.system_log_groups[var.environment]
 }
 
-# SSM Module for Database Bootstrapping (updated to use blue ASG)
+# SSM Module for Database Bootstrapping (conditionally created)
 module "ssm" {
+  count                 = var.disable_asg ? 0 : 1
   source                = "../../modules/ssm"
   environment           = var.environment
-  webserver_instance_id = module.blue_asg.asg_id           # Will need to get actual instance ID
+  webserver_instance_id = module.blue_asg[0].asg_id           # Will need to get actual instance ID
   webserver_public_ip   = module.loadbalancer.alb_dns_name # Use ALB DNS name instead
   database_endpoint     = module.database.db_instance_address
   database_name         = var.db_name
