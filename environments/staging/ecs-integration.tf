@@ -8,7 +8,6 @@ variable "enable_ecs" {
   default     = false
 }
 
-
 # ECS Module (conditionally created)
 module "ecs" {
   count  = var.enable_ecs ? 1 : 0

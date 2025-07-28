@@ -220,13 +220,15 @@ output "global_alarm_log_group_arn" {
 
 # All global log group ARNs for this environment
 output "global_log_group_arns" {
-  description = "All log group ARNs from global environment for this environment"
+  description = "Map of global log group ARNs"
   value = {
-    application = data.terraform_remote_state.global.outputs.application_log_group_arns[var.environment]
-    system      = data.terraform_remote_state.global.outputs.system_log_group_arns[var.environment]
-    alarm       = data.terraform_remote_state.global.outputs.alarm_log_group_arns[var.environment]
+    application = data.terraform_remote_state.global.outputs.application_log_group_arns["staging"]
+    system      = data.terraform_remote_state.global.outputs.system_log_group_arns["staging"]
+    alarm       = data.terraform_remote_state.global.outputs.alarm_log_group_arns["staging"]
   }
 }
+
+
 
 
 
