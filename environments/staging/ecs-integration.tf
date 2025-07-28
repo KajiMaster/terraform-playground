@@ -30,8 +30,9 @@ module "ecs" {
   green_target_group_arn = module.loadbalancer.green_target_group_arn
 
   # Database Configuration
-  db_host = module.database.db_instance_endpoint
+  db_host = module.database.db_instance_address
   db_user = "tfplayground_user"
+  db_password = data.aws_secretsmanager_secret_version.db_password.secret_string
   db_name = var.db_name
 
   # Logging (uses existing CloudWatch log groups)
@@ -55,6 +56,11 @@ output "ecr_repository_url" {
 output "ecs_cluster_name" {
   description = "ECS cluster name"
   value       = var.enable_ecs ? module.ecs[0].ecs_cluster_name : null
+}
+
+output "ecs_tasks_security_group_id" {
+  description = "ECS tasks security group ID"
+  value       = var.enable_ecs ? module.ecs[0].ecs_tasks_security_group_id : null
 }
 
 output "blue_ecs_service_name" {
