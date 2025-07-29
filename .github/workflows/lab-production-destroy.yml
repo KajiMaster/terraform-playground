@@ -12,6 +12,8 @@ on:
 env:
   TF_VERSION: "1.12.0"
   AWS_REGION: "us-east-2"
+  ENVIRONMENT: "production"
+  WORKSPACE: "production"
 
 permissions:
   id-token: write
@@ -84,21 +86,40 @@ jobs:
           role-session-name: lab-production-destroy-${{ github.run_id }}
 
       - name: Terraform Init
-        working-directory: environments/production
+        working-directory: environments/terraform
         run: terraform init
 
+      - name: Select Production Workspace
+        working-directory: environments/terraform
+        run: |
+          # Check if workspace exists
+          if ! terraform workspace list | grep -q " ${{ env.WORKSPACE }}$"; then
+            echo "❌ Error: Terraform workspace '${{ env.WORKSPACE }}' does not exist"
+            echo "Available workspaces:"
+            terraform workspace list | sed 's/^/  /'
+            exit 1
+          fi
+          
+          # Switch to the production workspace
+          terraform workspace select "${{ env.WORKSPACE }}"
+          echo "✅ Selected workspace: ${{ env.WORKSPACE }}"
+
       - name: Terraform Destroy
-        working-directory: environments/production
-        run: terraform destroy -auto-approve
+        working-directory: environments/terraform
+        run: |
+          terraform destroy \
+            -var-file=${{ env.WORKSPACE }}.tfvars \
+            -auto-approve
 
       - name: Destroy Complete
         run: |
           echo "## 🧹 Production Environment Destroyed" >> $GITHUB_STEP_SUMMARY
           echo "**Environment**: Production" >> $GITHUB_STEP_SUMMARY
+          echo "**Workspace**: ${{ env.WORKSPACE }}" >> $GITHUB_STEP_SUMMARY
           echo "**Status**: ✅ Destroyed" >> $GITHUB_STEP_SUMMARY
           echo "**Time**: $(date)" >> $GITHUB_STEP_SUMMARY
           echo "**Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Next Steps:" >> $GITHUB_STEP_SUMMARY
-          echo "- **To rebuild**: Create a PR with changes to `environments/production/`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Or run manually**: Use the prod-terraform workflow" >> $GITHUB_STEP_SUMMARY 
+          echo "- **To rebuild**: Create a PR with changes to `environments/terraform/`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Or run manually**: Use the production-terraform workflow" >> $GITHUB_STEP_SUMMARY 
