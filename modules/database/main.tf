@@ -1,29 +1,29 @@
 # Security group is now managed by the networking module
 
-# ECS ingress rule for database access
+# ECS ingress rule for PostgreSQL database access
 resource "aws_security_group_rule" "database_ecs_ingress" {
   count = var.enable_ecs ? 1 : 0
 
   type                     = "ingress"
-  from_port                = 3306
-  to_port                  = 3306
+  from_port                = 5432
+  to_port                  = 5432
   protocol                 = "tcp"
   source_security_group_id = var.ecs_tasks_security_group_id
   security_group_id        = var.security_group_id
-  description              = "Allow ECS tasks to access database on port 3306"
+  description              = "Allow ECS tasks to access PostgreSQL database on port 5432"
 }
 
-# Webserver ingress rule for database access (when ASG is enabled)
+# Webserver ingress rule for PostgreSQL database access (when ASG is enabled)
 resource "aws_security_group_rule" "database_webserver_ingress" {
   count = var.enable_asg ? 1 : 0
 
   type                     = "ingress"
-  from_port                = 3306
-  to_port                  = 3306
+  from_port                = 5432
+  to_port                  = 5432
   protocol                 = "tcp"
   source_security_group_id = var.webserver_security_group_id
   security_group_id        = var.security_group_id
-  description              = "Allow webservers to access database on port 3306"
+  description              = "Allow webservers to access PostgreSQL database on port 5432"
 }
 
 # DB Subnet Group
@@ -40,11 +40,11 @@ resource "aws_db_subnet_group" "database" {
   }
 }
 
-# RDS Instance
+# RDS Instance - PostgreSQL for better async support
 resource "aws_db_instance" "database" {
   identifier        = "${var.environment}-db"
-  engine            = "mysql"
-  engine_version    = "8.0"
+  engine            = "postgres"
+  engine_version    = "15.4"
   instance_class    = var.db_instance_type
   allocated_storage     = 20
   max_allocated_storage = 100  # Enable storage autoscaling
@@ -84,14 +84,14 @@ resource "aws_db_instance" "database" {
   }
 }
 
-# DB Parameter Group for optimization
+# DB Parameter Group for PostgreSQL optimization
 resource "aws_db_parameter_group" "database" {
-  family = "mysql8.0"
+  family = "postgres15"
   name   = "${var.environment}-db-params"
 
   parameter {
-    name  = "innodb_buffer_pool_size"
-    value = "{DBInstanceClassMemory*3/4}"  # Use 75% of available memory
+    name  = "shared_preload_libraries"
+    value = "pg_stat_statements"
   }
 
   parameter {
@@ -100,18 +100,33 @@ resource "aws_db_parameter_group" "database" {
   }
 
   parameter {
-    name  = "innodb_flush_log_at_trx_commit"
-    value = "2"  # Better performance, slight durability trade-off
+    name  = "work_mem"
+    value = "4096"  # 4MB per query operation
   }
 
   parameter {
-    name  = "query_cache_type"
-    value = "1"
+    name  = "maintenance_work_mem"
+    value = "65536"  # 64MB for maintenance operations
   }
 
   parameter {
-    name  = "query_cache_size"
-    value = "67108864"  # 64MB
+    name  = "effective_cache_size"
+    value = "524288"  # 512MB - estimate of available OS cache
+  }
+
+  parameter {
+    name  = "random_page_cost"
+    value = "1.1"  # SSD optimization
+  }
+
+  parameter {
+    name  = "checkpoint_completion_target"
+    value = "0.9"
+  }
+
+  parameter {
+    name  = "wal_buffers"
+    value = "2048"  # 2MB
   }
 
   tags = {

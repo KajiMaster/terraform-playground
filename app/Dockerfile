@@ -29,7 +29,7 @@ COPY --from=builder /root/.local /root/.local
 WORKDIR /app
 
 # Copy application code
-COPY app.py .
+COPY main.py .
 
 # Create non-root user for security
 RUN useradd --create-home --shell /bin/bash app && \
@@ -49,5 +49,5 @@ HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
 # Use gunicorn for production with optimized settings
 RUN pip install --user gunicorn==21.2.0
 
-# Run with gunicorn for better performance
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "4", "--worker-class", "gthread", "--threads", "2", "--timeout", "120", "--keepalive", "2", "--max-requests", "1000", "--max-requests-jitter", "100", "app:app"] 
+# Run with uvicorn for async FastAPI support
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080", "--workers", "4", "--loop", "uvloop", "--http", "httptools", "--access-log", "--log-level", "info"] 
