@@ -336,29 +336,7 @@ jobs:
             echo "⚠️ ALB health check timed out after 5 minutes" >> $GITHUB_STEP_SUMMARY
           fi
 
-      - name: Bootstrap Database
-        if: success()
-        working-directory: environments/terraform
-        run: |
-          echo "## 🗄️ Bootstrap Database" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          # Check if bootstrap script exists
-          if [ ! -f "ecs-database-bootstrap.sh" ]; then
-            echo "❌ Bootstrap script not found" >> $GITHUB_STEP_SUMMARY
-            exit 0
-          fi
-          
-          # Make script executable
-          chmod +x ecs-database-bootstrap.sh
-          
-          # Run bootstrap
-          echo "🔄 Running database bootstrap..."
-          if ./ecs-database-bootstrap.sh ${{ env.WORKSPACE }}; then
-            echo "✅ Database bootstrap completed successfully" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "⚠️ Database bootstrap failed or skipped" >> $GITHUB_STEP_SUMMARY
-          fi
+
 
       - name: Final Summary
         run: |
