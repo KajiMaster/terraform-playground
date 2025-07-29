@@ -12,15 +12,21 @@ terraform {
   }
 }
 
+# Workspace-based environment detection
+locals {
+  workspace_name = terraform.workspace
+  environment    = var.environment != null ? var.environment : terraform.workspace
+}
+
 provider "aws" {
   region = var.aws_region
   default_tags {
     tags = {
-      Environment = "${var.environment}"
+      Environment = local.environment
       Project     = "tf-playground"
       ManagedBy   = "terraform"
       Pipeline    = "gitflow-cicd"
-      Tier        = "production"
+      Tier        = local.environment
     }
   }
 }
@@ -39,22 +45,24 @@ data "terraform_remote_state" "global" {
 module "networking" {
   source = "../../modules/networking"
 
-  environment   = var.environment
+  environment   = local.environment
   vpc_cidr      = var.vpc_cidr
   public_cidrs  = var.public_subnet_cidrs
   private_cidrs = var.private_subnet_cidrs
   azs           = var.availability_zones
   enable_ecs    = var.enable_ecs
-  ecs_tasks_security_group_id = var.enable_ecs ? module.ecs[0].ecs_tasks_security_group_id : null
+  # ecs_tasks_security_group_id = local.ecs_tasks_security_group_id  # Moved to individual modules
+  disable_asg   = var.disable_asg
 }
 
 # Centralized Secrets Configuration
-# These can be changed to environment-specific secrets if needed
 locals {
-  # Secret paths - can be changed to environment-specific if needed
   db_password_secret_name     = "/tf-playground/all/db-pword"
   ssh_private_key_secret_name = "/tf-playground/all/ssh-key"
   ssh_public_key_secret_name  = "/tf-playground/all/ssh-key-public"
+  
+  # ECS Tasks Security Group ID (for database access)
+  ecs_tasks_security_group_id = var.enable_ecs ? module.ecs[0].ecs_tasks_security_group_id : null
 }
 
 # Get centralized database password
@@ -86,12 +94,12 @@ data "aws_secretsmanager_secret_version" "ssh_public" {
 
 # Create environment-specific AWS key pair using centralized SSH public key
 resource "aws_key_pair" "environment_key" {
-  key_name   = "tf-playground-${var.environment}-key"
+  key_name   = "tf-playground-${local.environment}-key"
   public_key = data.aws_secretsmanager_secret_version.ssh_public.secret_string
 
   tags = {
-    Name        = "tf-playground-${var.environment}-key"
-    Environment = var.environment
+    Name        = "tf-playground-${local.environment}-key"
+    Environment = local.environment
     Project     = "tf-playground"
     ManagedBy   = "terraform"
     Purpose     = "centralized-ssh-key"
@@ -109,7 +117,9 @@ module "loadbalancer" {
   security_group_id = module.networking.alb_security_group_id
   waf_web_acl_arn   = var.environment_waf_use ? try(data.terraform_remote_state.global.outputs.waf_web_acl_arn, null) : null
   target_type       = var.enable_ecs ? "ip" : "instance"
-  create_green_listener_rule = var.enable_ecs  # Enable green rule for ECS
+  create_green_listener_rule = var.enable_ecs
+  enable_ecs        = var.enable_ecs
+  ecs_tasks_security_group_id = local.ecs_tasks_security_group_id
 }
 
 # Database Module
@@ -123,6 +133,10 @@ module "database" {
   db_username       = "tfplayground_user"
   db_password       = data.aws_secretsmanager_secret_version.db_password.secret_string
   security_group_id = module.networking.database_security_group_id
+  enable_ecs        = var.enable_ecs
+  ecs_tasks_security_group_id = local.ecs_tasks_security_group_id
+  enable_asg        = !var.disable_asg
+  webserver_security_group_id = module.networking.webserver_security_group_id
 }
 
 # Blue Auto Scaling Group (conditionally created)
@@ -182,8 +196,8 @@ module "ssm" {
   count                 = var.disable_asg ? 0 : 1
   source                = "../../modules/ssm"
   environment           = var.environment
-  webserver_instance_id = module.blue_asg[0].asg_id           # Will need to get actual instance ID
-  webserver_public_ip   = module.loadbalancer.alb_dns_name # Use ALB DNS name instead
+  webserver_instance_id = module.blue_asg[0].asg_id
+  webserver_public_ip   = module.loadbalancer.alb_dns_name
   database_endpoint     = module.database.db_instance_address
   database_name         = var.db_name
   database_username     = "tfplayground_user"
@@ -206,17 +220,14 @@ module "logging" {
 }
 
 # ALB-to-ECS Security Group Rule (created after both modules exist)
-resource "aws_security_group_rule" "alb_ecs_tasks_egress" {
-  count                    = var.enable_ecs ? 1 : 0
-  type                     = "egress"
-  from_port                = 8080
-  to_port                  = 8080
-  protocol                 = "tcp"
-  source_security_group_id = module.ecs[0].ecs_tasks_security_group_id
-  security_group_id        = module.networking.alb_security_group_id
-  description              = "Allow outbound traffic to ECS tasks on port 8080"
-}
-
-# OIDC Module removed - using global GitHub Actions role instead
-# The global environment manages the OIDC provider and GitHub Actions role
-# Staging and production environments use the global role via CI/CD workflows 
+# Note: ECS module not yet implemented, this rule is disabled
+# resource "aws_security_group_rule" "alb_ecs_tasks_egress" {
+#   count                    = var.enable_ecs ? 1 : 0
+#   type                     = "egress"
+#   from_port                = 8080
+#   to_port                  = 8080
+#   protocol                 = "tcp"
+#   source_security_group_id = module.ecs[0].ecs_tasks_security_group_id
+#   security_group_id        = module.networking.alb_security_group_id
+#   description              = "Allow outbound traffic to ECS tasks on port 8080"
+# } 

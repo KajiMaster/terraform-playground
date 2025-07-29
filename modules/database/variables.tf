@@ -41,4 +41,26 @@ variable "security_group_id" {
   type        = string
 }
 
- 
+variable "enable_ecs" {
+  description = "Enable ECS deployment (affects security group rules)"
+  type        = bool
+  default     = false
+}
+
+variable "ecs_tasks_security_group_id" {
+  description = "Security group ID for ECS tasks (required when enable_ecs is true)"
+  type        = string
+  default     = ""
+}
+
+variable "enable_asg" {
+  description = "Enable Auto Scaling Group deployment (affects security group rules)"
+  type        = bool
+  default     = true
+}
+
+variable "webserver_security_group_id" {
+  description = "Security group ID for webservers (required when enable_asg is true)"
+  type        = string
+  default     = ""
+}

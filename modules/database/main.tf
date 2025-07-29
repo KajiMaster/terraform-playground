@@ -1,5 +1,31 @@
 # Security group is now managed by the networking module
 
+# ECS ingress rule for database access
+resource "aws_security_group_rule" "database_ecs_ingress" {
+  count = var.enable_ecs ? 1 : 0
+
+  type                     = "ingress"
+  from_port                = 3306
+  to_port                  = 3306
+  protocol                 = "tcp"
+  source_security_group_id = var.ecs_tasks_security_group_id
+  security_group_id        = var.security_group_id
+  description              = "Allow ECS tasks to access database on port 3306"
+}
+
+# Webserver ingress rule for database access (when ASG is enabled)
+resource "aws_security_group_rule" "database_webserver_ingress" {
+  count = var.enable_asg ? 1 : 0
+
+  type                     = "ingress"
+  from_port                = 3306
+  to_port                  = 3306
+  protocol                 = "tcp"
+  source_security_group_id = var.webserver_security_group_id
+  security_group_id        = var.security_group_id
+  description              = "Allow webservers to access database on port 3306"
+}
+
 # DB Subnet Group
 resource "aws_db_subnet_group" "database" {
   name       = "${var.environment}-db-subnet-group"

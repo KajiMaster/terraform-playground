@@ -1,11 +1,10 @@
-# Production environment variables
-# Managed by GitFlow CI/CD pipeline
-# UPDATED: Blue-Green Deployment Architecture (Cost Optimized for Demo)
+# Universal Environment Variables
+# This file can be used across all environments (dev, staging, production)
+# Environment-specific values are set via terraform.tfvars or environment variables
 
 variable "environment" {
-  description = "Environment name"
+  description = "Environment name (dev, staging, production)"
   type        = string
-  default     = "production"
 }
 
 variable "aws_region" {
@@ -29,7 +28,7 @@ variable "public_subnet_cidrs" {
 variable "private_subnet_cidrs" {
   description = "CIDR blocks for private subnets"
   type        = list(string)
-  default     = ["10.0.11.0/24", "10.0.12.0/24"]
+  default     = ["10.0.10.0/24", "10.0.11.0/24"]
 }
 
 variable "availability_zones" {
@@ -39,108 +38,69 @@ variable "availability_zones" {
 }
 
 variable "webserver_instance_type" {
-  description = "EC2 instance type for web server (cost optimized for demo)"
+  description = "Instance type for web server (cost optimized)"
   type        = string
-  default     = "t3.micro" # Cost optimized - same as staging
+  default     = "t3.micro"
 }
 
 variable "db_instance_type" {
-  description = "RDS instance type (cost optimized for demo)"
+  description = "Instance type for RDS (cost optimized)"
   type        = string
-  default     = "db.t3.micro" # Cost optimized - same as staging
+  default     = "db.t3.micro"
 }
 
 variable "db_name" {
-  description = "Database name"
+  description = "Name of the database"
   type        = string
-  default     = "tfplayground_prod"
-}
-
-variable "key_name" {
-  description = "Name of the EC2 key pair"
-  type        = string
-  default     = "tf-playground-production"
-}
-
-variable "ssh_key_path" {
-  description = "Path to SSH private key"
-  type        = string
-  default     = "~/.ssh/tf-playground-production.pem"
-}
-
-variable "ssh_user" {
-  description = "SSH user for EC2 instance"
-  type        = string
-  default     = "ec2-user"
-}
-
-variable "state_bucket" {
-  description = "S3 bucket for Terraform state"
-  type        = string
-  default     = "tf-playground-state-vexus"
-}
-
-variable "state_lock_table" {
-  description = "DynamoDB table for state locking"
-  type        = string
-  default     = "tf-playground-locks"
-}
-
-# Blue-Green Deployment Variables
-
-variable "ami_id" {
-  description = "AMI ID for EC2 instances"
-  type        = string
-  default     = "ami-06c8f2ec674c67112" # Amazon Linux 2023 AMI in us-east-2
+  default     = "tfplayground"
 }
 
 variable "certificate_arn" {
   description = "ARN of SSL certificate for ALB"
   type        = string
-  default     = null # No SSL for production demo
+  default     = null
 }
 
-# Blue Environment Configuration (cost optimized for demo)
+# Blue-Green Deployment Variables
 variable "blue_desired_capacity" {
   description = "Desired capacity for blue Auto Scaling Group"
   type        = number
-  default     = 1 # Cost optimized - same as staging
+  default     = 1
 }
 
 variable "blue_max_size" {
   description = "Maximum size for blue Auto Scaling Group"
   type        = number
-  default     = 2 # Cost optimized - same as staging
+  default     = 2
 }
 
 variable "blue_min_size" {
   description = "Minimum size for blue Auto Scaling Group"
   type        = number
-  default     = 1 # Cost optimized - same as staging
+  default     = 1
 }
 
-# Green Environment Configuration (cost optimized for demo)
 variable "green_desired_capacity" {
   description = "Desired capacity for green Auto Scaling Group"
   type        = number
-  default     = 1 # Cost optimized - same as staging
+  default     = 1
 }
 
 variable "green_max_size" {
   description = "Maximum size for green Auto Scaling Group"
   type        = number
-  default     = 2 # Cost optimized - same as staging
+  default     = 2
 }
 
 variable "green_min_size" {
   description = "Minimum size for green Auto Scaling Group"
   type        = number
-  default     = 1 # Cost optimized - same as staging
+  default     = 1
 }
 
 # WAF Configuration
 variable "environment_waf_use" {
-  description = "Use WAF for this environment (set to false to detach WAF)"
+  description = "Use WAF for this environment"
   type        = bool
   default     = true
 }
@@ -148,6 +108,12 @@ variable "environment_waf_use" {
 # ECS Migration Variables
 variable "disable_asg" {
   description = "Disable ASG and use ECS only"
+  type        = bool
+  default     = false
+}
+
+variable "enable_ecs" {
+  description = "Enable ECS deployment"
   type        = bool
   default     = false
 }
@@ -162,4 +128,16 @@ variable "green_ecs_desired_count" {
   description = "Desired number of green ECS service tasks"
   type        = number
   default     = 0
+}
+
+variable "ami_id" {
+  description = "AMI ID for EC2 instances"
+  type        = string
+  default     = "ami-06c8f2ec674c67112" # Amazon Linux 2023 AMI in us-east-2
+}
+
+variable "create_nat_gateway" {
+  description = "Whether to create NAT Gateway (cost consideration)"
+  type        = bool
+  default     = true
 } 

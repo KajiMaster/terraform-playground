@@ -50,8 +50,10 @@ variable "enable_ecs" {
   default     = false
 }
 
-variable "ecs_tasks_security_group_id" {
-  description = "Security group ID for ECS tasks (required when enable_ecs is true)"
-  type        = string
-  default     = null
+# Variable removed - security group rules moved to individual modules
+
+variable "disable_asg" {
+  description = "Disable Auto Scaling Groups (when ECS is used instead)"
+  type        = bool
+  default     = false
 } 
