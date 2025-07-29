@@ -46,9 +46,12 @@ resource "aws_db_instance" "database" {
   engine            = "mysql"
   engine_version    = "8.0"
   instance_class    = var.db_instance_type
-  allocated_storage = 20
-  storage_type      = "gp3"
-  storage_encrypted = true
+  allocated_storage     = 20
+  max_allocated_storage = 100  # Enable storage autoscaling
+  storage_type          = "gp3"
+  storage_encrypted     = true
+  iops                  = 3000  # Baseline for gp3
+  storage_throughput    = 125   # Baseline for gp3
 
   db_name  = var.db_name
   username = var.db_username
@@ -61,6 +64,17 @@ resource "aws_db_instance" "database" {
   backup_window           = "03:00-04:00"
   maintenance_window      = "Mon:04:00-Mon:05:00"
 
+  # Performance Insights for monitoring
+  performance_insights_enabled    = true
+  performance_insights_retention_period = 7
+
+  # Enhanced monitoring
+  monitoring_interval = 60
+  monitoring_role_arn = aws_iam_role.rds_enhanced_monitoring.arn
+
+  # Connection limits and parameters
+  parameter_group_name = aws_db_parameter_group.database.name
+
   multi_az            = false
   skip_final_snapshot = true
   deletion_protection = false
@@ -68,4 +82,66 @@ resource "aws_db_instance" "database" {
   tags = {
     Name = "${var.environment}-database"
   }
+}
+
+# DB Parameter Group for optimization
+resource "aws_db_parameter_group" "database" {
+  family = "mysql8.0"
+  name   = "${var.environment}-db-params"
+
+  parameter {
+    name  = "innodb_buffer_pool_size"
+    value = "{DBInstanceClassMemory*3/4}"  # Use 75% of available memory
+  }
+
+  parameter {
+    name  = "max_connections"
+    value = "200"  # Adjust based on your connection pool size
+  }
+
+  parameter {
+    name  = "innodb_flush_log_at_trx_commit"
+    value = "2"  # Better performance, slight durability trade-off
+  }
+
+  parameter {
+    name  = "query_cache_type"
+    value = "1"
+  }
+
+  parameter {
+    name  = "query_cache_size"
+    value = "67108864"  # 64MB
+  }
+
+  tags = {
+    Name = "${var.environment}-db-params"
+  }
+}
+
+# IAM role for RDS enhanced monitoring
+resource "aws_iam_role" "rds_enhanced_monitoring" {
+  name = "${var.environment}-rds-enhanced-monitoring"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "monitoring.rds.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name = "${var.environment}-rds-enhanced-monitoring"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "rds_enhanced_monitoring" {
+  role       = aws_iam_role.rds_enhanced_monitoring.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole"
 } 

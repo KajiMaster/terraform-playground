@@ -1,5 +1,6 @@
 from flask import Flask, jsonify, request
 import mysql.connector
+from mysql.connector import pooling
 import os
 import psutil
 import time
@@ -9,6 +10,7 @@ import requests
 import logging
 import json
 import boto3
+from functools import lru_cache
 
 app = Flask(__name__)
 
@@ -22,12 +24,26 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Connection pool configuration
+connection_pool_config = {
+    'pool_name': 'mypool',
+    'pool_size': 10,  # Adjust based on your load
+    'pool_reset_session': True,
+    'host': os.environ.get('DB_HOST', 'localhost'),
+    'user': os.environ.get('DB_USER', 'tfplayground_user'),
+    'database': os.environ.get('DB_NAME', 'tfplayground')
+}
+
+# Initialize connection pool (will be set up after getting password)
+connection_pool = None
+
 def get_container_id():
     """Get container ID from environment or generate one"""
     return os.environ.get('HOSTNAME', 'unknown')
 
+@lru_cache(maxsize=1)
 def get_db_password():
-    """Get database password from Parameter Store or environment"""
+    """Get database password from Parameter Store or environment with caching"""
     # For local development, use environment variable
     if os.environ.get('DB_PASSWORD'):
         return os.environ.get('DB_PASSWORD')
@@ -50,21 +66,52 @@ def get_db_password():
         logger.error(f"Failed to get password from Parameter Store: {e}")
         return None
 
-# Database configuration
-password = get_db_password()
-if password is None:
-    logger.error("ERROR: Could not retrieve database password from Parameter Store or environment")
-    sys.exit(1)
-
-db_config = {
-    'host': os.environ.get('DB_HOST', 'localhost'),
-    'user': os.environ.get('DB_USER', 'tfplayground_user'),
-    'password': password,
-    'database': os.environ.get('DB_NAME', 'tfplayground')
-}
+def initialize_connection_pool():
+    """Initialize the database connection pool"""
+    global connection_pool
+    password = get_db_password()
+    if password is None:
+        logger.error("ERROR: Could not retrieve database password from Parameter Store or environment")
+        sys.exit(1)
+    
+    connection_pool_config['password'] = password
+    try:
+        connection_pool = pooling.MySQLConnectionPool(**connection_pool_config)
+        logger.info("Database connection pool initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize connection pool: {e}")
+        sys.exit(1)
 
 def get_db_connection():
-    return mysql.connector.connect(**db_config)
+    """Get connection from pool"""
+    global connection_pool
+    if connection_pool is None:
+        initialize_connection_pool()
+    return connection_pool.get_connection()
+
+# Initialize connection pool at startup
+initialize_connection_pool()
+
+# Cache for table existence check
+table_exists_cache = {}
+
+def check_table_exists(table_name):
+    """Check if table exists with caching"""
+    if table_name in table_exists_cache:
+        return table_exists_cache[table_name]
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(f"SHOW TABLES LIKE '{table_name}'")
+        exists = cursor.fetchone() is not None
+        cursor.close()
+        conn.close()
+        table_exists_cache[table_name] = exists
+        return exists
+    except Exception as e:
+        logger.error(f"Error checking table existence: {e}")
+        return False
 
 def check_database_connection():
     """Check if database connection is working"""
@@ -146,22 +193,19 @@ def log_response(response):
 @app.route('/')
 def index():
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
+        contacts = []
         
-        # Check if contacts table exists
-        cursor.execute("SHOW TABLES LIKE 'contacts'")
-        table_exists = cursor.fetchone()
-        
-        if table_exists:
+        # Use cached table existence check
+        if check_table_exists('contacts'):
+            conn = get_db_connection()
+            cursor = conn.cursor(dictionary=True)
             cursor.execute('SELECT * FROM contacts')
             contacts = cursor.fetchall()
+            cursor.close()
+            conn.close()
         else:
-            contacts = []
             logger.info("Contacts table does not exist yet")
         
-        cursor.close()
-        conn.close()
         return jsonify({
             'contacts': contacts,
             'deployment_color': os.environ.get('DEPLOYMENT_COLOR', 'unknown'),
