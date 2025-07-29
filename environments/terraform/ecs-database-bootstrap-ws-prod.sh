@@ -1,14 +1,14 @@
 #!/bin/bash
 
-# ECS Database Bootstrap One-Liner for Staging
+# ECS Database Bootstrap One-Liner for WS-Prod
 # Uses ECS Exec to run database commands from within the ECS task
 
-echo "ECS Database Bootstrap One-Liner"
-echo "================================"
+echo "ECS Database Bootstrap One-Liner for WS-Prod"
+echo "============================================"
 echo ""
 
 echo "Getting ECS task ARN..."
-TASK_ARN=$(aws ecs list-tasks --cluster staging-ecs-cluster --region us-east-2 --query 'taskArns[0]' --output text)
+TASK_ARN=$(aws ecs list-tasks --cluster ws-prod-ecs-cluster --region us-east-2 --query 'taskArns[0]' --output text)
 
 if [ "$TASK_ARN" == "None" ] || [ -z "$TASK_ARN" ]; then
     echo "Error: No ECS tasks found. Make sure the ECS service is running."
@@ -22,7 +22,7 @@ DB_PASSWORD=$(aws ssm get-parameter --name "/tf-playground/all/db-pword" --regio
 
 echo "Creating SQL file in container..."
 aws ecs execute-command \
-    --cluster staging-ecs-cluster \
+    --cluster ws-prod-ecs-cluster \
     --task "$TASK_ARN" \
     --container flask-app \
     --interactive \
@@ -50,12 +50,12 @@ EOF\""
 
 echo "Executing database bootstrap..."
 aws ecs execute-command \
-    --cluster staging-ecs-cluster \
+    --cluster ws-prod-ecs-cluster \
     --task "$TASK_ARN" \
     --container flask-app \
     --interactive \
-    --command "/bin/bash -c \"mysql -h staging-db.c38ukeqk0mqb.us-east-2.rds.amazonaws.com -u tfplayground_user -p$DB_PASSWORD tfplayground < /tmp/bootstrap-contacts.sql\""
+    --command "/bin/bash -c \"mysql -h ws-prod-db.c38ukeqk0mqb.us-east-2.rds.amazonaws.com -u tfplayground_user -p$DB_PASSWORD tfplayground_ws_prod < /tmp/bootstrap-contacts.sql\""
 
 echo ""
 echo "Database bootstrap complete!"
-echo "Check the application at: http://staging-alb-1997691628.us-east-2.elb.amazonaws.com/" 
+echo "Check the application at: http://ws-prod-alb-1132437371.us-east-2.elb.amazonaws.com/" 

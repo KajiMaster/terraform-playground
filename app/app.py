@@ -148,19 +148,36 @@ def index():
     try:
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
-        cursor.execute('SELECT * FROM contacts')
-        contacts = cursor.fetchall()
+        
+        # Check if contacts table exists
+        cursor.execute("SHOW TABLES LIKE 'contacts'")
+        table_exists = cursor.fetchone()
+        
+        if table_exists:
+            cursor.execute('SELECT * FROM contacts')
+            contacts = cursor.fetchall()
+        else:
+            contacts = []
+            logger.info("Contacts table does not exist yet")
+        
         cursor.close()
         conn.close()
         return jsonify({
             'contacts': contacts,
             'deployment_color': os.environ.get('DEPLOYMENT_COLOR', 'unknown'),
             'timestamp': datetime.utcnow().isoformat(),
-            'container_id': get_container_id()
+            'container_id': get_container_id(),
+            'message': 'Flask application is running successfully!'
         })
     except Exception as e:
         logger.error(f"Database query failed: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({
+            'error': str(e),
+            'deployment_color': os.environ.get('DEPLOYMENT_COLOR', 'unknown'),
+            'timestamp': datetime.utcnow().isoformat(),
+            'container_id': get_container_id(),
+            'message': 'Application is running but database query failed'
+        }), 500
 
 @app.route('/health')
 def health():

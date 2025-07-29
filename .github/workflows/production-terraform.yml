@@ -1,12 +1,12 @@
-name: Staging Terraform
+name: Production Terraform
 
 # Triggers on:
-# - Any change to develop branch (PR or push)
+# - Any change to main branch (PR or push)
 # - Excludes global-only modules that shouldn't trigger environment deployments
 # - Manual trigger via workflow_dispatch
 on:
   pull_request:
-    branches: [develop]
+    branches: [main]
     paths-ignore:
       - 'environments/global/**'
       - 'modules/oidc/**'
@@ -14,7 +14,7 @@ on:
       - 'modules/waf/**'
       - 'modules/secrets/**'
   push:
-    branches: [develop]
+    branches: [main]
     paths-ignore:
       - 'environments/global/**'
       - 'modules/oidc/**'
@@ -36,14 +36,14 @@ on:
       branch:
         description: 'Branch to use for deployment'
         required: false
-        default: 'develop'
+        default: 'main'
         type: string
 
 env:
   TF_VERSION: "1.12.0"
   AWS_REGION: "us-east-2"
-  ENVIRONMENT: "staging"
-  WORKSPACE: "staging"
+  ENVIRONMENT: "production"
+  WORKSPACE: "production"
 
 permissions:
   id-token: write
@@ -60,7 +60,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.head_ref || github.event.inputs.branch || 'develop' }}
+          ref: ${{ github.head_ref || github.event.inputs.branch || 'main' }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -82,13 +82,13 @@ jobs:
         with:
           role-to-assume: arn:aws:iam::123324351829:role/github-actions-global
           aws-region: ${{ env.AWS_REGION }}
-          role-session-name: staging-plan-${{ github.run_id }}-${{ github.run_number }}
+          role-session-name: production-plan-${{ github.run_id }}-${{ github.run_number }}
 
       - name: Terraform Init
         working-directory: environments/terraform
         run: terraform init
 
-      - name: Select Staging Workspace
+      - name: Select Production Workspace
         working-directory: environments/terraform
         run: |
           # Create workspace if it doesn't exist
@@ -110,11 +110,11 @@ jobs:
             const fs = require('fs');
             const { execSync } = require('child_process');
             
-            let comment = `## Terraform Plan for Staging Environment
+            let comment = `## Terraform Plan for Production Environment
             
-            **Environment**: Staging
+            **Environment**: Production
             **Workspace**: ${{ env.WORKSPACE }}
-            **Branch**: develop
+            **Branch**: main
             **Triggered by**: PR #${{ github.event.number }}`;
             
             try {
@@ -154,14 +154,14 @@ jobs:
     name: Terraform Apply
     runs-on: ubuntu-latest
     if: |
-      (github.event_name == 'push' && github.ref == 'refs/heads/develop') ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       (github.event_name == 'workflow_dispatch' && (github.event.inputs.force_rebuild == 'true' || github.event.inputs.branch != ''))
     
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.head_ref || github.event.inputs.branch || 'develop' }}
+          ref: ${{ github.head_ref || github.event.inputs.branch || 'main' }}
 
       - name: Debug Branch and Files
         run: |
@@ -174,11 +174,11 @@ jobs:
           echo "**Terraform Directory Contents:**" >> $GITHUB_STEP_SUMMARY
           ls -la environments/terraform/ >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Staging Variables (if exists):**" >> $GITHUB_STEP_SUMMARY
-          if [ -f "environments/terraform/staging.tfvars" ]; then
-            cat environments/terraform/staging.tfvars >> $GITHUB_STEP_SUMMARY
+          echo "**Production Variables (if exists):**" >> $GITHUB_STEP_SUMMARY
+          if [ -f "environments/terraform/production.tfvars" ]; then
+            cat environments/terraform/production.tfvars >> $GITHUB_STEP_SUMMARY
           else
-            echo "❌ staging.tfvars file NOT FOUND!" >> $GITHUB_STEP_SUMMARY
+            echo "❌ production.tfvars file NOT FOUND!" >> $GITHUB_STEP_SUMMARY
           fi
 
       - name: Setup Terraform
@@ -201,13 +201,13 @@ jobs:
         with:
           role-to-assume: arn:aws:iam::123324351829:role/github-actions-global
           aws-region: ${{ env.AWS_REGION }}
-          role-session-name: staging-apply-${{ github.run_id }}-${{ github.run_number }}
+          role-session-name: production-apply-${{ github.run_id }}-${{ github.run_number }}
 
       - name: Terraform Init
         working-directory: environments/terraform
         run: terraform init
 
-      - name: Select Staging Workspace
+      - name: Select Production Workspace
         working-directory: environments/terraform
         run: |
           # Create workspace if it doesn't exist
@@ -223,10 +223,10 @@ jobs:
       - name: Get Outputs
         working-directory: environments/terraform
         run: |
-          echo "## Staging Deployment Complete" >> $GITHUB_STEP_SUMMARY
-          echo "**Environment**: Staging" >> $GITHUB_STEP_SUMMARY
+          echo "## Production Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment**: Production" >> $GITHUB_STEP_SUMMARY
           echo "**Workspace**: ${{ env.WORKSPACE }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Branch**: develop" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch**: main" >> $GITHUB_STEP_SUMMARY
           echo "**Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Infrastructure Outputs:" >> $GITHUB_STEP_SUMMARY
@@ -357,14 +357,14 @@ jobs:
 
       - name: Final Summary
         run: |
-          echo "## 🎉 Staging Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "## 🎉 Production Deployment Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Environment**: Staging" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment**: Production" >> $GITHUB_STEP_SUMMARY
           echo "**Workspace**: ${{ env.WORKSPACE }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Branch**: develop" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch**: main" >> $GITHUB_STEP_SUMMARY
           echo "**Status**: ✅ Deployed Successfully" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Next Steps:" >> $GITHUB_STEP_SUMMARY
           echo "1. Test the application at the ALB URL above" >> $GITHUB_STEP_SUMMARY
           echo "2. Monitor logs in CloudWatch" >> $GITHUB_STEP_SUMMARY
-          echo "3. Create PR to main branch for production deployment" >> $GITHUB_STEP_SUMMARY
+          echo "3. Verify all production systems are operational" >> $GITHUB_STEP_SUMMARY 

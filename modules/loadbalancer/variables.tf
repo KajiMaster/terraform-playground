@@ -76,4 +76,16 @@ variable "create_green_listener_rule" {
   description = "Whether to create a listener rule for green environment"
   type        = bool
   default     = false
+}
+
+variable "enable_ecs" {
+  description = "Enable ECS deployment (affects security group rules)"
+  type        = bool
+  default     = false
+}
+
+variable "ecs_tasks_security_group_id" {
+  description = "Security group ID for ECS tasks (required when enable_ecs is true)"
+  type        = string
+  default     = ""
 } 
