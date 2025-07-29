@@ -1,5 +1,46 @@
-Flask==2.3.3
-mysql-connector-python==8.1.0
+# FastAPI and ASGI server
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+gunicorn==21.2.0
+
+# Database and ORM
+sqlalchemy==2.0.23
+asyncpg==0.29.0
+alembic==1.12.1
+
+# Redis for caching and sessions
+redis==5.0.1
+aioredis==2.0.1
+
+# Background job processing
+celery==5.3.4
+flower==2.0.1
+
+# Authentication and security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.6
+
+# Monitoring and observability
+prometheus-client==0.19.0
+structlog==23.2.0
+
+# AWS and infrastructure
+boto3==1.28.44
 psutil==5.9.5
-requests==2.31.0
-boto3==1.28.44 
+
+# Data validation and serialization
+pydantic==2.5.0
+pydantic-settings==2.0.3
+
+# Testing and development
+pytest==7.4.3
+pytest-asyncio==0.21.1
+httpx==0.25.2
+
+# Image processing (for product images)
+pillow==10.1.0
+
+# Other utilities
+python-slugify==8.0.1
+faker==20.1.0 
