@@ -72,13 +72,13 @@ variable "application_log_group_name" {
 variable "task_cpu" {
   description = "CPU units for ECS tasks (1024 = 1 vCPU)"
   type        = number
-  default     = 512
+  default     = 256  # Reduced from 512 for cost optimization
 }
 
 variable "task_memory" {
   description = "Memory for ECS tasks in MiB"
   type        = number
-  default     = 1024
+  default     = 512  # Reduced from 1024, sufficient for Flask app with connection pooling
 }
 
 variable "blue_desired_count" {
