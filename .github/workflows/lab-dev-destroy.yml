@@ -12,6 +12,8 @@ on:
 env:
   TF_VERSION: "1.12.0"
   AWS_REGION: "us-east-2"
+  ENVIRONMENT: "dev"
+  WORKSPACE: "dev"
 
 permissions:
   id-token: write
@@ -84,38 +86,48 @@ jobs:
           role-session-name: lab-dev-destroy-${{ github.run_id }}
 
       - name: Terraform Init
-        working-directory: environments/dev
+        working-directory: environments/terraform
         run: terraform init
 
+      - name: Select Dev Workspace
+        working-directory: environments/terraform
+        run: |
+          # Check if workspace exists
+          if ! terraform workspace list | grep -q " ${{ env.WORKSPACE }}$"; then
+            echo "❌ Error: Terraform workspace '${{ env.WORKSPACE }}' does not exist"
+            echo "Available workspaces:"
+            terraform workspace list | sed 's/^/  /'
+            exit 1
+          fi
+          
+          # Switch to the dev workspace
+          terraform workspace select "${{ env.WORKSPACE }}"
+          echo "✅ Selected workspace: ${{ env.WORKSPACE }}"
+
       - name: Terraform Destroy
-        working-directory: environments/dev
-        run: terraform destroy -auto-approve
+        working-directory: environments/terraform
+        run: |
+          terraform destroy \
+            -var-file=${{ env.WORKSPACE }}.tfvars \
+            -auto-approve
 
       - name: Destroy Complete
         run: |
           echo "## 🧹 Development Environment Destroyed" >> $GITHUB_STEP_SUMMARY
           echo "**Environment**: Development" >> $GITHUB_STEP_SUMMARY
+          echo "**Workspace**: ${{ env.WORKSPACE }}" >> $GITHUB_STEP_SUMMARY
           echo "**Status**: ✅ Destroyed" >> $GITHUB_STEP_SUMMARY
           echo "**Time**: $(date)" >> $GITHUB_STEP_SUMMARY
           echo "**Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Cost Impact:" >> $GITHUB_STEP_SUMMARY
-          echo "- **EC2 Instances (Blue/Green)**: Terminated" >> $GITHUB_STEP_SUMMARY
+          echo "- **ECS Services**: Terminated" >> $GITHUB_STEP_SUMMARY
           echo "- **Application Load Balancer**: Removed" >> $GITHUB_STEP_SUMMARY
-          echo "- **Target Groups (Blue/Green)**: Deleted" >> $GITHUB_STEP_SUMMARY
-          echo "- **Auto Scaling Groups (Blue/Green)**: Terminated" >> $GITHUB_STEP_SUMMARY
-          echo "- **RDS Databases**: Deleted" >> $GITHUB_STEP_SUMMARY
+          echo "- **Target Groups**: Deleted" >> $GITHUB_STEP_SUMMARY
+          echo "- **RDS Database**: Deleted" >> $GITHUB_STEP_SUMMARY
           echo "- **NAT Gateways**: Deleted" >> $GITHUB_STEP_SUMMARY
-          echo "- **Secrets**: Cleaned up" >> $GITHUB_STEP_SUMMARY
           echo "- **Security Groups**: Removed" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Blue-Green Infrastructure:" >> $GITHUB_STEP_SUMMARY
-          echo "- **Blue Environment**: Completely destroyed" >> $GITHUB_STEP_SUMMARY
-          echo "- **Green Environment**: Completely destroyed" >> $GITHUB_STEP_SUMMARY
-          echo "- **Load Balancer**: Removed with all listeners" >> $GITHUB_STEP_SUMMARY
-          echo "- **Database**: Terminated with all data" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Next Steps:" >> $GITHUB_STEP_SUMMARY
-          echo "- **To rebuild**: Run terraform apply in environments/dev" >> $GITHUB_STEP_SUMMARY
-          echo "- **Or create feature branch**: Start new development work" >> $GITHUB_STEP_SUMMARY
-          echo "- **Blue-Green setup**: Will be recreated with fresh instances" >> $GITHUB_STEP_SUMMARY 
+          echo "- **To rebuild**: Create a PR with changes to `environments/terraform/`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Or run manually**: Use the dev-terraform workflow" >> $GITHUB_STEP_SUMMARY 
