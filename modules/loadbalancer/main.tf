@@ -10,6 +10,19 @@ terraform {
 
 # Security group is now managed by the networking module
 
+# ALB to ECS tasks egress rule (when ECS is enabled)
+resource "aws_security_group_rule" "alb_ecs_egress" {
+  count = var.enable_ecs ? 1 : 0
+  
+  type                     = "egress"
+  from_port                = 8080
+  to_port                  = 8080
+  protocol                 = "tcp"
+  source_security_group_id = var.ecs_tasks_security_group_id
+  security_group_id        = var.security_group_id
+  description              = "Allow outbound traffic to ECS tasks on port 8080"
+}
+
 # Application Load Balancer
 resource "aws_lb" "main" {
   name               = "${var.environment}-alb"

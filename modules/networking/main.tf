@@ -203,24 +203,6 @@ resource "aws_security_group" "database" {
   description = "Security group for RDS database (MySQL from webservers)"
   vpc_id      = aws_vpc.main.id
 
-  # Allow MySQL access from web servers
-  ingress {
-    description     = "MySQL from web server"
-    from_port       = 3306
-    to_port         = 3306
-    protocol        = "tcp"
-    security_groups = [aws_security_group.webserver.id]
-  }
-
-  # Allow MySQL access from ECS tasks (when ECS is enabled)
-  ingress {
-    description     = "Allow ECS tasks to access database on port 3306"
-    from_port       = 3306
-    to_port         = 3306
-    protocol        = "tcp"
-    security_groups = [var.ecs_tasks_security_group_id]
-  }
-
   # Allow all outbound traffic
   egress {
     from_port   = 0
@@ -237,6 +219,10 @@ resource "aws_security_group" "database" {
     ManagedBy   = "terraform"
   }
 }
+
+# ECS ingress rule moved to database module to avoid circular dependency
+
+
 
 resource "aws_security_group" "alb" {
   name        = "${var.environment}-alb-sg"
@@ -271,6 +257,8 @@ resource "aws_security_group" "alb" {
 
 # Separate security group rule to avoid circular dependency
 resource "aws_security_group_rule" "alb_webserver_egress" {
+  count = var.disable_asg ? 0 : 1  # Only create when ASG is enabled
+  
   type                     = "egress"
   from_port                = 8080
   to_port                  = 8080
@@ -279,6 +267,8 @@ resource "aws_security_group_rule" "alb_webserver_egress" {
   security_group_id        = aws_security_group.alb.id
   description              = "Allow outbound traffic to webservers on port 8080"
 }
+
+# ALB egress rule moved to load balancer module to avoid circular dependency
 
 # Security group rules for ALB to webserver communication are now properly configured:
 # - ALB SG allows outbound traffic to webserver SG on port 8080

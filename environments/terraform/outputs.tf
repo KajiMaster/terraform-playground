@@ -1,3 +1,7 @@
+# Universal Environment Outputs Template
+# This file can be used across all environments (dev, staging, production)
+# Environment-specific values are handled via variables
+
 # Load Balancer Outputs
 output "alb_dns_name" {
   description = "DNS name of the Application Load Balancer"
@@ -64,8 +68,31 @@ output "green_target_group_arn" {
   value       = module.loadbalancer.green_target_group_arn
 }
 
-# SSH Keys for debugging - using centralized SSH keys
-# Private keys are available via AWS Secrets Manager
+# ECS Outputs
+output "ecs_tasks_security_group_id" {
+  description = "ID of the ECS tasks security group"
+  value       = var.enable_ecs ? module.ecs[0].ecs_tasks_security_group_id : null
+}
+
+output "ecr_repository_url" {
+  description = "URL of the ECR repository"
+  value       = var.enable_ecs ? module.ecs[0].ecr_repository_url : null
+}
+
+output "ecs_cluster_name" {
+  description = "Name of the ECS cluster"
+  value       = var.enable_ecs ? module.ecs[0].ecs_cluster_name : null
+}
+
+output "blue_ecs_service_name" {
+  description = "Name of the blue ECS service"
+  value       = var.enable_ecs ? module.ecs[0].blue_service_name : null
+}
+
+output "green_ecs_service_name" {
+  description = "Name of the green ECS service"
+  value       = var.enable_ecs ? module.ecs[0].green_service_name : null
+}
 
 # Database Outputs
 output "database_endpoint" {
@@ -150,7 +177,7 @@ output "deployment_validation_url" {
 
 # Environment Summary
 output "environment_summary" {
-  description = "Summary of the production blue-green deployment environment"
+  description = "Summary of the blue-green deployment environment"
   value = {
     environment       = var.environment
     region            = var.aws_region
@@ -176,7 +203,7 @@ output "https_listener_arn" {
 
 output "deployment_timestamp" {
   description = "Timestamp of last deployment"
-  value       = "Deployed via GitFlow CI/CD - Production Environment"
+  value       = "Deployed via GitFlow CI/CD - ${title(var.environment)} Environment"
 }
 
 # Logging outputs
@@ -223,7 +250,7 @@ output "global_alarm_log_group_arn" {
 
 # All global log group ARNs for this environment
 output "global_log_group_arns" {
-  description = "All log group ARNs from global environment for this environment"
+  description = "Map of global log group ARNs"
   value = {
     application = data.terraform_remote_state.global.outputs.application_log_group_arns[var.environment]
     system      = data.terraform_remote_state.global.outputs.system_log_group_arns[var.environment]
@@ -231,30 +258,11 @@ output "global_log_group_arns" {
   }
 }
 
-# WAF Outputs (from global environment)
-output "waf_web_acl_arn" {
-  description = "WAF Web ACL ARN from global environment"
-  value       = try(data.terraform_remote_state.global.outputs.waf_web_acl_arn, null)
-}
 
-output "waf_web_acl_id" {
-  description = "WAF Web ACL ID from global environment"
-  value       = try(data.terraform_remote_state.global.outputs.waf_web_acl_id, null)
-}
 
-output "waf_enabled" {
-  description = "Whether WAF is enabled"
-  value       = data.terraform_remote_state.global.outputs.waf_enabled
-}
 
-output "waf_logging_enabled" {
-  description = "Whether WAF logging is enabled"
-  value       = data.terraform_remote_state.global.outputs.waf_logging_enabled
-}
 
-output "waf_status" {
-  description = "Current WAF status (enabled/disabled)"
-  value       = data.terraform_remote_state.global.outputs.waf_enabled ? "enabled" : "disabled"
-}
 
- 
+
+
+
