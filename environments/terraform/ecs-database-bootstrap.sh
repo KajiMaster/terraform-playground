@@ -19,7 +19,7 @@ if [ $# -eq 0 ]; then
     echo "Getting available environments from global state..."
     
     # Get available environments from global state
-    cd /home/vex/terraform-playground/environments/global
+    cd ../global
     AVAILABLE_ENVIRONMENTS=$(terraform output -json application_log_groups 2>/dev/null | jq -r 'keys[]' 2>/dev/null || echo "staging ws-dev ws-staging ws-prod")
     
     echo "Available environments:"
@@ -38,7 +38,7 @@ echo "=================================================="
 echo ""
 
 # Get available environments from global state
-cd /home/vex/terraform-playground/environments/global
+cd ../global
 AVAILABLE_ENVIRONMENTS=$(terraform output -json application_log_groups 2>/dev/null | jq -r 'keys[]' 2>/dev/null || echo "staging ws-dev ws-staging ws-prod")
 
 # Check if environment exists in global state
@@ -52,7 +52,7 @@ fi
 echo "✅ Valid environment: $ENVIRONMENT"
 
 # Switch to terraform directory and workspace
-cd /home/vex/terraform-playground/environments/terraform
+cd ../terraform
 
 # Check if workspace exists, create if it doesn't
 if ! terraform workspace list | grep -q " $ENVIRONMENT$"; then
