@@ -74,6 +74,26 @@ output "ecs_tasks_security_group_id" {
   value       = var.enable_ecs ? module.ecs[0].ecs_tasks_security_group_id : null
 }
 
+output "ecr_repository_url" {
+  description = "URL of the ECR repository"
+  value       = var.enable_ecs ? module.ecs[0].ecr_repository_url : null
+}
+
+output "ecs_cluster_name" {
+  description = "Name of the ECS cluster"
+  value       = var.enable_ecs ? module.ecs[0].ecs_cluster_name : null
+}
+
+output "blue_ecs_service_name" {
+  description = "Name of the blue ECS service"
+  value       = var.enable_ecs ? module.ecs[0].blue_service_name : null
+}
+
+output "green_ecs_service_name" {
+  description = "Name of the green ECS service"
+  value       = var.enable_ecs ? module.ecs[0].green_service_name : null
+}
+
 # Database Outputs
 output "database_endpoint" {
   description = "The connection endpoint of the RDS instance"

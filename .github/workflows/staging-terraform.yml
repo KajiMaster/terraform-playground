@@ -239,10 +239,11 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           
           # Get ECR repository URL from Terraform output
-          ECR_REPO=$(cd environments/terraform && terraform output -raw ecr_repository_url 2>/dev/null || echo "")
+          cd environments/terraform
+          ECR_REPO=$(terraform output -raw ecr_repository_url 2>/dev/null || echo "")
           
           if [ -z "$ECR_REPO" ]; then
-            echo "❌ ECR repository not found. ECS may not be enabled." >> $GITHUB_STEP_SUMMARY
+            echo "❌ ECR repository not found. ECS may not be enabled or repository not created yet." >> $GITHUB_STEP_SUMMARY
             echo "Skipping Docker build and push." >> $GITHUB_STEP_SUMMARY
             exit 0
           fi
@@ -250,12 +251,16 @@ jobs:
           echo "**ECR Repository:** $ECR_REPO" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
+          # Extract registry URL from ECR repository URL
+          REGISTRY_URL=$(echo "$ECR_REPO" | cut -d'/' -f1)
+          
           # Login to ECR
           echo "🔐 Logging in to ECR..."
-          aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin $ECR_REPO
+          aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin $REGISTRY_URL
           
           # Build Docker image
           echo "🔨 Building Docker image..."
+          cd ../..
           docker build -t flask-app:latest app/
           
           # Tag for ECR
