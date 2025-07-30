@@ -236,8 +236,36 @@ jobs:
           echo "### Infrastructure Outputs:" >> $GITHUB_STEP_SUMMARY
           terraform output >> $GITHUB_STEP_SUMMARY
 
+      - name: Check for Application Changes
+        id: check-changes
+        run: |
+          echo "## 🔍 Checking for Application Changes" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Check if force rebuild is requested
+          if [ "${{ github.event.inputs.force_rebuild }}" == "true" ]; then
+            echo "🔄 Force rebuild requested via workflow_dispatch" >> $GITHUB_STEP_SUMMARY
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Check if app directory has changes
+          if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^app/"; then
+            echo "✅ Application code changes detected" >> $GITHUB_STEP_SUMMARY
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "ℹ️ No application code changes detected" >> $GITHUB_STEP_SUMMARY
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          fi
+          
+          # Check if Dockerfile has changes
+          if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "Dockerfile"; then
+            echo "✅ Dockerfile changes detected" >> $GITHUB_STEP_SUMMARY
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Build and Push Docker Image
-        if: success()
+        if: success() && steps.check-changes.outputs.has_changes == 'true'
         run: |
           echo "## 🐳 Building and Pushing Docker Image" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -262,21 +290,33 @@ jobs:
           echo "🔐 Logging in to ECR..."
           aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin $REGISTRY_URL
           
-          # Build Docker image
-          echo "🔨 Building Docker image..."
+          # Pull existing image for cache (if it exists)
+          echo "📥 Pulling existing image for cache..."
           cd ../..
-          docker build -t flask-app:latest app/
+          docker pull $ECR_REPO:staging-latest || echo "No existing image found, building from scratch"
           
-          # Tag for ECR
+          # Build Docker image with cache
+          echo "🔨 Building Docker image with cache..."
+          docker build --cache-from $ECR_REPO:staging-latest -t flask-app:latest app/
+          
+          # Tag for ECR with environment-specific tag
           echo "🏷️ Tagging image for ECR..."
-          docker tag flask-app:latest $ECR_REPO:latest
+          docker tag flask-app:latest $ECR_REPO:staging-latest
           
           # Push to ECR
           echo "📤 Pushing image to ECR..."
-          docker push $ECR_REPO:latest
+          docker push $ECR_REPO:staging-latest
           
           echo "✅ Docker image built and pushed successfully" >> $GITHUB_STEP_SUMMARY
-          echo "**Image:** $ECR_REPO:latest" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** $ECR_REPO:staging-latest" >> $GITHUB_STEP_SUMMARY
+
+      - name: Skip Docker Build
+        if: success() && steps.check-changes.outputs.has_changes == 'false'
+        run: |
+          echo "## ⏭️ Skipping Docker Build" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "ℹ️ No application changes detected. Using existing image." >> $GITHUB_STEP_SUMMARY
+          echo "**Reason:** Only infrastructure changes detected" >> $GITHUB_STEP_SUMMARY
 
       - name: Deploy to ECS
         if: success()
