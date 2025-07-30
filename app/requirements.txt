@@ -5,7 +5,7 @@ gunicorn==21.2.0
 
 # Database and ORM
 sqlalchemy==2.0.23
-asyncpg==0.29.0
+aiomysql==0.2.0
 alembic==1.12.1
 
 # Background job processing

@@ -178,13 +178,13 @@ class Settings:
         self.secret_key = os.getenv("SECRET_KEY", "your-secret-key-here")
         
     def _get_database_url(self):
-        # For PostgreSQL instead of MySQL for better async support
+        # For MySQL to match the infrastructure
         host = os.getenv("DB_HOST", "localhost")
         user = os.getenv("DB_USER", "tfplayground_user")
         password = self._get_db_password()
         database = os.getenv("DB_NAME", "tfplayground")
         
-        return f"postgresql+asyncpg://{user}:{password}@{host}:5432/{database}"
+        return f"mysql+aiomysql://{user}:{password}@{host}:3306/{database}"
     
     @lru_cache(maxsize=1)
     def _get_db_password(self):
