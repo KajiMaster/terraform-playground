@@ -1,10 +1,16 @@
-# ECS Fargate Migration Project
+# ECS Fargate Migration Project - ARCHIVED
+
+> **⚠️ ARCHIVED**: This document has been moved to archive as the project has pivoted to focus on blue-green deployments with EC2 ASG, which has been successfully completed. The ECS migration represents a different architectural direction that is not currently being pursued.
 
 ## 🎯 Project Overview
 
 **Goal**: Migrate the Terraform playground from EC2 Auto Scaling Groups (ASG) to ECS Fargate for containerized deployments, demonstrating modern containerization and orchestration skills.
 
-**Why This Matters**: 
+**Status**: ARCHIVED - Project direction changed to focus on blue-green deployment patterns instead.
+
+**Current Focus**: Blue-green deployment implementation has been completed successfully. See `blue-green-deployment-project.md` for the implemented solution.
+
+**Why This Was Considered**: 
 - High demand skill in DevOps/Platform Engineering interviews
 - Demonstrates containerization and orchestration knowledge
 - Shows ability to modernize existing infrastructure
