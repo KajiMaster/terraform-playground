@@ -8,9 +8,9 @@ RUN apt-get update && apt-get install -y \
     pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy and install Python dependencies
+# Copy and install Python dependencies globally
 COPY requirements.txt .
-RUN pip install --no-cache-dir --user -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Production stage
 FROM python:3.11-slim
@@ -23,21 +23,20 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean
 
 # Copy installed packages from builder stage
-COPY --from=builder /root/.local /root/.local
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Set working directory
 WORKDIR /app
 
-# Copy application code
+# Copy application code and templates
 COPY main.py .
+COPY templates/ ./templates/
 
 # Create non-root user for security
 RUN useradd --create-home --shell /bin/bash app && \
     chown -R app:app /app
 USER app
-
-# Make sure scripts in .local are usable:
-ENV PATH=/root/.local/bin:$PATH
 
 # Expose port
 EXPOSE 8080
@@ -46,8 +45,5 @@ EXPOSE 8080
 HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:8080/health/simple || exit 1
 
-# Use gunicorn for production with optimized settings
-RUN pip install --user gunicorn==21.2.0
-
-# Run with uvicorn for async FastAPI support
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080", "--workers", "4", "--loop", "uvloop", "--http", "httptools", "--access-log", "--log-level", "info"] 
+# Run with uvicorn for async FastAPI support - single worker for async SQLAlchemy
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080", "--workers", "1", "--loop", "uvloop", "--http", "httptools", "--access-log", "--log-level", "info"] 

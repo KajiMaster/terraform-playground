@@ -8,12 +8,15 @@ This directory contains documentation that has been archived to maintain a clean
 
 ### **Historical Implementation Documents**
 - `production-environment-audit-report.md` - Historical audit report (issues resolved)
-- `staging-troubleshooting.md` - Outdated troubleshooting (consolidated into lessons-learned.md)
+- `staging-troubleshooting.md` - Outdated troubleshooting (consolidated)
 - `terraform-circular-dep-sg-conf.md` - Historical circular dependency issue (resolved)
 - `branch-environment-mapping-fix.md` - Historical GitFlow issue (resolved)
 - `workspace-architecture-proposal.md` - Outdated architecture proposal
 - `module-versioning-strategy.md` - Future consideration (not implemented yet)
-- `strategic-prioritization-and-decision-making.md` - Consolidated into lessons-learned.md
+- `strategic-prioritization-and-decision-making.md` - Consolidated into project-direction-and-lessons.md
+- `ecs-fargate-migration-project.md` - Superseded architectural direction (blue-green chosen instead)
+- `lessons-learned.md` - Consolidated into project-direction-and-lessons.md
+- `future-roadmap.md` - Consolidated into project-direction-and-lessons.md
 
 ### **Planning and Design Documents**
 - `sketch-01-environment-hierarchy.md` - Early environment design sketches

@@ -10,11 +10,12 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from typing import List, Optional
 
-import aioredis
 import structlog
 from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse, Response, HTMLResponse
+from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 from pydantic import BaseModel, Field
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Boolean, ForeignKey, Text
@@ -51,6 +52,15 @@ DB_QUERY_DURATION = Histogram('db_query_duration_seconds', 'Database query durat
 
 # Database Models
 Base = declarative_base()
+
+class Contact(Base):
+    __tablename__ = "contacts"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), nullable=False)
+    email = Column(String(100), nullable=False)
+    phone = Column(String(20))
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 class User(Base):
     __tablename__ = "users"
@@ -138,6 +148,21 @@ class ProductResponse(ProductBase):
     class Config:
         from_attributes = True
 
+class ContactBase(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    email: str = Field(..., min_length=1, max_length=100)
+    phone: Optional[str] = Field(None, max_length=20)
+
+class ContactCreate(ContactBase):
+    pass
+
+class ContactResponse(ContactBase):
+    id: int
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
 class CategoryBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     description: Optional[str] = None
@@ -176,17 +201,16 @@ class OrderResponse(BaseModel):
 class Settings:
     def __init__(self):
         self.database_url = self._get_database_url()
-        self.redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
         self.secret_key = os.getenv("SECRET_KEY", "your-secret-key-here")
         
     def _get_database_url(self):
-        # For PostgreSQL instead of MySQL for better async support
+        # For MySQL to match the infrastructure
         host = os.getenv("DB_HOST", "localhost")
         user = os.getenv("DB_USER", "tfplayground_user")
         password = self._get_db_password()
         database = os.getenv("DB_NAME", "tfplayground")
         
-        return f"postgresql+asyncpg://{user}:{password}@{host}:5432/{database}"
+        return f"mysql+aiomysql://{user}:{password}@{host}:3306/{database}"
     
     @lru_cache(maxsize=1)
     def _get_db_password(self):
@@ -227,15 +251,6 @@ AsyncSessionLocal = async_sessionmaker(
     expire_on_commit=False
 )
 
-# Redis setup
-redis_client = None
-
-async def get_redis():
-    global redis_client
-    if redis_client is None:
-        redis_client = aioredis.from_url(settings.redis_url, decode_responses=True)
-    return redis_client
-
 # Dependency to get database session
 async def get_db():
     async with AsyncSessionLocal() as session:
@@ -250,21 +265,20 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting up application")
     
-    # Initialize Redis connection
-    global redis_client
-    redis_client = await get_redis()
-    
     # Create tables (in production, use Alembic migrations)
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("Database tables created successfully")
+    except Exception as e:
+        logger.warning("Failed to create database tables", error=str(e))
+        logger.info("Application will start without database initialization")
     
     logger.info("Application startup complete")
     yield
     
     # Shutdown
     logger.info("Shutting down application")
-    if redis_client:
-        await redis_client.close()
     await engine.dispose()
 
 # FastAPI app
@@ -274,6 +288,9 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
+
+# Jinja2 templates setup
+templates = Jinja2Templates(directory="templates")
 
 # Middleware
 app.add_middleware(
@@ -312,10 +329,6 @@ async def health_check():
             db_duration = time.time() - start_time
             DB_QUERY_DURATION.observe(db_duration)
         
-        # Redis check
-        redis = await get_redis()
-        await redis.ping()
-        
         # System resources
         memory = psutil.virtual_memory()
         disk = psutil.disk_usage('/')
@@ -327,7 +340,6 @@ async def health_check():
             "deployment_color": os.environ.get('DEPLOYMENT_COLOR', 'unknown'),
             "checks": {
                 "database": {"status": "ok", "response_time_ms": round(db_duration * 1000, 2)},
-                "redis": {"status": "ok"},
                 "memory_usage": {"percent": memory.percent, "available_gb": round(memory.available / 1024**3, 2)},
                 "disk_usage": {"percent": disk.percent, "free_gb": round(disk.free / 1024**3, 2)}
             }
@@ -338,7 +350,7 @@ async def health_check():
 
 @app.get("/health/simple")
 async def simple_health_check():
-    """Simple health check for load balancer"""
+    """Simple health check for load balancer - no database required"""
     return {
         "status": "ok",
         "timestamp": datetime.utcnow().isoformat(),
@@ -362,6 +374,364 @@ async def root():
         "deployment_color": os.environ.get('DEPLOYMENT_COLOR', 'unknown')
     }
 
+@app.get("/web")
+async def web_root():
+    """Hello World HTML page"""
+    html_content = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Hello World - E-commerce API</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
+            .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+            h1 { color: #333; text-align: center; }
+            .api-info { background: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #007bff; }
+            .endpoints { margin-top: 30px; }
+            .endpoint-list { list-style: none; padding: 0; }
+            .endpoint-list li { margin: 10px 0; }
+            .endpoint-list a { color: #007bff; text-decoration: none; padding: 8px 16px; background: #e9ecef; border-radius: 5px; display: inline-block; }
+            .endpoint-list a:hover { background: #007bff; color: white; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>Hello World! 🌍</h1>
+            <p style="text-align: center; color: #666; font-size: 1.2em;">Welcome to the Enterprise E-commerce API</p>
+            
+            <div class="api-info">
+                <h2>API Information</h2>
+                <p><strong>Service:</strong> Enterprise E-commerce API</p>
+                <p><strong>Version:</strong> 1.0.0</p>
+                <p><strong>Status:</strong> Running</p>
+                <p><strong>Container ID:</strong> """ + os.environ.get('HOSTNAME', 'unknown') + """</p>
+                <p><strong>Deployment Color:</strong> """ + os.environ.get('DEPLOYMENT_COLOR', 'unknown') + """</p>
+            </div>
+            
+            <div class="endpoints">
+                <h2>Available Endpoints</h2>
+                <ul class="endpoint-list">
+                    <li><a href="/">JSON API</a></li>
+                    <li><a href="/jinja">Jinja2 Template</a></li>
+                    <li><a href="/health">Health Check</a></li>
+                    <li><a href="/docs">API Documentation</a></li>
+                    <li><a href="/products">Products</a></li>
+                    <li><a href="/contacts">Contacts</a></li>
+                </ul>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    return HTMLResponse(content=html_content)
+
+@app.get("/jinja")
+async def jinja_root(request: Request):
+    """Hello World with Jinja2 template"""
+    return templates.TemplateResponse("index.html", {
+        "request": request,
+        "service": "Enterprise E-commerce API",
+        "version": "1.0.0",
+        "container_id": os.environ.get('HOSTNAME', 'unknown'),
+        "deployment_color": os.environ.get('DEPLOYMENT_COLOR', 'unknown'),
+        "timestamp": datetime.utcnow().isoformat()
+    })
+
+@app.get("/web")
+async def web_root():
+    """Hello World HTML page"""
+    html_content = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Hello World - E-commerce API</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
+            .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+            h1 { color: #333; text-align: center; }
+            .api-info { background: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #007bff; }
+            .endpoints { margin-top: 30px; }
+            .endpoint-list { list-style: none; padding: 0; }
+            .endpoint-list li { margin: 10px 0; }
+            .endpoint-list a { color: #007bff; text-decoration: none; padding: 8px 16px; background: #e9ecef; border-radius: 5px; display: inline-block; }
+            .endpoint-list a:hover { background: #007bff; color: white; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>Hello World! 🌍</h1>
+            <p style="text-align: center; color: #666; font-size: 1.2em;">Welcome to the Enterprise E-commerce API</p>
+            
+            <div class="api-info">
+                <h2>API Information</h2>
+                <p><strong>Service:</strong> Enterprise E-commerce API</p>
+                <p><strong>Version:</strong> 1.0.0</p>
+                <p><strong>Status:</strong> Running</p>
+                <p><strong>Container ID:</strong> """ + os.environ.get('HOSTNAME', 'unknown') + """</p>
+                <p><strong>Deployment Color:</strong> """ + os.environ.get('DEPLOYMENT_COLOR', 'unknown') + """</p>
+            </div>
+            
+            <div class="endpoints">
+                <h2>Available Endpoints</h2>
+                <ul class="endpoint-list">
+                    <li><a href="/">JSON API</a></li>
+                    <li><a href="/jinja">Jinja2 Template</a></li>
+                    <li><a href="/health">Health Check</a></li>
+                    <li><a href="/docs">API Documentation</a></li>
+                    <li><a href="/products">Products</a></li>
+                    <li><a href="/contacts">Contacts</a></li>
+                </ul>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    return HTMLResponse(content=html_content)
+
+@app.get("/jinja")
+async def jinja_root(request: Request):
+    """Hello World with Jinja2 template"""
+    return templates.TemplateResponse("index.html", {
+        "request": request,
+        "service": "Enterprise E-commerce API",
+        "version": "1.0.0",
+        "container_id": os.environ.get('HOSTNAME', 'unknown'),
+        "deployment_color": os.environ.get('DEPLOYMENT_COLOR', 'unknown'),
+        "timestamp": datetime.utcnow().isoformat()
+    })
+
+@app.get("/web", response_class=HTMLResponse)
+async def web_root():
+    """Hello World HTML page"""
+    html_content = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Hello World - E-commerce API</title>
+        <style>
+            body { 
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+                margin: 0; 
+                padding: 0; 
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+            }
+            .container { 
+                max-width: 900px; 
+                margin: 0 auto; 
+                padding: 40px 20px;
+            }
+            .header {
+                text-align: center;
+                color: white;
+                margin-bottom: 40px;
+            }
+            .header h1 {
+                font-size: 3.5rem;
+                margin-bottom: 10px;
+                text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            }
+            .header p {
+                font-size: 1.2rem;
+                opacity: 0.9;
+            }
+            .api-info { 
+                background: rgba(255,255,255,0.95); 
+                padding: 30px; 
+                border-radius: 15px; 
+                margin-bottom: 30px;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            }
+            .api-info h2 {
+                color: #333;
+                margin-top: 0;
+                border-bottom: 2px solid #667eea;
+                padding-bottom: 10px;
+            }
+            .info-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 15px;
+                margin: 20px 0;
+            }
+            .info-item {
+                background: #f8f9fa;
+                padding: 15px;
+                border-radius: 8px;
+                border-left: 4px solid #667eea;
+            }
+            .info-item strong {
+                color: #667eea;
+                display: block;
+                margin-bottom: 5px;
+            }
+            .endpoints {
+                background: rgba(255,255,255,0.95);
+                padding: 30px;
+                border-radius: 15px;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            }
+            .endpoints h2 {
+                color: #333;
+                margin-top: 0;
+                border-bottom: 2px solid #667eea;
+                padding-bottom: 10px;
+            }
+            .endpoints ul {
+                list-style: none;
+                padding: 0;
+            }
+            .endpoints li {
+                margin: 10px 0;
+            }
+            .endpoints a {
+                display: inline-block;
+                padding: 12px 20px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                text-decoration: none;
+                border-radius: 25px;
+                transition: all 0.3s ease;
+                box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            }
+            .endpoints a:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+            }
+            .footer {
+                text-align: center;
+                color: white;
+                margin-top: 40px;
+                opacity: 0.8;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>Hello World! 🌍</h1>
+                <p>Welcome to the Enterprise E-commerce API</p>
+            </div>
+            
+            <div class="api-info">
+                <h2>🚀 API Information</h2>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <strong>Service</strong>
+                        Enterprise E-commerce API
+                    </div>
+                    <div class="info-item">
+                        <strong>Version</strong>
+                        1.0.0
+                    </div>
+                    <div class="info-item">
+                        <strong>Status</strong>
+                        Running ✅
+                    </div>
+                    <div class="info-item">
+                        <strong>Container ID</strong>
+                        """ + os.environ.get('HOSTNAME', 'unknown') + """
+                    </div>
+                    <div class="info-item">
+                        <strong>Deployment Color</strong>
+                        """ + os.environ.get('DEPLOYMENT_COLOR', 'unknown') + """
+                    </div>
+                    <div class="info-item">
+                        <strong>Timestamp</strong>
+                        """ + datetime.utcnow().isoformat() + """
+                    </div>
+                </div>
+            </div>
+            
+            <div class="endpoints">
+                <h2>🔗 Available Endpoints</h2>
+                <ul>
+                    <li><a href="/health">Health Check</a></li>
+                    <li><a href="/docs">API Documentation</a></li>
+                    <li><a href="/products">Products</a></li>
+                    <li><a href="/contacts">Contacts</a></li>
+                    <li><a href="/categories">Categories</a></li>
+                    <li><a href="/metrics">Metrics</a></li>
+                    <li><a href="/jinja">Jinja Template Demo</a></li>
+                </ul>
+            </div>
+            
+            <div class="footer">
+                <p>Built with FastAPI • Deployed with Terraform • Powered by AWS</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    return HTMLResponse(content=html_content)
+
+@app.get("/jinja")
+async def jinja_root(request: Request):
+    """Hello World with Jinja2 template"""
+    return templates.TemplateResponse("index.html", {
+        "request": request,
+        "service": "Enterprise E-commerce API",
+        "version": "1.0.0",
+        "container_id": os.environ.get('HOSTNAME', 'unknown'),
+        "deployment_color": os.environ.get('DEPLOYMENT_COLOR', 'unknown'),
+        "timestamp": datetime.utcnow().isoformat(),
+        "endpoints": [
+            {"name": "Health Check", "url": "/health", "icon": "🏥"},
+            {"name": "API Documentation", "url": "/docs", "icon": "📚"},
+            {"name": "Products", "url": "/products", "icon": "📦"},
+            {"name": "Contacts", "url": "/contacts", "icon": "👥"},
+            {"name": "Categories", "url": "/categories", "icon": "🏷️"},
+            {"name": "Metrics", "url": "/metrics", "icon": "📊"},
+            {"name": "Web Interface", "url": "/web", "icon": "🌐"}
+        ]
+    })
+
+# Contacts
+@app.get("/contacts", response_model=List[ContactResponse])
+async def get_contacts(
+    skip: int = 0,
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db)
+):
+    """Get all contacts with pagination"""
+    result = await db.execute(
+        select(Contact).offset(skip).limit(limit)
+    )
+    contacts = result.scalars().all()
+    
+    logger.info("Contacts retrieved from database", count=len(contacts))
+    return contacts
+
+@app.post("/contacts", response_model=ContactResponse)
+async def create_contact(
+    contact: ContactCreate,
+    db: AsyncSession = Depends(get_db)
+):
+    """Create a new contact"""
+    db_contact = Contact(**contact.dict())
+    db.add(db_contact)
+    await db.commit()
+    await db.refresh(db_contact)
+    
+    logger.info("Contact created", contact_id=db_contact.id, name=db_contact.name)
+    return db_contact
+
+@app.get("/contacts/{contact_id}", response_model=ContactResponse)
+async def get_contact(contact_id: int, db: AsyncSession = Depends(get_db)):
+    """Get a specific contact by ID"""
+    result = await db.execute(
+        select(Contact).where(Contact.id == contact_id)
+    )
+    contact = result.scalar_one_or_none()
+    
+    if not contact:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    
+    return contact
+
 # Categories
 @app.post("/categories", response_model=CategoryResponse)
 async def create_category(
@@ -384,22 +754,10 @@ async def get_categories(
     db: AsyncSession = Depends(get_db)
 ):
     """Get all categories with pagination"""
-    redis = await get_redis()
-    cache_key = f"categories:{skip}:{limit}"
-    
-    # Try to get from cache first
-    cached_result = await redis.get(cache_key)
-    if cached_result:
-        logger.info("Categories retrieved from cache")
-        return eval(cached_result)  # In production, use proper JSON serialization
-    
     result = await db.execute(
         select(Category).offset(skip).limit(limit)
     )
     categories = result.scalars().all()
-    
-    # Cache the result for 5 minutes
-    await redis.setex(cache_key, 300, str([cat.__dict__ for cat in categories]))
     
     logger.info("Categories retrieved from database", count=len(categories))
     return categories

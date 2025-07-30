@@ -5,12 +5,8 @@ gunicorn==21.2.0
 
 # Database and ORM
 sqlalchemy==2.0.23
-asyncpg==0.29.0
+aiomysql==0.2.0
 alembic==1.12.1
-
-# Redis for caching and sessions
-redis==5.0.1
-aioredis==2.0.1
 
 # Background job processing
 celery==5.3.4
@@ -43,4 +39,7 @@ pillow==10.1.0
 
 # Other utilities
 python-slugify==8.0.1
-faker==20.1.0 
+faker==20.1.0
+
+# Template engine
+jinja2==3.1.2 
