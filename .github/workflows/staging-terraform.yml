@@ -2,7 +2,7 @@ name: Staging Terraform
 
 # Triggers on:
 # - Any change to develop branch (PR or push)
-# - Excludes global-only modules that shouldn't trigger environment deployments
+# - Excludes global-only modules, docs, and scripts that shouldn't trigger environment deployments
 # - Manual trigger via workflow_dispatch
 on:
   pull_request:
@@ -13,6 +13,8 @@ on:
       - 'modules/logging/**'
       - 'modules/waf/**'
       - 'modules/secrets/**'
+      - 'docs/**'
+      - 'scripts/**'
   push:
     branches: [develop]
     paths-ignore:
@@ -21,6 +23,8 @@ on:
       - 'modules/logging/**'
       - 'modules/waf/**'
       - 'modules/secrets/**'
+      - 'docs/**'
+      - 'scripts/**'
   workflow_dispatch:
     inputs:
       force_rebuild:
