@@ -39,4 +39,7 @@ pillow==10.1.0
 
 # Other utilities
 python-slugify==8.0.1
-faker==20.1.0 
+faker==20.1.0
+
+# Template engine
+jinja2==3.1.2 

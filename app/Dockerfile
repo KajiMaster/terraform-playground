@@ -29,8 +29,9 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 # Set working directory
 WORKDIR /app
 
-# Copy application code
+# Copy application code and templates
 COPY main.py .
+COPY templates/ ./templates/
 
 # Create non-root user for security
 RUN useradd --create-home --shell /bin/bash app && \
