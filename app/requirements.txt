@@ -8,10 +8,6 @@ sqlalchemy==2.0.23
 asyncpg==0.29.0
 alembic==1.12.1
 
-# Redis for caching and sessions
-redis==5.0.1
-aioredis==2.0.1
-
 # Background job processing
 celery==5.3.4
 flower==2.0.1

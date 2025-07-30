@@ -10,7 +10,6 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from typing import List, Optional
 
-import aioredis
 import structlog
 from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -176,7 +175,6 @@ class OrderResponse(BaseModel):
 class Settings:
     def __init__(self):
         self.database_url = self._get_database_url()
-        self.redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
         self.secret_key = os.getenv("SECRET_KEY", "your-secret-key-here")
         
     def _get_database_url(self):
@@ -227,15 +225,6 @@ AsyncSessionLocal = async_sessionmaker(
     expire_on_commit=False
 )
 
-# Redis setup
-redis_client = None
-
-async def get_redis():
-    global redis_client
-    if redis_client is None:
-        redis_client = aioredis.from_url(settings.redis_url, decode_responses=True)
-    return redis_client
-
 # Dependency to get database session
 async def get_db():
     async with AsyncSessionLocal() as session:
@@ -250,21 +239,20 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting up application")
     
-    # Initialize Redis connection
-    global redis_client
-    redis_client = await get_redis()
-    
     # Create tables (in production, use Alembic migrations)
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("Database tables created successfully")
+    except Exception as e:
+        logger.warning("Failed to create database tables", error=str(e))
+        logger.info("Application will start without database initialization")
     
     logger.info("Application startup complete")
     yield
     
     # Shutdown
     logger.info("Shutting down application")
-    if redis_client:
-        await redis_client.close()
     await engine.dispose()
 
 # FastAPI app
@@ -312,10 +300,6 @@ async def health_check():
             db_duration = time.time() - start_time
             DB_QUERY_DURATION.observe(db_duration)
         
-        # Redis check
-        redis = await get_redis()
-        await redis.ping()
-        
         # System resources
         memory = psutil.virtual_memory()
         disk = psutil.disk_usage('/')
@@ -327,7 +311,6 @@ async def health_check():
             "deployment_color": os.environ.get('DEPLOYMENT_COLOR', 'unknown'),
             "checks": {
                 "database": {"status": "ok", "response_time_ms": round(db_duration * 1000, 2)},
-                "redis": {"status": "ok"},
                 "memory_usage": {"percent": memory.percent, "available_gb": round(memory.available / 1024**3, 2)},
                 "disk_usage": {"percent": disk.percent, "free_gb": round(disk.free / 1024**3, 2)}
             }
@@ -338,7 +321,7 @@ async def health_check():
 
 @app.get("/health/simple")
 async def simple_health_check():
-    """Simple health check for load balancer"""
+    """Simple health check for load balancer - no database required"""
     return {
         "status": "ok",
         "timestamp": datetime.utcnow().isoformat(),
@@ -384,22 +367,10 @@ async def get_categories(
     db: AsyncSession = Depends(get_db)
 ):
     """Get all categories with pagination"""
-    redis = await get_redis()
-    cache_key = f"categories:{skip}:{limit}"
-    
-    # Try to get from cache first
-    cached_result = await redis.get(cache_key)
-    if cached_result:
-        logger.info("Categories retrieved from cache")
-        return eval(cached_result)  # In production, use proper JSON serialization
-    
     result = await db.execute(
         select(Category).offset(skip).limit(limit)
     )
     categories = result.scalars().all()
-    
-    # Cache the result for 5 minutes
-    await redis.setex(cache_key, 300, str([cat.__dict__ for cat in categories]))
     
     logger.info("Categories retrieved from database", count=len(categories))
     return categories
