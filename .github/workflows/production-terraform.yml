@@ -267,16 +267,16 @@ jobs:
           cd ../..
           docker build -t flask-app:latest app/
           
-          # Tag for ECR
+          # Tag for ECR with environment-specific tag
           echo "🏷️ Tagging image for ECR..."
-          docker tag flask-app:latest $ECR_REPO:latest
+          docker tag flask-app:latest $ECR_REPO:production-latest
           
           # Push to ECR
           echo "📤 Pushing image to ECR..."
-          docker push $ECR_REPO:latest
+          docker push $ECR_REPO:production-latest
           
           echo "✅ Docker image built and pushed successfully" >> $GITHUB_STEP_SUMMARY
-          echo "**Image:** $ECR_REPO:latest" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** $ECR_REPO:production-latest" >> $GITHUB_STEP_SUMMARY
 
       - name: Deploy to ECS
         if: success()

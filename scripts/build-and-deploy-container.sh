@@ -81,9 +81,16 @@ docker build -t flask-app:$IMAGE_TAG .
 
 print_status "Docker image built successfully"
 
-# Tag for ECR
-print_info "Tagging image for ECR..."
-docker tag flask-app:$IMAGE_TAG $ECR_REPO:$IMAGE_TAG
+# Tag for ECR with environment-specific tag
+ENVIRONMENT_TAG="${ENVIRONMENT}-latest"
+print_info "Tagging image for ECR with environment-specific tag: $ENVIRONMENT_TAG"
+docker tag flask-app:$IMAGE_TAG $ECR_REPO:$ENVIRONMENT_TAG
+
+# Also tag with the original tag for backward compatibility
+if [ "$IMAGE_TAG" != "latest" ]; then
+    print_info "Also tagging with original tag: $IMAGE_TAG"
+    docker tag flask-app:$IMAGE_TAG $ECR_REPO:$IMAGE_TAG
+fi
 
 # Login to ECR
 print_info "Logging in to ECR..."
@@ -91,7 +98,13 @@ aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --
 
 # Push to ECR
 print_info "Pushing image to ECR..."
-docker push $ECR_REPO:$IMAGE_TAG
+docker push $ECR_REPO:$ENVIRONMENT_TAG
+
+# Push original tag if different
+if [ "$IMAGE_TAG" != "latest" ]; then
+    print_info "Pushing original tag: $IMAGE_TAG"
+    docker push $ECR_REPO:$IMAGE_TAG
+fi
 
 print_status "Image pushed to ECR successfully"
 
