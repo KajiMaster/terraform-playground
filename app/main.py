@@ -13,7 +13,9 @@ from typing import List, Optional
 import structlog
 from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse, Response, HTMLResponse
+from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 from pydantic import BaseModel, Field
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Boolean, ForeignKey, Text
@@ -287,6 +289,9 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Jinja2 templates setup
+templates = Jinja2Templates(directory="templates")
+
 # Middleware
 app.add_middleware(
     CORSMiddleware,
@@ -368,6 +373,321 @@ async def root():
         "container_id": os.environ.get('HOSTNAME', 'unknown'),
         "deployment_color": os.environ.get('DEPLOYMENT_COLOR', 'unknown')
     }
+
+@app.get("/web")
+async def web_root():
+    """Hello World HTML page"""
+    html_content = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Hello World - E-commerce API</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
+            .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+            h1 { color: #333; text-align: center; }
+            .api-info { background: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #007bff; }
+            .endpoints { margin-top: 30px; }
+            .endpoint-list { list-style: none; padding: 0; }
+            .endpoint-list li { margin: 10px 0; }
+            .endpoint-list a { color: #007bff; text-decoration: none; padding: 8px 16px; background: #e9ecef; border-radius: 5px; display: inline-block; }
+            .endpoint-list a:hover { background: #007bff; color: white; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>Hello World! 🌍</h1>
+            <p style="text-align: center; color: #666; font-size: 1.2em;">Welcome to the Enterprise E-commerce API</p>
+            
+            <div class="api-info">
+                <h2>API Information</h2>
+                <p><strong>Service:</strong> Enterprise E-commerce API</p>
+                <p><strong>Version:</strong> 1.0.0</p>
+                <p><strong>Status:</strong> Running</p>
+                <p><strong>Container ID:</strong> """ + os.environ.get('HOSTNAME', 'unknown') + """</p>
+                <p><strong>Deployment Color:</strong> """ + os.environ.get('DEPLOYMENT_COLOR', 'unknown') + """</p>
+            </div>
+            
+            <div class="endpoints">
+                <h2>Available Endpoints</h2>
+                <ul class="endpoint-list">
+                    <li><a href="/">JSON API</a></li>
+                    <li><a href="/jinja">Jinja2 Template</a></li>
+                    <li><a href="/health">Health Check</a></li>
+                    <li><a href="/docs">API Documentation</a></li>
+                    <li><a href="/products">Products</a></li>
+                    <li><a href="/contacts">Contacts</a></li>
+                </ul>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    return HTMLResponse(content=html_content)
+
+@app.get("/jinja")
+async def jinja_root(request: Request):
+    """Hello World with Jinja2 template"""
+    return templates.TemplateResponse("index.html", {
+        "request": request,
+        "service": "Enterprise E-commerce API",
+        "version": "1.0.0",
+        "container_id": os.environ.get('HOSTNAME', 'unknown'),
+        "deployment_color": os.environ.get('DEPLOYMENT_COLOR', 'unknown'),
+        "timestamp": datetime.utcnow().isoformat()
+    })
+
+@app.get("/web")
+async def web_root():
+    """Hello World HTML page"""
+    html_content = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Hello World - E-commerce API</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
+            .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+            h1 { color: #333; text-align: center; }
+            .api-info { background: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #007bff; }
+            .endpoints { margin-top: 30px; }
+            .endpoint-list { list-style: none; padding: 0; }
+            .endpoint-list li { margin: 10px 0; }
+            .endpoint-list a { color: #007bff; text-decoration: none; padding: 8px 16px; background: #e9ecef; border-radius: 5px; display: inline-block; }
+            .endpoint-list a:hover { background: #007bff; color: white; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>Hello World! 🌍</h1>
+            <p style="text-align: center; color: #666; font-size: 1.2em;">Welcome to the Enterprise E-commerce API</p>
+            
+            <div class="api-info">
+                <h2>API Information</h2>
+                <p><strong>Service:</strong> Enterprise E-commerce API</p>
+                <p><strong>Version:</strong> 1.0.0</p>
+                <p><strong>Status:</strong> Running</p>
+                <p><strong>Container ID:</strong> """ + os.environ.get('HOSTNAME', 'unknown') + """</p>
+                <p><strong>Deployment Color:</strong> """ + os.environ.get('DEPLOYMENT_COLOR', 'unknown') + """</p>
+            </div>
+            
+            <div class="endpoints">
+                <h2>Available Endpoints</h2>
+                <ul class="endpoint-list">
+                    <li><a href="/">JSON API</a></li>
+                    <li><a href="/jinja">Jinja2 Template</a></li>
+                    <li><a href="/health">Health Check</a></li>
+                    <li><a href="/docs">API Documentation</a></li>
+                    <li><a href="/products">Products</a></li>
+                    <li><a href="/contacts">Contacts</a></li>
+                </ul>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    return HTMLResponse(content=html_content)
+
+@app.get("/jinja")
+async def jinja_root(request: Request):
+    """Hello World with Jinja2 template"""
+    return templates.TemplateResponse("index.html", {
+        "request": request,
+        "service": "Enterprise E-commerce API",
+        "version": "1.0.0",
+        "container_id": os.environ.get('HOSTNAME', 'unknown'),
+        "deployment_color": os.environ.get('DEPLOYMENT_COLOR', 'unknown'),
+        "timestamp": datetime.utcnow().isoformat()
+    })
+
+@app.get("/web", response_class=HTMLResponse)
+async def web_root():
+    """Hello World HTML page"""
+    html_content = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Hello World - E-commerce API</title>
+        <style>
+            body { 
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+                margin: 0; 
+                padding: 0; 
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+            }
+            .container { 
+                max-width: 900px; 
+                margin: 0 auto; 
+                padding: 40px 20px;
+            }
+            .header {
+                text-align: center;
+                color: white;
+                margin-bottom: 40px;
+            }
+            .header h1 {
+                font-size: 3.5rem;
+                margin-bottom: 10px;
+                text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            }
+            .header p {
+                font-size: 1.2rem;
+                opacity: 0.9;
+            }
+            .api-info { 
+                background: rgba(255,255,255,0.95); 
+                padding: 30px; 
+                border-radius: 15px; 
+                margin-bottom: 30px;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            }
+            .api-info h2 {
+                color: #333;
+                margin-top: 0;
+                border-bottom: 2px solid #667eea;
+                padding-bottom: 10px;
+            }
+            .info-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 15px;
+                margin: 20px 0;
+            }
+            .info-item {
+                background: #f8f9fa;
+                padding: 15px;
+                border-radius: 8px;
+                border-left: 4px solid #667eea;
+            }
+            .info-item strong {
+                color: #667eea;
+                display: block;
+                margin-bottom: 5px;
+            }
+            .endpoints {
+                background: rgba(255,255,255,0.95);
+                padding: 30px;
+                border-radius: 15px;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            }
+            .endpoints h2 {
+                color: #333;
+                margin-top: 0;
+                border-bottom: 2px solid #667eea;
+                padding-bottom: 10px;
+            }
+            .endpoints ul {
+                list-style: none;
+                padding: 0;
+            }
+            .endpoints li {
+                margin: 10px 0;
+            }
+            .endpoints a {
+                display: inline-block;
+                padding: 12px 20px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                text-decoration: none;
+                border-radius: 25px;
+                transition: all 0.3s ease;
+                box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            }
+            .endpoints a:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+            }
+            .footer {
+                text-align: center;
+                color: white;
+                margin-top: 40px;
+                opacity: 0.8;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>Hello World! 🌍</h1>
+                <p>Welcome to the Enterprise E-commerce API</p>
+            </div>
+            
+            <div class="api-info">
+                <h2>🚀 API Information</h2>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <strong>Service</strong>
+                        Enterprise E-commerce API
+                    </div>
+                    <div class="info-item">
+                        <strong>Version</strong>
+                        1.0.0
+                    </div>
+                    <div class="info-item">
+                        <strong>Status</strong>
+                        Running ✅
+                    </div>
+                    <div class="info-item">
+                        <strong>Container ID</strong>
+                        """ + os.environ.get('HOSTNAME', 'unknown') + """
+                    </div>
+                    <div class="info-item">
+                        <strong>Deployment Color</strong>
+                        """ + os.environ.get('DEPLOYMENT_COLOR', 'unknown') + """
+                    </div>
+                    <div class="info-item">
+                        <strong>Timestamp</strong>
+                        """ + datetime.utcnow().isoformat() + """
+                    </div>
+                </div>
+            </div>
+            
+            <div class="endpoints">
+                <h2>🔗 Available Endpoints</h2>
+                <ul>
+                    <li><a href="/health">Health Check</a></li>
+                    <li><a href="/docs">API Documentation</a></li>
+                    <li><a href="/products">Products</a></li>
+                    <li><a href="/contacts">Contacts</a></li>
+                    <li><a href="/categories">Categories</a></li>
+                    <li><a href="/metrics">Metrics</a></li>
+                    <li><a href="/jinja">Jinja Template Demo</a></li>
+                </ul>
+            </div>
+            
+            <div class="footer">
+                <p>Built with FastAPI • Deployed with Terraform • Powered by AWS</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    return HTMLResponse(content=html_content)
+
+@app.get("/jinja")
+async def jinja_root(request: Request):
+    """Hello World with Jinja2 template"""
+    return templates.TemplateResponse("index.html", {
+        "request": request,
+        "service": "Enterprise E-commerce API",
+        "version": "1.0.0",
+        "container_id": os.environ.get('HOSTNAME', 'unknown'),
+        "deployment_color": os.environ.get('DEPLOYMENT_COLOR', 'unknown'),
+        "timestamp": datetime.utcnow().isoformat(),
+        "endpoints": [
+            {"name": "Health Check", "url": "/health", "icon": "🏥"},
+            {"name": "API Documentation", "url": "/docs", "icon": "📚"},
+            {"name": "Products", "url": "/products", "icon": "📦"},
+            {"name": "Contacts", "url": "/contacts", "icon": "👥"},
+            {"name": "Categories", "url": "/categories", "icon": "🏷️"},
+            {"name": "Metrics", "url": "/metrics", "icon": "📊"},
+            {"name": "Web Interface", "url": "/web", "icon": "🌐"}
+        ]
+    })
 
 # Contacts
 @app.get("/contacts", response_model=List[ContactResponse])
