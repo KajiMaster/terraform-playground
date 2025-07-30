@@ -58,7 +58,7 @@ class Contact(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), nullable=False)
-    email = Column(String(100), nullable=False)
+    email = Column(String(100), nullable=False, unique=True)
     phone = Column(String(20))
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -438,70 +438,6 @@ async def jinja_root(request: Request):
         "timestamp": datetime.utcnow().isoformat()
     })
 
-@app.get("/web")
-async def web_root():
-    """Hello World HTML page"""
-    html_content = """
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Hello World - E-commerce API</title>
-        <style>
-            body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
-            .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-            h1 { color: #333; text-align: center; }
-            .api-info { background: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #007bff; }
-            .endpoints { margin-top: 30px; }
-            .endpoint-list { list-style: none; padding: 0; }
-            .endpoint-list li { margin: 10px 0; }
-            .endpoint-list a { color: #007bff; text-decoration: none; padding: 8px 16px; background: #e9ecef; border-radius: 5px; display: inline-block; }
-            .endpoint-list a:hover { background: #007bff; color: white; }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>Hello World! 🌍</h1>
-            <p style="text-align: center; color: #666; font-size: 1.2em;">Welcome to the Enterprise E-commerce API</p>
-            
-            <div class="api-info">
-                <h2>API Information</h2>
-                <p><strong>Service:</strong> Enterprise E-commerce API</p>
-                <p><strong>Version:</strong> 1.0.0</p>
-                <p><strong>Status:</strong> Running</p>
-                <p><strong>Container ID:</strong> """ + os.environ.get('HOSTNAME', 'unknown') + """</p>
-                <p><strong>Deployment Color:</strong> """ + os.environ.get('DEPLOYMENT_COLOR', 'unknown') + """</p>
-            </div>
-            
-            <div class="endpoints">
-                <h2>Available Endpoints</h2>
-                <ul class="endpoint-list">
-                    <li><a href="/">JSON API</a></li>
-                    <li><a href="/jinja">Jinja2 Template</a></li>
-                    <li><a href="/health">Health Check</a></li>
-                    <li><a href="/docs">API Documentation</a></li>
-                    <li><a href="/products">Products</a></li>
-                    <li><a href="/contacts">Contacts</a></li>
-                </ul>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
-    
-    return HTMLResponse(content=html_content)
-
-@app.get("/jinja")
-async def jinja_root(request: Request):
-    """Hello World with Jinja2 template"""
-    return templates.TemplateResponse("index.html", {
-        "request": request,
-        "service": "Enterprise E-commerce API",
-        "version": "1.0.0",
-        "container_id": os.environ.get('HOSTNAME', 'unknown'),
-        "deployment_color": os.environ.get('DEPLOYMENT_COLOR', 'unknown'),
-        "timestamp": datetime.utcnow().isoformat()
-    })
-
 @app.get("/web", response_class=HTMLResponse)
 async def web_root():
     """Hello World HTML page"""
@@ -668,26 +604,7 @@ async def web_root():
     
     return HTMLResponse(content=html_content)
 
-@app.get("/jinja")
-async def jinja_root(request: Request):
-    """Hello World with Jinja2 template"""
-    return templates.TemplateResponse("index.html", {
-        "request": request,
-        "service": "Enterprise E-commerce API",
-        "version": "1.0.0",
-        "container_id": os.environ.get('HOSTNAME', 'unknown'),
-        "deployment_color": os.environ.get('DEPLOYMENT_COLOR', 'unknown'),
-        "timestamp": datetime.utcnow().isoformat(),
-        "endpoints": [
-            {"name": "Health Check", "url": "/health", "icon": "🏥"},
-            {"name": "API Documentation", "url": "/docs", "icon": "📚"},
-            {"name": "Products", "url": "/products", "icon": "📦"},
-            {"name": "Contacts", "url": "/contacts", "icon": "👥"},
-            {"name": "Categories", "url": "/categories", "icon": "🏷️"},
-            {"name": "Metrics", "url": "/metrics", "icon": "📊"},
-            {"name": "Web Interface", "url": "/web", "icon": "🌐"}
-        ]
-    })
+
 
 # Contacts
 @app.get("/contacts", response_model=List[ContactResponse])
