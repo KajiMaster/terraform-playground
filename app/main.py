@@ -51,6 +51,15 @@ DB_QUERY_DURATION = Histogram('db_query_duration_seconds', 'Database query durat
 # Database Models
 Base = declarative_base()
 
+class Contact(Base):
+    __tablename__ = "contacts"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), nullable=False)
+    email = Column(String(100), nullable=False)
+    phone = Column(String(20))
+    created_at = Column(DateTime, default=datetime.utcnow)
+
 class User(Base):
     __tablename__ = "users"
     
@@ -133,6 +142,21 @@ class ProductResponse(ProductBase):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+class ContactBase(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    email: str = Field(..., min_length=1, max_length=100)
+    phone: Optional[str] = Field(None, max_length=20)
+
+class ContactCreate(ContactBase):
+    pass
+
+class ContactResponse(ContactBase):
+    id: int
+    created_at: datetime
     
     class Config:
         from_attributes = True
@@ -344,6 +368,49 @@ async def root():
         "container_id": os.environ.get('HOSTNAME', 'unknown'),
         "deployment_color": os.environ.get('DEPLOYMENT_COLOR', 'unknown')
     }
+
+# Contacts
+@app.get("/contacts", response_model=List[ContactResponse])
+async def get_contacts(
+    skip: int = 0,
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db)
+):
+    """Get all contacts with pagination"""
+    result = await db.execute(
+        select(Contact).offset(skip).limit(limit)
+    )
+    contacts = result.scalars().all()
+    
+    logger.info("Contacts retrieved from database", count=len(contacts))
+    return contacts
+
+@app.post("/contacts", response_model=ContactResponse)
+async def create_contact(
+    contact: ContactCreate,
+    db: AsyncSession = Depends(get_db)
+):
+    """Create a new contact"""
+    db_contact = Contact(**contact.dict())
+    db.add(db_contact)
+    await db.commit()
+    await db.refresh(db_contact)
+    
+    logger.info("Contact created", contact_id=db_contact.id, name=db_contact.name)
+    return db_contact
+
+@app.get("/contacts/{contact_id}", response_model=ContactResponse)
+async def get_contact(contact_id: int, db: AsyncSession = Depends(get_db)):
+    """Get a specific contact by ID"""
+    result = await db.execute(
+        select(Contact).where(Contact.id == contact_id)
+    )
+    contact = result.scalar_one_or_none()
+    
+    if not contact:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    
+    return contact
 
 # Categories
 @app.post("/categories", response_model=CategoryResponse)
