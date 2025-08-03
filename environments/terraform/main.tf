@@ -9,6 +9,14 @@ terraform {
       source  = "hashicorp/null"
       version = "~> 3.0"
     }
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = "~> 2.20"
+    }
+    helm = {
+      source  = "hashicorp/helm"
+      version = "~> 2.12"
+    }
   }
 }
 
@@ -27,6 +35,30 @@ provider "aws" {
       ManagedBy   = "terraform"
       Pipeline    = "gitflow-cicd"
       Tier        = local.environment
+    }
+  }
+}
+
+# Kubernetes provider configuration
+provider "kubernetes" {
+  host                   = var.enable_eks ? module.eks[0].cluster_endpoint : null
+  cluster_ca_certificate = var.enable_eks ? base64decode(module.eks[0].cluster_certificate_authority_data) : null
+  exec {
+    api_version = "client.authentication.k8s.io/v1beta1"
+    command     = "aws"
+    args        = ["eks", "get-token", "--cluster-name", var.enable_eks ? module.eks[0].cluster_name : ""]
+  }
+}
+
+# Helm provider configuration
+provider "helm" {
+  kubernetes {
+    host                   = var.enable_eks ? module.eks[0].cluster_endpoint : null
+    cluster_ca_certificate = var.enable_eks ? base64decode(module.eks[0].cluster_certificate_authority_data) : null
+    exec {
+      api_version = "client.authentication.k8s.io/v1beta1"
+      command     = "aws"
+      args        = ["eks", "get-token", "--cluster-name", var.enable_eks ? module.eks[0].cluster_name : ""]
     }
   }
 }
@@ -52,7 +84,13 @@ module "networking" {
   azs           = var.availability_zones
   enable_ecs    = var.enable_ecs
   # ecs_tasks_security_group_id = local.ecs_tasks_security_group_id  # Moved to individual modules
-  disable_asg   = var.disable_asg
+  enable_asg    = var.enable_asg
+  enable_eks    = var.enable_eks
+  
+  # Environment pattern variables for networking logic
+  enable_private_subnets = var.enable_private_subnets
+  enable_nat_gateway     = var.enable_nat_gateway
+  create_nat_gateway     = var.create_nat_gateway
 }
 
 # Centralized Secrets Configuration
@@ -116,10 +154,12 @@ module "loadbalancer" {
   certificate_arn   = var.certificate_arn
   security_group_id = module.networking.alb_security_group_id
   waf_web_acl_arn   = var.environment_waf_use ? try(data.terraform_remote_state.global.outputs.waf_web_acl_arn, null) : null
-  target_type       = var.enable_ecs ? "ip" : "instance"
+  target_type       = (var.enable_ecs || var.enable_eks) ? "ip" : "instance"
   create_green_listener_rule = var.enable_ecs
   enable_ecs        = var.enable_ecs
   ecs_tasks_security_group_id = local.ecs_tasks_security_group_id
+  enable_eks        = var.enable_eks
+  eks_pods_security_group_id = module.networking.eks_pods_security_group_id
 }
 
 # Database Module
@@ -128,6 +168,12 @@ module "database" {
   environment       = var.environment
   vpc_id            = module.networking.vpc_id
   private_subnets   = module.networking.private_subnet_ids
+  public_subnets    = module.networking.public_subnet_ids
+  
+  # Environment pattern variables
+  enable_private_subnets = var.enable_private_subnets
+  enable_nat_gateway     = var.enable_nat_gateway
+  
   db_instance_type  = var.db_instance_type
   db_name           = var.db_name
   db_username       = "tfplayground_user"
@@ -135,13 +181,15 @@ module "database" {
   security_group_id = module.networking.database_security_group_id
   enable_ecs        = var.enable_ecs
   ecs_tasks_security_group_id = local.ecs_tasks_security_group_id
-  enable_asg        = !var.disable_asg
+  enable_asg        = var.enable_asg
   webserver_security_group_id = module.networking.webserver_security_group_id
+  enable_eks        = var.enable_eks
+  eks_pods_security_group_id = module.networking.eks_pods_security_group_id
 }
 
 # Blue Auto Scaling Group (conditionally created)
 module "blue_asg" {
-  count  = var.disable_asg ? 0 : 1
+  count  = var.enable_asg ? 1 : 0
   source = "../../modules/compute/asg"
 
   environment           = var.environment
@@ -167,7 +215,7 @@ module "blue_asg" {
 
 # Green Auto Scaling Group (conditionally created)
 module "green_asg" {
-  count  = var.disable_asg ? 0 : 1
+  count  = var.enable_asg ? 1 : 0
   source = "../../modules/compute/asg"
 
   environment           = var.environment
@@ -193,7 +241,7 @@ module "green_asg" {
 
 # SSM Module for Database Bootstrapping (conditionally created)
 module "ssm" {
-  count                 = var.disable_asg ? 0 : 1
+  count                 = var.enable_asg ? 1 : 0
   source                = "../../modules/ssm"
   environment           = var.environment
   webserver_instance_id = module.blue_asg[0].asg_id
@@ -202,6 +250,37 @@ module "ssm" {
   database_name         = var.db_name
   database_username     = "tfplayground_user"
   database_password     = data.aws_secretsmanager_secret_version.db_password.secret_string
+}
+
+# EKS Module (conditionally created)
+module "eks" {
+  count  = var.enable_eks ? 1 : 0
+  source = "../../modules/eks"
+
+  environment = var.environment
+  cluster_name = "${var.environment}-eks-cluster"
+  vpc_id = module.networking.vpc_id
+  
+  # Subnet selection logic based on environment pattern:
+  # - Dev: Public subnets (no NAT needed)
+  # - Staging/Production: Private subnets (with NAT Gateway)
+  subnet_ids = module.networking.eks_subnet_ids
+  
+  # EKS configuration
+  enable_node_groups = var.enable_node_groups
+  enable_fargate = var.enable_fargate
+  enable_monitoring = var.enable_monitoring
+  enable_alb_controller = var.enable_alb_controller
+  
+  # Security groups
+  eks_nodes_security_group_id = module.networking.eks_nodes_security_group_id
+  eks_pods_security_group_id = module.networking.eks_pods_security_group_id
+  
+  # Node group configuration
+  node_group_instance_types = var.node_group_instance_types
+  node_group_desired_size = var.node_group_desired_size
+  node_group_max_size = var.node_group_max_size
+  node_group_min_size = var.node_group_min_size
 }
 
 # Logging Module
@@ -230,4 +309,266 @@ module "logging" {
 #   source_security_group_id = module.ecs[0].ecs_tasks_security_group_id
 #   security_group_id        = module.networking.alb_security_group_id
 #   description              = "Allow outbound traffic to ECS tasks on port 8080"
-# } 
+# }
+
+# Kubernetes Resources (when EKS is enabled)
+locals {
+  ecr_repository_url = data.terraform_remote_state.global.outputs.ecr_repository_url
+}
+
+# Data source for database password from Parameter Store
+data "aws_ssm_parameter" "db_password" {
+  count           = var.enable_eks ? 1 : 0
+  name            = "/tf-playground/all/db-password"
+  with_decryption = true
+}
+
+# Note: EKS node group information is available via module.eks[0].node_group_id
+# No need for data source since we're creating the node group in the same configuration
+
+# Kubernetes Secret for Database Password
+resource "kubernetes_secret" "db_password" {
+  count = var.enable_eks ? 1 : 0
+  
+  metadata {
+    name = "db-password"
+  }
+  
+  data = {
+    password = data.aws_ssm_parameter.db_password[0].value
+  }
+}
+
+# Flask Application Deployment
+resource "kubernetes_deployment" "flask_app" {
+  count = var.enable_eks ? 1 : 0
+  
+  metadata {
+    name = "${var.environment}-flask-app"
+    labels = {
+      app = "flask-app"
+      environment = var.environment
+    }
+  }
+  
+  spec {
+    replicas = var.flask_app_replicas
+    
+    selector {
+      match_labels = {
+        app = "flask-app"
+      }
+    }
+    
+    template {
+      metadata {
+        labels = {
+          app = "flask-app"
+          environment = var.environment
+        }
+      }
+      
+      spec {
+        container {
+          name  = "flask-app"
+          image = "${local.ecr_repository_url}:${var.image_tag}"
+          
+          port {
+            container_port = 8080
+          }
+          
+          env {
+            name  = "DATABASE_HOST"
+            value = module.database.db_instance_address
+          }
+          
+          env {
+            name  = "DATABASE_PORT"
+            value = "3306"
+          }
+          
+          env {
+            name  = "DATABASE_NAME"
+            value = var.db_name
+          }
+          
+          env {
+            name  = "DATABASE_USER"
+            value = "tfplayground_user"
+          }
+          
+          env {
+            name = "DATABASE_PASSWORD"
+            value_from {
+              secret_key_ref {
+                name = kubernetes_secret.db_password[0].metadata[0].name
+                key  = "password"
+              }
+            }
+          }
+          
+          resources {
+            requests = {
+              memory = var.flask_memory_request
+              cpu    = var.flask_cpu_request
+            }
+            limits = {
+              memory = var.flask_memory_limit
+              cpu    = var.flask_cpu_limit
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+# Flask Application Service
+resource "kubernetes_service" "flask_app" {
+  count = var.enable_eks ? 1 : 0
+  
+  metadata {
+    name = "${var.environment}-flask-app-service"
+  }
+  
+  spec {
+    selector = {
+      app = "flask-app"
+    }
+    
+    port {
+      protocol    = "TCP"
+      port        = 8080
+      target_port = 8080
+    }
+    
+    type = "LoadBalancer"
+  }
+}
+
+# Ingress for ALB integration
+resource "kubernetes_ingress_v1" "flask_app" {
+  count = var.enable_eks ? 1 : 0
+  
+  metadata {
+    name = "${var.environment}-flask-app-ingress"
+    annotations = {
+      "kubernetes.io/ingress.class" = "alb"
+      "alb.ingress.kubernetes.io/scheme" = "internet-facing"
+      "alb.ingress.kubernetes.io/target-type" = "ip"
+      "alb.ingress.kubernetes.io/listen-ports" = "[{\"HTTP\": 80}]"
+      "alb.ingress.kubernetes.io/healthcheck-path" = "/health/simple"
+      "alb.ingress.kubernetes.io/healthcheck-port" = "8080"
+      "alb.ingress.kubernetes.io/success-codes" = "200"
+    }
+  }
+  
+  spec {
+    rule {
+      http {
+        path {
+          path = "/"
+          path_type = "Prefix"
+          backend {
+            service {
+              name = kubernetes_service.flask_app[0].metadata[0].name
+              port {
+                number = 8080
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+# AWS Load Balancer Controller installation via Helm
+resource "helm_release" "aws_load_balancer_controller" {
+  count = var.enable_eks && var.enable_alb_controller ? 1 : 0
+  
+  name       = "aws-load-balancer-controller"
+  repository = "https://aws.github.io/eks-charts"
+  chart      = "aws-load-balancer-controller"
+  namespace  = "kube-system"
+  version    = "1.7.1"
+  
+  set {
+    name  = "clusterName"
+    value = module.eks[0].cluster_name
+  }
+  
+  set {
+    name  = "serviceAccount.create"
+    value = "true"
+  }
+  
+  set {
+    name  = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
+    value = aws_iam_role.aws_load_balancer_controller[0].arn
+  }
+  
+  depends_on = [
+    module.eks,
+    aws_iam_role_policy_attachment.aws_load_balancer_controller[0]
+  ]
+}
+
+# IAM Role for AWS Load Balancer Controller
+resource "aws_iam_role" "aws_load_balancer_controller" {
+  count = var.enable_eks && var.enable_alb_controller ? 1 : 0
+  
+  name = "${var.environment}-aws-load-balancer-controller-role"
+  
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Federated = module.eks[0].oidc_provider_arn
+        }
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Condition = {
+          StringEquals = {
+            "${replace(module.eks[0].cluster_oidc_issuer_url, "https://", "")}:sub" = "system:serviceaccount:kube-system:aws-load-balancer-controller"
+          }
+        }
+      }
+    ]
+  })
+  
+  tags = {
+    Name        = "${var.environment}-aws-load-balancer-controller-role"
+    Environment = var.environment
+    Project     = "tf-playground"
+    ManagedBy   = "terraform"
+  }
+}
+
+# IAM Policy for AWS Load Balancer Controller
+resource "aws_iam_policy" "aws_load_balancer_controller" {
+  count = var.enable_eks && var.enable_alb_controller ? 1 : 0
+  
+  name   = "${var.environment}-aws-load-balancer-controller-policy"
+  policy = file("${path.module}/aws-load-balancer-controller-policy.json")
+  
+  tags = {
+    Name        = "${var.environment}-aws-load-balancer-controller-policy"
+    Environment = var.environment
+    Project     = "tf-playground"
+    ManagedBy   = "terraform"
+  }
+}
+
+# IAM Role Policy Attachment for AWS Load Balancer Controller
+resource "aws_iam_role_policy_attachment" "aws_load_balancer_controller" {
+  count = var.enable_eks && var.enable_alb_controller ? 1 : 0
+  
+  role       = aws_iam_role.aws_load_balancer_controller[0].name
+  policy_arn = aws_iam_policy.aws_load_balancer_controller[0].arn
+}
+
+
+
+ 

@@ -18,6 +18,11 @@ This directory contains documentation that has been archived to maintain a clean
 - `lessons-learned.md` - Consolidated into project-direction-and-lessons.md
 - `future-roadmap.md` - Consolidated into project-direction-and-lessons.md
 
+### **Superseded ALB Controller Implementation**
+- `AWS_LB_CONTROLLER_ACTION_PLAN.md` - ALB controller installation plan (superseded by LoadBalancer service approach)
+- `iam_policy.json` - AWS Load Balancer Controller IAM policy (not used with current ELB approach)
+- `aws-load-balancer-controller-policy.json` - Controller policy (prepared but not implemented)
+
 ### **Planning and Design Documents**
 - `sketch-01-environment-hierarchy.md` - Early environment design sketches
 - `sketch-02-module-consistency.md` - Module design planning

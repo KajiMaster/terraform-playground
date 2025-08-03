@@ -23,6 +23,19 @@ resource "aws_security_group_rule" "alb_ecs_egress" {
   description              = "Allow outbound traffic to ECS tasks on port 8080"
 }
 
+# ALB to EKS pods egress rule (when EKS is enabled)
+resource "aws_security_group_rule" "alb_eks_egress" {
+  count = var.enable_eks ? 1 : 0
+  
+  type                     = "egress"
+  from_port                = 8080
+  to_port                  = 8080
+  protocol                 = "tcp"
+  source_security_group_id = var.eks_pods_security_group_id
+  security_group_id        = var.security_group_id
+  description              = "Allow outbound traffic to EKS pods on port 8080"
+}
+
 # Application Load Balancer
 resource "aws_lb" "main" {
   name               = "${var.environment}-alb"

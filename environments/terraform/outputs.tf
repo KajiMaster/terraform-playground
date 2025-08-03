@@ -39,12 +39,12 @@ output "ssh_public_key" {
 # Blue Auto Scaling Group Outputs
 output "blue_asg_id" {
   description = "ID of the blue Auto Scaling Group"
-  value       = var.disable_asg ? null : module.blue_asg[0].asg_id
+  value       = var.enable_asg ? module.blue_asg[0].asg_id : null
 }
 
 output "blue_asg_name" {
   description = "Name of the blue Auto Scaling Group"
-  value       = var.disable_asg ? null : module.blue_asg[0].asg_name
+  value       = var.enable_asg ? module.blue_asg[0].asg_name : null
 }
 
 output "blue_target_group_arn" {
@@ -55,12 +55,12 @@ output "blue_target_group_arn" {
 # Green Auto Scaling Group Outputs
 output "green_asg_id" {
   description = "ID of the green Auto Scaling Group"
-  value       = var.disable_asg ? null : module.green_asg[0].asg_id
+  value       = var.enable_asg ? module.green_asg[0].asg_id : null
 }
 
 output "green_asg_name" {
   description = "Name of the green Auto Scaling Group"
-  value       = var.disable_asg ? null : module.green_asg[0].asg_name
+  value       = var.enable_asg ? module.green_asg[0].asg_name : null
 }
 
 output "green_target_group_arn" {
@@ -92,6 +92,32 @@ output "blue_ecs_service_name" {
 output "green_ecs_service_name" {
   description = "Name of the green ECS service"
   value       = var.enable_ecs ? module.ecs[0].green_service_name : null
+}
+
+# EKS Outputs
+output "eks_cluster_id" {
+  description = "ID of the EKS cluster"
+  value       = var.enable_eks ? module.eks[0].cluster_id : null
+}
+
+output "eks_cluster_name" {
+  description = "Name of the EKS cluster"
+  value       = var.enable_eks ? module.eks[0].cluster_name : null
+}
+
+output "eks_cluster_endpoint" {
+  description = "Endpoint of the EKS cluster"
+  value       = var.enable_eks ? module.eks[0].cluster_endpoint : null
+}
+
+output "eks_node_group_id" {
+  description = "ID of the EKS node group"
+  value       = var.enable_eks ? module.eks[0].node_group_id : null
+}
+
+output "eks_node_group_status" {
+  description = "Status of the EKS node group"
+  value       = var.enable_eks ? module.eks[0].node_group_status : null
 }
 
 # Database Outputs
@@ -129,12 +155,12 @@ output "private_subnet_ids" {
 # SSM Outputs
 output "ssm_automation_name" {
   description = "Name of the SSM automation for database initialization"
-  value       = var.disable_asg ? null : module.ssm[0].ssm_automation_name
+  value       = var.enable_asg ? module.ssm[0].ssm_automation_name : null
 }
 
 output "ssm_automation_role_arn" {
   description = "ARN of the SSM automation role"
-  value       = var.disable_asg ? null : module.ssm[0].ssm_automation_role_arn
+  value       = var.enable_asg ? module.ssm[0].ssm_automation_role_arn : null
 }
 
 # Database Outputs
@@ -184,8 +210,8 @@ output "environment_summary" {
     vpc_id            = module.networking.vpc_id
     alb_dns_name      = module.loadbalancer.alb_dns_name
     application_url   = module.loadbalancer.alb_url
-    blue_asg_name     = var.disable_asg ? null : module.blue_asg[0].asg_name
-    green_asg_name    = var.disable_asg ? null : module.green_asg[0].asg_name
+    blue_asg_name     = var.enable_asg ? module.blue_asg[0].asg_name : null
+    green_asg_name    = var.enable_asg ? module.green_asg[0].asg_name : null
     database_endpoint = module.database.db_instance_endpoint
     ssh_key_name      = aws_key_pair.environment_key.key_name
   }

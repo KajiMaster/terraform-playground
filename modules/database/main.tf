@@ -26,10 +26,26 @@ resource "aws_security_group_rule" "database_webserver_ingress" {
   description              = "Allow webservers to access database on port 3306"
 }
 
+# EKS pods ingress rule for database access
+resource "aws_security_group_rule" "database_eks_pods_ingress" {
+  count = var.enable_eks ? 1 : 0
+
+  type                     = "ingress"
+  from_port                = 3306
+  to_port                  = 3306
+  protocol                 = "tcp"
+  source_security_group_id = var.eks_pods_security_group_id
+  security_group_id        = var.security_group_id
+  description              = "Allow EKS pods to access database on port 3306"
+}
+
 # DB Subnet Group
+# Environment pattern logic:
+# - Dev: Use public subnets (no private subnets, no NAT)
+# - Staging/Production: Use private subnets (enterprise pattern)
 resource "aws_db_subnet_group" "database" {
   name       = "${var.environment}-db-subnet-group"
-  subnet_ids = var.private_subnets
+  subnet_ids = var.enable_private_subnets ? var.private_subnets : var.public_subnets
 
   tags = {
     Name = "${var.environment}-db-subnet-group"

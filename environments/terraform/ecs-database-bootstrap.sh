@@ -18,13 +18,14 @@ if [ $# -eq 0 ]; then
     echo ""
     echo "Getting available environments from global state..."
     
-    # Get available environments from global state (optional)
+    # Get available environments from global state
     cd ../global
-    AVAILABLE_ENVIRONMENTS=$(terraform output -json application_log_groups 2>/dev/null | jq -r 'keys[]' 2>/dev/null || echo "")
+    AVAILABLE_ENVIRONMENTS=$(terraform output application_log_groups 2>/dev/null | sed -n 's/.*"\([^"]*\)" = ".*/\1/p' || echo "")
     
-    # If we can't get global state, use a fallback list
     if [ -z "$AVAILABLE_ENVIRONMENTS" ]; then
-        AVAILABLE_ENVIRONMENTS="staging production ws-dev ws-staging ws-prod"
+        echo "❌ Error: Could not access global state to get available environments"
+        echo "Make sure the global environment is deployed and accessible"
+        exit 1
     fi
     
     echo "Available environments:"
@@ -42,21 +43,23 @@ echo "ECS Database Bootstrap for Environment: $ENVIRONMENT"
 echo "=================================================="
 echo ""
 
-# Get available environments from global state (optional)
+# Get available environments from global state
 cd ../global
-AVAILABLE_ENVIRONMENTS=$(terraform output -json application_log_groups 2>/dev/null | jq -r 'keys[]' 2>/dev/null || echo "")
+AVAILABLE_ENVIRONMENTS=$(terraform output application_log_groups 2>/dev/null | sed -n 's/.*"\([^"]*\)" = ".*/\1/p' || echo "")
 
-# If we can't get global state, use a fallback list
 if [ -z "$AVAILABLE_ENVIRONMENTS" ]; then
-    echo "⚠️  Warning: Could not access global state, using fallback environment list"
-    AVAILABLE_ENVIRONMENTS="staging production ws-dev ws-staging ws-prod"
+    echo "❌ Error: Could not access global state to get available environments"
+    echo "Make sure the global environment is deployed and accessible"
+    exit 1
 fi
 
 # Check if environment exists in global state or fallback list
-if ! echo "$AVAILABLE_ENVIRONMENTS" | grep -q "^$ENVIRONMENT$"; then
+# Convert to newline-separated list for consistent checking
+ENV_LIST=$(echo "$AVAILABLE_ENVIRONMENTS" | tr ' ' '\n')
+if ! echo "$ENV_LIST" | grep -q "^$ENVIRONMENT$"; then
     echo "❌ Error: Environment '$ENVIRONMENT' not found in available environments"
     echo "Available environments:"
-    echo "$AVAILABLE_ENVIRONMENTS" | tr ' ' '\n' | sed 's/^/  /'
+    echo "$ENV_LIST" | sed 's/^/  /'
     echo ""
     echo "Note: If this is a new environment, you may need to add it to the global state"
     exit 1

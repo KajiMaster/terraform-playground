@@ -99,9 +99,7 @@ jobs:
 
       - name: Select Staging Workspace
         working-directory: environments/terraform
-        run: |
-          # Create workspace if it doesn't exist
-          terraform workspace new ${{ env.WORKSPACE }} || terraform workspace select ${{ env.WORKSPACE }}
+        run: terraform workspace select ${{ env.WORKSPACE }}
 
       - name: Terraform Plan
         working-directory: environments/terraform
@@ -225,9 +223,7 @@ jobs:
 
       - name: Select Staging Workspace
         working-directory: environments/terraform
-        run: |
-          # Create workspace if it doesn't exist
-          terraform workspace new ${{ env.WORKSPACE }} || terraform workspace select ${{ env.WORKSPACE }}
+        run: terraform workspace select ${{ env.WORKSPACE }}
 
       - name: Terraform Apply
         working-directory: environments/terraform

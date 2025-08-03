@@ -28,14 +28,33 @@ environment_waf_use = false
 
 # ECS Configuration
 enable_ecs = true
-disable_asg = true
+enable_asg = false  # Disable ASG since ECS handles scaling
 
 # ECS Service Configuration
 blue_ecs_desired_count = 1
 green_ecs_desired_count = 0
 
+# EKS Configuration (testing in staging with full complexity)
+enable_eks = true
+enable_node_groups = true
+enable_fargate = false  # Use node groups for cost efficiency
+enable_monitoring = true  # Enable monitoring in staging
+enable_alb_controller = true  # Enable ALB controller for ingress
+
+# Node group configuration (staging)
+node_group_instance_types = ["t3.medium"]
+node_group_desired_size = 2
+node_group_max_size = 3
+node_group_min_size = 1
+
 # SSL/TLS Configuration
 certificate_arn = null
+
+# Feature flags for cost optimization
+# STAGING PATTERN: Private subnets with NAT Gateway
+enable_private_subnets = true   # EKS nodes in private subnets
+enable_nat_gateway = true       # NAT Gateway for controlled internet access
+
 
 # NAT Gateway Configuration
 create_nat_gateway = true 
