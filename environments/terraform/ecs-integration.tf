@@ -14,7 +14,8 @@ module "ecs" {
 
   # Network Configuration
   vpc_id                = module.networking.vpc_id
-  private_subnets       = module.networking.private_subnet_ids
+  private_subnets       = var.enable_private_subnets ? module.networking.private_subnet_ids : module.networking.public_subnet_ids
+  enable_private_subnets = var.enable_private_subnets
   alb_security_group_id = module.networking.alb_security_group_id
 
   # Load Balancer Integration (uses existing ALB)
