@@ -21,56 +21,61 @@ resource "aws_cloudwatch_dashboard" "main" {
   dashboard_name = "tf-playground-${var.environment}"
 
   dashboard_body = jsonencode({
-    widgets = [
-      {
-        type   = "metric"
-        x      = 0
-        y      = 0
-        width  = 12
-        height = 6
-        properties = {
-          metrics = [
-            ["AWS/ApplicationELB", "RequestCount", "LoadBalancer", var.alb_identifier],
-            [".", "TargetResponseTime", ".", "."],
-            [".", "HTTPCode_Target_5XX_Count", ".", "."],
-            [".", "HTTPCode_Target_4XX_Count", ".", "."]
-          ]
-          period = 300
-          stat   = "Sum"
-          region = var.aws_region
-          title  = "Application Load Balancer Metrics"
+    widgets = concat(
+      var.alb_identifier != null ? [
+        {
+          type   = "metric"
+          x      = 0
+          y      = 0
+          width  = 12
+          height = 6
+          properties = {
+            metrics = [
+              ["AWS/ApplicationELB", "RequestCount", "LoadBalancer", var.alb_identifier],
+              [".", "TargetResponseTime", ".", "."],
+              [".", "HTTPCode_Target_5XX_Count", ".", "."],
+              [".", "HTTPCode_Target_4XX_Count", ".", "."]
+            ]
+            period = 300
+            stat   = "Sum"
+            region = var.aws_region
+            title  = "Application Load Balancer Metrics"
+          }
         }
-      },
-      {
-        type   = "log"
-        x      = 0
-        y      = 6
-        width  = 12
-        height = 6
-        properties = {
-          query  = "SOURCE '${var.application_log_group_name}'\n| fields @timestamp, @message\n| sort @timestamp desc\n| limit 20"
-          region = var.aws_region
-          title  = "Recent Application Logs"
+      ] : [],
+      [
+        {
+          type   = "log"
+          x      = 0
+          y      = var.alb_identifier != null ? 6 : 0
+          width  = 12
+          height = 6
+          properties = {
+            query  = "SOURCE '${var.application_log_group_name}'\n| fields @timestamp, @message\n| sort @timestamp desc\n| limit 20"
+            region = var.aws_region
+            title  = "Recent Application Logs"
+          }
+        },
+        {
+          type   = "log"
+          x      = 0
+          y      = var.alb_identifier != null ? 12 : 6
+          width  = 12
+          height = 6
+          properties = {
+            query  = "SOURCE '${var.application_log_group_name}'\n| filter @message like /ERROR/\n| fields @timestamp, @message\n| sort @timestamp desc\n| limit 10"
+            region = var.aws_region
+            title  = "Recent Errors"
+          }
         }
-      },
-      {
-        type   = "log"
-        x      = 0
-        y      = 12
-        width  = 12
-        height = 6
-        properties = {
-          query  = "SOURCE '${var.application_log_group_name}'\n| filter @message like /ERROR/\n| fields @timestamp, @message\n| sort @timestamp desc\n| limit 10"
-          region = var.aws_region
-          title  = "Recent Errors"
-        }
-      }
-    ]
+      ]
+    )
   })
 }
 
-# CloudWatch Alarms
+# CloudWatch Alarms (only created when ALB exists)
 resource "aws_cloudwatch_metric_alarm" "high_error_rate" {
+  count               = var.alb_identifier != null ? 1 : 0
   alarm_name          = "high-error-rate-${var.environment}"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = "2"
@@ -88,6 +93,7 @@ resource "aws_cloudwatch_metric_alarm" "high_error_rate" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "slow_response_time" {
+  count               = var.alb_identifier != null ? 1 : 0
   alarm_name          = "slow-response-time-${var.environment}"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = "2"

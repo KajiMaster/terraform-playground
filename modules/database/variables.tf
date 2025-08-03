@@ -95,3 +95,15 @@ variable "eks_pods_security_group_id" {
   type        = string
   default     = ""
 }
+
+variable "eks_nodes_security_group_id" {
+  description = "Security group ID for EKS nodes (required when enable_eks is true)"
+  type        = string
+  default     = ""
+}
+
+variable "eks_cluster_security_group_id" {
+  description = "Security group ID for EKS cluster (automatically created by AWS)"
+  type        = string
+  default     = ""
+}

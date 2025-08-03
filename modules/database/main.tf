@@ -39,6 +39,32 @@ resource "aws_security_group_rule" "database_eks_pods_ingress" {
   description              = "Allow EKS pods to access database on port 3306"
 }
 
+# EKS nodes ingress rule for database access (pods may use node's security group for outbound traffic)
+resource "aws_security_group_rule" "database_eks_nodes_ingress" {
+  count = var.enable_eks ? 1 : 0
+
+  type                     = "ingress"
+  from_port                = 3306
+  to_port                  = 3306
+  protocol                 = "tcp"
+  source_security_group_id = var.eks_nodes_security_group_id
+  security_group_id        = var.security_group_id
+  description              = "Allow EKS nodes to access database on port 3306"
+}
+
+# EKS cluster ingress rule for database access (AWS-managed cluster security group)
+resource "aws_security_group_rule" "database_eks_cluster_ingress" {
+  count = var.enable_eks ? 1 : 0
+
+  type                     = "ingress"
+  from_port                = 3306
+  to_port                  = 3306
+  protocol                 = "tcp"
+  source_security_group_id = var.eks_cluster_security_group_id
+  security_group_id        = var.security_group_id
+  description              = "Allow EKS cluster security group to access database on port 3306"
+}
+
 # DB Subnet Group
 # Environment pattern logic:
 # - Dev: Use public subnets (no private subnets, no NAT)
@@ -80,6 +106,11 @@ resource "aws_db_instance" "database" {
   multi_az            = false
   skip_final_snapshot = true
   deletion_protection = false
+  
+  # Environment pattern logic:
+  # - Dev: publicly_accessible = true (public subnets, direct access)
+  # - Staging/Production: publicly_accessible = false (private subnets)
+  publicly_accessible = var.enable_private_subnets ? false : true
 
   tags = {
     Name = "${var.environment}-database"

@@ -24,23 +24,23 @@ output "alb_security_group_id" {
 }
 
 output "blue_target_group_arn" {
-  description = "ARN of the blue target group"
-  value       = aws_lb_target_group.blue.arn
+  description = "ARN of the blue target group (null for EKS environments)"
+  value       = var.enable_eks ? null : aws_lb_target_group.blue[0].arn
 }
 
 output "blue_target_group_name" {
-  description = "Name of the blue target group"
-  value       = aws_lb_target_group.blue.name
+  description = "Name of the blue target group (null for EKS environments)"
+  value       = var.enable_eks ? null : aws_lb_target_group.blue[0].name
 }
 
 output "green_target_group_arn" {
-  description = "ARN of the green target group"
-  value       = aws_lb_target_group.green.arn
+  description = "ARN of the green target group (null for EKS environments)"
+  value       = var.enable_eks ? null : aws_lb_target_group.green[0].arn
 }
 
 output "green_target_group_name" {
-  description = "Name of the green target group"
-  value       = aws_lb_target_group.green.name
+  description = "Name of the green target group (null for EKS environments)"
+  value       = var.enable_eks ? null : aws_lb_target_group.green[0].name
 }
 
 output "http_listener_arn" {

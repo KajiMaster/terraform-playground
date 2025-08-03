@@ -33,11 +33,13 @@ variable "alarm_log_group_name" {
 variable "alb_name" {
   description = "ALB name for metrics (CloudWatch LoadBalancer dimension)"
   type        = string
+  default     = null
 }
 
 variable "alb_identifier" {
   description = "Full ALB identifier for CloudWatch metrics (e.g., app/staging-alb/00157f7cffd3b5e8)"
   type        = string
+  default     = null
 }
 
 variable "alarm_actions" {

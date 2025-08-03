@@ -18,8 +18,8 @@ module "ecs" {
   alb_security_group_id = module.networking.alb_security_group_id
 
   # Load Balancer Integration (uses existing ALB)
-  blue_target_group_arn  = module.loadbalancer.blue_target_group_arn
-  green_target_group_arn = module.loadbalancer.green_target_group_arn
+  blue_target_group_arn  = var.enable_ecs ? module.loadbalancer[0].blue_target_group_arn : null
+  green_target_group_arn = var.enable_ecs ? module.loadbalancer[0].green_target_group_arn : null
 
   # Database Configuration
   db_host = module.database.db_instance_address

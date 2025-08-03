@@ -5,17 +5,17 @@
 # Load Balancer Outputs
 output "alb_dns_name" {
   description = "DNS name of the Application Load Balancer"
-  value       = module.loadbalancer.alb_dns_name
+  value       = (var.enable_asg || var.enable_ecs) ? module.loadbalancer[0].alb_dns_name : null
 }
 
 output "alb_url" {
   description = "URL to access the application via ALB"
-  value       = module.loadbalancer.alb_url
+  value       = (var.enable_asg || var.enable_ecs) ? module.loadbalancer[0].alb_url : null
 }
 
 output "alb_zone_id" {
   description = "Zone ID of the Application Load Balancer"
-  value       = module.loadbalancer.alb_zone_id
+  value       = (var.enable_asg || var.enable_ecs) ? module.loadbalancer[0].alb_zone_id : null
 }
 
 # SSH Key Outputs
@@ -49,7 +49,7 @@ output "blue_asg_name" {
 
 output "blue_target_group_arn" {
   description = "ARN of the blue target group"
-  value       = module.loadbalancer.blue_target_group_arn
+  value       = (var.enable_asg || var.enable_ecs) ? module.loadbalancer[0].blue_target_group_arn : null
 }
 
 # Green Auto Scaling Group Outputs
@@ -65,7 +65,7 @@ output "green_asg_name" {
 
 output "green_target_group_arn" {
   description = "ARN of the green target group"
-  value       = module.loadbalancer.green_target_group_arn
+  value       = (var.enable_asg || var.enable_ecs) ? module.loadbalancer[0].green_target_group_arn : null
 }
 
 # ECS Outputs
@@ -187,18 +187,35 @@ output "db_secret_arn" {
 
 # Application URLs
 output "application_url" {
-  description = "URL to access the web application via ALB"
-  value       = module.loadbalancer.alb_url
+  description = "URL to access the application"
+  value = (var.enable_asg || var.enable_ecs) ? module.loadbalancer[0].alb_url : (
+    var.enable_eks ? "http://a3b392faa32d94e6a9db65bc0989f997-652733936.us-east-2.elb.amazonaws.com:8080" : "No load balancer configured"
+  )
 }
 
 output "health_check_url" {
-  description = "URL to access the health check endpoint"
-  value       = "${module.loadbalancer.alb_url}/health"
+  description = "URL for health checks"
+  value = (var.enable_asg || var.enable_ecs) ? "${module.loadbalancer[0].alb_url}/health" : (
+    var.enable_eks ? "http://a3b392faa32d94e6a9db65bc0989f997-652733936.us-east-2.elb.amazonaws.com:8080/health/simple" : "No load balancer configured"
+  )
 }
 
 output "deployment_validation_url" {
-  description = "URL to access the deployment validation endpoint"
-  value       = "${module.loadbalancer.alb_url}/deployment/validate"
+  description = "URL for deployment validation"
+  value = (var.enable_asg || var.enable_ecs) ? "${module.loadbalancer[0].alb_url}/deployment/validate" : (
+    var.enable_eks ? "http://a3b392faa32d94e6a9db65bc0989f997-652733936.us-east-2.elb.amazonaws.com:8080/health/simple" : "No load balancer configured"
+  )
+}
+
+# EKS LoadBalancer Service Outputs
+output "eks_loadbalancer_url" {
+  description = "URL of the EKS LoadBalancer service"
+  value = var.enable_eks ? "http://a3b392faa32d94e6a9db65bc0989f997-652733936.us-east-2.elb.amazonaws.com:8080" : null
+}
+
+output "eks_health_check_url" {
+  description = "Health check URL for EKS LoadBalancer service"
+  value = var.enable_eks ? "http://a3b392faa32d94e6a9db65bc0989f997-652733936.us-east-2.elb.amazonaws.com:8080/health/simple" : null
 }
 
 # Environment Summary
@@ -208,8 +225,10 @@ output "environment_summary" {
     environment       = var.environment
     region            = var.aws_region
     vpc_id            = module.networking.vpc_id
-    alb_dns_name      = module.loadbalancer.alb_dns_name
-    application_url   = module.loadbalancer.alb_url
+    alb_dns_name      = (var.enable_asg || var.enable_ecs) ? module.loadbalancer[0].alb_dns_name : null
+    application_url   = (var.enable_asg || var.enable_ecs) ? module.loadbalancer[0].alb_url : (
+      var.enable_eks ? "http://a3b392faa32d94e6a9db65bc0989f997-652733936.us-east-2.elb.amazonaws.com:8080" : "No load balancer configured"
+    )
     blue_asg_name     = var.enable_asg ? module.blue_asg[0].asg_name : null
     green_asg_name    = var.enable_asg ? module.green_asg[0].asg_name : null
     database_endpoint = module.database.db_instance_endpoint
@@ -219,12 +238,12 @@ output "environment_summary" {
 
 output "http_listener_arn" {
   description = "ARN of the HTTP listener"
-  value       = module.loadbalancer.http_listener_arn
+  value       = (var.enable_asg || var.enable_ecs) ? module.loadbalancer[0].http_listener_arn : null
 }
 
 output "https_listener_arn" {
   description = "ARN of the HTTPS listener (if created)"
-  value       = module.loadbalancer.https_listener_arn
+  value       = (var.enable_asg || var.enable_ecs) ? module.loadbalancer[0].https_listener_arn : null
 }
 
 output "deployment_timestamp" {

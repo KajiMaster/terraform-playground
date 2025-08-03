@@ -51,4 +51,9 @@ output "cluster_oidc_issuer_url" {
 output "oidc_provider_arn" {
   description = "EKS OIDC provider ARN"
   value       = aws_iam_openid_connect_provider.eks.arn
+}
+
+output "cluster_security_group_id" {
+  description = "EKS cluster security group ID (automatically created by AWS)"
+  value       = aws_eks_cluster.main.vpc_config[0].cluster_security_group_id
 } 

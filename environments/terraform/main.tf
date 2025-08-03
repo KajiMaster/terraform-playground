@@ -13,10 +13,7 @@ terraform {
       source  = "hashicorp/kubernetes"
       version = "~> 2.20"
     }
-    helm = {
-      source  = "hashicorp/helm"
-      version = "~> 2.12"
-    }
+
   }
 }
 
@@ -50,18 +47,7 @@ provider "kubernetes" {
   }
 }
 
-# Helm provider configuration
-provider "helm" {
-  kubernetes {
-    host                   = var.enable_eks ? module.eks[0].cluster_endpoint : null
-    cluster_ca_certificate = var.enable_eks ? base64decode(module.eks[0].cluster_certificate_authority_data) : null
-    exec {
-      api_version = "client.authentication.k8s.io/v1beta1"
-      command     = "aws"
-      args        = ["eks", "get-token", "--cluster-name", var.enable_eks ? module.eks[0].cluster_name : ""]
-    }
-  }
-}
+
 
 # Remote state data source for global OIDC provider
 data "terraform_remote_state" "global" {
@@ -144,8 +130,9 @@ resource "aws_key_pair" "environment_key" {
   }
 }
 
-# Application Load Balancer Module
+# Application Load Balancer Module (conditionally created)
 module "loadbalancer" {
+  count = (var.enable_asg || var.enable_ecs) ? 1 : 0
   source = "../../modules/loadbalancer"
 
   environment       = var.environment
@@ -154,11 +141,11 @@ module "loadbalancer" {
   certificate_arn   = var.certificate_arn
   security_group_id = module.networking.alb_security_group_id
   waf_web_acl_arn   = var.environment_waf_use ? try(data.terraform_remote_state.global.outputs.waf_web_acl_arn, null) : null
-  target_type       = (var.enable_ecs || var.enable_eks) ? "ip" : "instance"
+  target_type       = var.enable_ecs ? "ip" : "instance"
   create_green_listener_rule = var.enable_ecs
   enable_ecs        = var.enable_ecs
   ecs_tasks_security_group_id = local.ecs_tasks_security_group_id
-  enable_eks        = var.enable_eks
+  enable_eks        = false  # EKS environments don't use ALB
   eks_pods_security_group_id = module.networking.eks_pods_security_group_id
 }
 
@@ -185,6 +172,8 @@ module "database" {
   webserver_security_group_id = module.networking.webserver_security_group_id
   enable_eks        = var.enable_eks
   eks_pods_security_group_id = module.networking.eks_pods_security_group_id
+  eks_nodes_security_group_id = module.networking.eks_nodes_security_group_id
+  eks_cluster_security_group_id = var.enable_eks ? module.eks[0].cluster_security_group_id : ""
 }
 
 # Blue Auto Scaling Group (conditionally created)
@@ -196,8 +185,8 @@ module "blue_asg" {
   deployment_color      = "blue"
   vpc_id                = module.networking.vpc_id
   subnet_ids            = module.networking.public_subnet_ids
-  alb_security_group_id = module.loadbalancer.alb_security_group_id
-  target_group_arn      = module.loadbalancer.blue_target_group_arn
+  alb_security_group_id = var.enable_asg ? module.loadbalancer[0].alb_security_group_id : null
+  target_group_arn      = var.enable_asg ? module.loadbalancer[0].blue_target_group_arn : null
   instance_type         = var.webserver_instance_type
   ami_id                = var.ami_id
   desired_capacity      = var.blue_desired_capacity
@@ -222,8 +211,8 @@ module "green_asg" {
   deployment_color      = "green"
   vpc_id                = module.networking.vpc_id
   subnet_ids            = module.networking.public_subnet_ids
-  alb_security_group_id = module.loadbalancer.alb_security_group_id
-  target_group_arn      = module.loadbalancer.green_target_group_arn
+  alb_security_group_id = var.enable_asg ? module.loadbalancer[0].alb_security_group_id : null
+  target_group_arn      = var.enable_asg ? module.loadbalancer[0].green_target_group_arn : null
   instance_type         = var.webserver_instance_type
   ami_id                = var.ami_id
   desired_capacity      = var.green_desired_capacity
@@ -245,7 +234,7 @@ module "ssm" {
   source                = "../../modules/ssm"
   environment           = var.environment
   webserver_instance_id = module.blue_asg[0].asg_id
-  webserver_public_ip   = module.loadbalancer.alb_dns_name
+  webserver_public_ip   = var.enable_asg ? module.loadbalancer[0].alb_dns_name : null
   database_endpoint     = module.database.db_instance_address
   database_name         = var.db_name
   database_username     = "tfplayground_user"
@@ -289,8 +278,8 @@ module "logging" {
 
   environment    = var.environment
   aws_region     = var.aws_region
-  alb_name       = module.loadbalancer.alb_name
-  alb_identifier = module.loadbalancer.alb_identifier
+  alb_name       = (var.enable_asg || var.enable_ecs) ? module.loadbalancer[0].alb_name : null
+  alb_identifier = (var.enable_asg || var.enable_ecs) ? module.loadbalancer[0].alb_identifier : null
 
   # Use log group names from global environment
   application_log_group_name = data.terraform_remote_state.global.outputs.application_log_groups[var.environment]
@@ -378,27 +367,27 @@ resource "kubernetes_deployment" "flask_app" {
           }
           
           env {
-            name  = "DATABASE_HOST"
+            name  = "DB_HOST"
             value = module.database.db_instance_address
           }
           
           env {
-            name  = "DATABASE_PORT"
+            name  = "DB_PORT"
             value = "3306"
           }
           
           env {
-            name  = "DATABASE_NAME"
+            name  = "DB_NAME"
             value = var.db_name
           }
           
           env {
-            name  = "DATABASE_USER"
+            name  = "DB_USER"
             value = "tfplayground_user"
           }
           
           env {
-            name = "DATABASE_PASSWORD"
+            name = "DB_PASSWORD"
             value_from {
               secret_key_ref {
                 name = kubernetes_secret.db_password[0].metadata[0].name
@@ -446,128 +435,11 @@ resource "kubernetes_service" "flask_app" {
   }
 }
 
-# Ingress for ALB integration
-resource "kubernetes_ingress_v1" "flask_app" {
-  count = var.enable_eks ? 1 : 0
-  
-  metadata {
-    name = "${var.environment}-flask-app-ingress"
-    annotations = {
-      "kubernetes.io/ingress.class" = "alb"
-      "alb.ingress.kubernetes.io/scheme" = "internet-facing"
-      "alb.ingress.kubernetes.io/target-type" = "ip"
-      "alb.ingress.kubernetes.io/listen-ports" = "[{\"HTTP\": 80}]"
-      "alb.ingress.kubernetes.io/healthcheck-path" = "/health/simple"
-      "alb.ingress.kubernetes.io/healthcheck-port" = "8080"
-      "alb.ingress.kubernetes.io/success-codes" = "200"
-    }
-  }
-  
-  spec {
-    rule {
-      http {
-        path {
-          path = "/"
-          path_type = "Prefix"
-          backend {
-            service {
-              name = kubernetes_service.flask_app[0].metadata[0].name
-              port {
-                number = 8080
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-}
+# Note: Ingress resource removed - using LoadBalancer service type only
+# This avoids dependency on AWS Load Balancer Controller
+# The LoadBalancer service type automatically provisions a Classic ELB
 
-# AWS Load Balancer Controller installation via Helm
-resource "helm_release" "aws_load_balancer_controller" {
-  count = var.enable_eks && var.enable_alb_controller ? 1 : 0
-  
-  name       = "aws-load-balancer-controller"
-  repository = "https://aws.github.io/eks-charts"
-  chart      = "aws-load-balancer-controller"
-  namespace  = "kube-system"
-  version    = "1.7.1"
-  
-  set {
-    name  = "clusterName"
-    value = module.eks[0].cluster_name
-  }
-  
-  set {
-    name  = "serviceAccount.create"
-    value = "true"
-  }
-  
-  set {
-    name  = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
-    value = aws_iam_role.aws_load_balancer_controller[0].arn
-  }
-  
-  depends_on = [
-    module.eks,
-    aws_iam_role_policy_attachment.aws_load_balancer_controller[0]
-  ]
-}
 
-# IAM Role for AWS Load Balancer Controller
-resource "aws_iam_role" "aws_load_balancer_controller" {
-  count = var.enable_eks && var.enable_alb_controller ? 1 : 0
-  
-  name = "${var.environment}-aws-load-balancer-controller-role"
-  
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Principal = {
-          Federated = module.eks[0].oidc_provider_arn
-        }
-        Action = "sts:AssumeRoleWithWebIdentity"
-        Condition = {
-          StringEquals = {
-            "${replace(module.eks[0].cluster_oidc_issuer_url, "https://", "")}:sub" = "system:serviceaccount:kube-system:aws-load-balancer-controller"
-          }
-        }
-      }
-    ]
-  })
-  
-  tags = {
-    Name        = "${var.environment}-aws-load-balancer-controller-role"
-    Environment = var.environment
-    Project     = "tf-playground"
-    ManagedBy   = "terraform"
-  }
-}
-
-# IAM Policy for AWS Load Balancer Controller
-resource "aws_iam_policy" "aws_load_balancer_controller" {
-  count = var.enable_eks && var.enable_alb_controller ? 1 : 0
-  
-  name   = "${var.environment}-aws-load-balancer-controller-policy"
-  policy = file("${path.module}/aws-load-balancer-controller-policy.json")
-  
-  tags = {
-    Name        = "${var.environment}-aws-load-balancer-controller-policy"
-    Environment = var.environment
-    Project     = "tf-playground"
-    ManagedBy   = "terraform"
-  }
-}
-
-# IAM Role Policy Attachment for AWS Load Balancer Controller
-resource "aws_iam_role_policy_attachment" "aws_load_balancer_controller" {
-  count = var.enable_eks && var.enable_alb_controller ? 1 : 0
-  
-  role       = aws_iam_role.aws_load_balancer_controller[0].name
-  policy_arn = aws_iam_policy.aws_load_balancer_controller[0].arn
-}
 
 
 
