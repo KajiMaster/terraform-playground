@@ -66,13 +66,7 @@ jobs:
   terraform-plan:
     name: Terraform Plan
     runs-on: ubuntu-latest
-    if: |
-      github.event_name == 'pull_request' && (
-        contains(github.event.pull_request.files.*.path, 'environments/') ||
-        contains(github.event.pull_request.files.*.path, 'modules/') ||
-        contains(github.event.pull_request.files.*.path, '.github/workflows/staging-terraform.yml') ||
-        github.event.inputs.force_rebuild == 'true'
-      )
+    if: github.event_name == 'pull_request'
     
     steps:
       - name: Checkout
@@ -80,12 +74,43 @@ jobs:
         with:
           ref: ${{ github.head_ref || github.event.inputs.branch || 'develop' }}
 
+      - name: Check Changed Files
+        id: check-files
+        run: |
+          echo "## 🔍 Checking Changed Files in PR" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Get list of changed files in the PR
+          gh pr view ${{ github.event.number }} --json files --jq '.files[].path' > changed_files.txt
+          
+          echo "**Changed files:**" >> $GITHUB_STEP_SUMMARY
+          cat changed_files.txt >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Check if we should run terraform plan
+          should_run="false"
+          
+          if grep -q "environments/" changed_files.txt || \
+             grep -q "modules/" changed_files.txt || \
+             grep -q ".github/workflows/staging-terraform.yml" changed_files.txt; then
+            should_run="true"
+            echo "✅ Found relevant files - will run terraform plan" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⏭️ No relevant files found - skipping terraform plan" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "should_run=$should_run" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       - name: Setup Terraform
+        if: steps.check-files.outputs.should_run == 'true'
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
       - name: Clear AWS Credentials Cache
+        if: steps.check-files.outputs.should_run == 'true'
         run: |
           unset AWS_ACCESS_KEY_ID
           unset AWS_SECRET_ACCESS_KEY
@@ -96,6 +121,7 @@ jobs:
           echo "Cleared all AWS credentials cache"
 
       - name: Configure AWS Credentials
+        if: steps.check-files.outputs.should_run == 'true'
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::123324351829:role/github-actions-global
@@ -103,14 +129,17 @@ jobs:
           role-session-name: staging-plan-${{ github.run_id }}-${{ github.run_number }}
 
       - name: Terraform Init
+        if: steps.check-files.outputs.should_run == 'true'
         working-directory: environments/terraform
         run: terraform init
 
       - name: Select Staging Workspace
+        if: steps.check-files.outputs.should_run == 'true'
         working-directory: environments/terraform
         run: terraform workspace select ${{ env.WORKSPACE }}
 
       - name: Set Platform Variables
+        if: steps.check-files.outputs.should_run == 'true'
         id: platform-vars
         run: |
           if [ "${{ github.event.inputs.platform }}" == "eks" ]; then
@@ -122,6 +151,7 @@ jobs:
           fi
 
       - name: Terraform Plan
+        if: steps.check-files.outputs.should_run == 'true'
         working-directory: environments/terraform
         run: |
           terraform plan \
@@ -131,7 +161,7 @@ jobs:
 
       - name: Comment Plan
         uses: actions/github-script@v7
-        if: always()
+        if: always() && steps.check-files.outputs.should_run == 'true'
         with:
           script: |
             const fs = require('fs');
