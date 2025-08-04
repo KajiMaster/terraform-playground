@@ -128,7 +128,7 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: staging-plan-${{ github.run_id }}-${{ github.run_number }}
 
-      - name: Switch to Staging Backend
+      - name: Initialize Terraform Backend
         if: steps.check-files.outputs.should_run == 'true'
         working-directory: environments/terraform
         run: |
@@ -138,14 +138,11 @@ jobs:
           echo "**Platform Used**: '${{ github.event.inputs.platform || 'ecs' }}'" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          PLATFORM="${{ github.event.inputs.platform || 'ecs' }}"
-          echo "Running: ./switch-env.sh staging $PLATFORM"
-          ./switch-env.sh staging $PLATFORM
-
-      - name: Terraform Init
-        if: steps.check-files.outputs.should_run == 'true'
-        working-directory: environments/terraform
-        run: terraform init
+          # Initialize with universal backend (configured in backend.tf)
+          terraform init
+          
+          # Select staging workspace (must already exist)
+          terraform workspace select staging
 
 
       - name: Debug State
@@ -289,16 +286,18 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: staging-apply-${{ github.run_id }}-${{ github.run_number }}
 
-      - name: Switch to Staging Backend
+      - name: Initialize Terraform Backend
         working-directory: environments/terraform
         run: |
-          PLATFORM="${{ github.event.inputs.platform || 'ecs' }}"
-          echo "Running: ./switch-env.sh staging $PLATFORM"
-          ./switch-env.sh staging $PLATFORM
-
-      - name: Terraform Init
-        working-directory: environments/terraform
-        run: terraform init
+          echo "## 🔧 Backend Configuration" >> $GITHUB_STEP_SUMMARY
+          echo "**Platform**: ${{ github.event.inputs.platform || 'ecs' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Initialize with universal backend (configured in backend.tf)
+          terraform init
+          
+          # Select staging workspace (must already exist)
+          terraform workspace select staging
 
       - name: Set Platform Variables
         id: platform-vars

@@ -1,12 +1,15 @@
-# Empty S3 backend block to suppress warnings
-# This does nothing - actual backend configuration is provided via:
-# - backend-dev.hcl
-# - backend-staging.hcl  
-# - backend-production.hcl
-# These files supersede this block with real values for bucket, key, region, etc.
+# Universal S3 backend configuration
+# Workspaces handle environment separation via state paths:
+# - env:/dev/terraform.tfstate
+# - env:/staging/terraform.tfstate  
+# - env:/production/terraform.tfstate
 
 terraform {
   backend "s3" {
-    # All values provided via -backend-config=backend-{env}.hcl
+    bucket         = "tf-playground-state-vexus"
+    key            = "terraform.tfstate"
+    region         = "us-east-2"
+    dynamodb_table = "tf-playground-locks"
+    encrypt        = false
   }
 }
