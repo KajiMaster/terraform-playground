@@ -27,6 +27,14 @@ on:
       - 'scripts/**'
   workflow_dispatch:
     inputs:
+      platform:
+        description: 'Choose compute platform to deploy'
+        required: true
+        default: 'ecs'
+        type: choice
+        options:
+          - 'ecs'
+          - 'eks'
       force_rebuild:
         description: 'Force rebuild infrastructure and containers'
         required: false
@@ -88,6 +96,18 @@ jobs:
           echo "ℹ️ Production plans only run when infrastructure files change" >> $GITHUB_STEP_SUMMARY
           exit 0
 
+      - name: Set Platform Variables
+        if: steps.changed-files.outputs.any_changed == 'true'
+        id: platform-vars
+        run: |
+          if [ "${{ github.event.inputs.platform || 'ecs' }}" == "eks" ]; then
+            echo "tfvars_file=working_eks_production.tfvars" >> $GITHUB_OUTPUT
+            echo "platform_name=EKS (Kubernetes)" >> $GITHUB_OUTPUT
+          else
+            echo "tfvars_file=working_ecs_production.tfvars" >> $GITHUB_OUTPUT
+            echo "platform_name=ECS (Fargate)" >> $GITHUB_OUTPUT
+          fi
+
       - name: Setup Terraform
         if: github.event_name == 'workflow_dispatch' || steps.changed-files.outputs.any_changed == 'true'
         uses: hashicorp/setup-terraform@v3
@@ -126,10 +146,11 @@ jobs:
           terraform workspace select production
 
       - name: Terraform Plan
+        if: github.event_name == 'workflow_dispatch' || steps.changed-files.outputs.any_changed == 'true'
         working-directory: environments/terraform
         run: |
           terraform plan \
-            -var-file=${{ env.WORKSPACE }}.tfvars \
+            -var-file=${{ steps.platform-vars.outputs.tfvars_file }} \
             -out=tfplan
         continue-on-error: true
 
@@ -144,6 +165,7 @@ jobs:
             let comment = `## Terraform Plan for Production Environment
             
             **Environment**: Production
+            **Platform**: ${{ steps.platform-vars.outputs.platform_name || 'Auto-detected' }}
             **Workspace**: ${{ env.WORKSPACE }}
             **Branch**: main
             **Triggered by**: PR #${{ github.event.number }}`;
@@ -226,12 +248,8 @@ jobs:
           echo "**Terraform Directory Contents:**" >> $GITHUB_STEP_SUMMARY
           ls -la environments/terraform/ >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Production Variables (if exists):**" >> $GITHUB_STEP_SUMMARY
-          if [ -f "environments/terraform/production.tfvars" ]; then
-            cat environments/terraform/production.tfvars >> $GITHUB_STEP_SUMMARY
-          else
-            echo "❌ production.tfvars file NOT FOUND!" >> $GITHUB_STEP_SUMMARY
-          fi
+          echo "**Platform**: ${{ github.event.inputs.platform || 'ecs' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Production Variables File**: ${{ steps.platform-vars.outputs.tfvars_file || 'working_ecs_production.tfvars' }}" >> $GITHUB_STEP_SUMMARY
 
       - name: Setup Terraform
         if: github.event_name == 'workflow_dispatch' || steps.changed-files.outputs.any_changed == 'true'
@@ -270,12 +288,24 @@ jobs:
           # Select production workspace (must already exist)
           terraform workspace select production
 
+      - name: Set Platform Variables
+        if: github.event_name == 'workflow_dispatch' || steps.changed-files.outputs.any_changed == 'true'
+        id: platform-vars
+        run: |
+          if [ "${{ github.event.inputs.platform || 'ecs' }}" == "eks" ]; then
+            echo "tfvars_file=working_eks_production.tfvars" >> $GITHUB_OUTPUT
+            echo "platform_name=EKS (Kubernetes)" >> $GITHUB_OUTPUT
+          else
+            echo "tfvars_file=working_ecs_production.tfvars" >> $GITHUB_OUTPUT
+            echo "platform_name=ECS (Fargate)" >> $GITHUB_OUTPUT
+          fi
+
       - name: Terraform Apply
         if: github.event_name == 'workflow_dispatch' || steps.changed-files.outputs.any_changed == 'true'
         working-directory: environments/terraform
         run: |
           terraform apply \
-            -var-file=${{ env.WORKSPACE }}.tfvars \
+            -var-file=${{ steps.platform-vars.outputs.tfvars_file }} \
             -auto-approve
 
       - name: Get Outputs
