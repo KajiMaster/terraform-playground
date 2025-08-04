@@ -46,19 +46,36 @@ echo "Switching to environment: $ENV"
 echo "Using backend config: $BACKEND_FILE"
 echo "Using variables file: $TFVARS_FILE"
 
-# Remove existing .terraform directory to ensure clean init
-if [ -d ".terraform" ]; then
-    echo "Removing existing .terraform directory..."
-    rm -rf .terraform
+# Reconfigure backend without removing providers (much faster)
+echo "Reconfiguring Terraform backend for $ENV..."
+terraform init -reconfigure -backend-config="$BACKEND_FILE"
+
+# Validate and select existing workspace - NEVER create new ones
+echo "Validating workspace for $ENV..."
+
+# Get list of existing workspaces and check if target exists
+EXISTING_WORKSPACES=$(terraform workspace list | sed 's/[* ]//g' | grep -v '^$')
+VALID_WORKSPACE=false
+
+for workspace in $EXISTING_WORKSPACES; do
+    if [ "$workspace" = "$ENV" ]; then
+        VALID_WORKSPACE=true
+        break
+    fi
+done
+
+if [ "$VALID_WORKSPACE" = false ]; then
+    echo "Error: Workspace '$ENV' does not exist."
+    echo "Available workspaces:"
+    terraform workspace list
+    echo ""
+    echo "Valid environments: default, dev, staging, production"
+    echo "Create workspace first with: terraform workspace new $ENV"
+    exit 1
 fi
 
-# Initialize with environment-specific backend
-echo "Initializing Terraform with $ENV backend..."
-terraform init -backend-config="$BACKEND_FILE"
-
-# Create or select workspace (optional - you may not need workspaces anymore)
-echo "Setting up workspace for $ENV..."
-terraform workspace select "$ENV" 2>/dev/null || terraform workspace new "$ENV"
+# Select the validated workspace
+terraform workspace select "$ENV"
 
 echo "Environment switch complete!"
 echo ""
