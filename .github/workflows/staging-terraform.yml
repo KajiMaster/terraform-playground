@@ -70,6 +70,7 @@ jobs:
       github.event_name == 'pull_request' && (
         contains(github.event.pull_request.files.*.path, 'environments/') ||
         contains(github.event.pull_request.files.*.path, 'modules/') ||
+        contains(github.event.pull_request.files.*.path, '.github/workflows/staging-terraform.yml') ||
         github.event.inputs.force_rebuild == 'true'
       )
     
