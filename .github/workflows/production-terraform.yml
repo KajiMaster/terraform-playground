@@ -309,6 +309,7 @@ jobs:
             -auto-approve
 
       - name: Get Outputs
+        if: github.event_name == 'workflow_dispatch' || steps.changed-files.outputs.any_changed == 'true'
         working-directory: environments/terraform
         run: |
           echo "## Production Deployment Complete" >> $GITHUB_STEP_SUMMARY
@@ -321,6 +322,7 @@ jobs:
           terraform output >> $GITHUB_STEP_SUMMARY
 
       - name: Check for Application Changes
+        if: github.event_name == 'workflow_dispatch' || steps.changed-files.outputs.any_changed == 'true'
         id: check-changes
         run: |
           echo "## 🔍 Checking for Application Changes" >> $GITHUB_STEP_SUMMARY
@@ -445,6 +447,7 @@ jobs:
           echo "**Service:** $BLUE_SERVICE" >> $GITHUB_STEP_SUMMARY
 
       - name: Quick Infrastructure Validation
+        if: github.event_name == 'workflow_dispatch' || steps.changed-files.outputs.any_changed == 'true'
         working-directory: environments/terraform
         run: |
           echo "## 🚀 Quick Infrastructure Validation" >> $GITHUB_STEP_SUMMARY
@@ -477,6 +480,7 @@ jobs:
 
 
       - name: Final Summary
+        if: github.event_name == 'workflow_dispatch' || steps.changed-files.outputs.any_changed == 'true'
         run: |
           echo "## 🎉 Production Deployment Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
