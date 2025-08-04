@@ -1,3 +1,26 @@
+./ecs-database-bootstrap.sh dev
+ECS Database Bootstrap for Environment: dev
+==================================================
+
+✅ Valid environment: dev
+Getting environment configuration from Terraform outputs...
+✅ Environment configuration:
+  Cluster: dev-ecs-cluster
+  Database: tfplayground_dev
+  Database Host: dev-db.c38ukeqk0mqb.us-east-2.rds.amazonaws.com
+  ALB URL: http://dev-alb-62232680.us-east-2.elb.amazonaws.com
+
+Getting ECS task ARN for cluster: dev-ecs-cluster...
+✅ Found ECS task: arn:aws:ecs:us-east-2:123324351829:task/dev-ecs-cluster/cf577cd014e042df809f6e8eb4da6e5f
+Getting database password from Parameter Store...
+✅ Retrieved database password
+Creating SQL file in container...
+
+The Session Manager plugin was installed successfully. Use the AWS CLI to start a session.
+
+
+An error occurred (TargetNotConnectedException) when calling the ExecuteCommand operation: The execute command failed due to an internal error. Try again later.
+❌ Error: Failed to create SQL file in container
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
