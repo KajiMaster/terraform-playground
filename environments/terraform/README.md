@@ -81,6 +81,165 @@ terraform workspace select <workspace-name>
 terraform workspace delete <workspace-name>
 ```
 
+## Architecture Variations
+
+This Terraform configuration supports multiple compute platform architectures based on the `.tfvars` file used. Each configuration creates different infrastructure layouts optimized for specific use cases.
+
+### Available Configurations
+
+| Configuration | Compute Platform | Network Model | Use Case |
+|---------------|-----------------|---------------|----------|
+| `working_ecs_dev.tfvars` | **ECS Fargate** | Public subnets only | Development & Testing |
+| `working_eks_dev.tfvars` | **EKS (Kubernetes)** | Public subnets only | K8s Development |
+| `staging.tfvars` | **ECS + EKS** | Private subnets + NAT | Pre-production |
+| `production.tfvars` | **ECS Fargate** | Private subnets + NAT + WAF | Production |
+
+### ECS Architecture (`working_ecs_dev.tfvars`)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        Internet Gateway                     │
+└─────────────────────────┬───────────────────────────────────┘
+                          │
+┌─────────────────────────┴───────────────────────────────────┐
+│                    Application Load Balancer                │
+│                    (Blue/Green Target Groups)               │
+└─────────────────────────┬───────────────────────────────────┘
+                          │
+    ┌─────────────────────┴─────────────────────┐
+    │                     │                     │
+┌───▼──────┐         ┌────▼──────┐         ┌────▼──────┐
+│ Public   │         │ Public    │         │           │
+│ Subnet   │         │ Subnet    │         │    RDS    │
+│ (ECS)    │         │ (ECS)     │         │ Database  │
+│          │         │           │         │           │
+│ Fargate  │         │ Fargate   │         │           │
+│ Tasks    │         │ Tasks     │         │           │
+└──────────┘         └───────────┘         └───────────┘
+```
+
+**Key Features:**
+- **Container Platform**: ECS Fargate (serverless containers)
+- **Blue/Green Deployment**: Zero-downtime deployments
+- **Cost Optimized**: No NAT Gateway, public subnets only
+- **ECS Exec**: Enabled for container debugging
+- **Auto Scaling**: Built-in ECS service scaling
+
+### EKS Architecture (`working_eks_dev.tfvars`)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        Internet Gateway                     │
+└─────────────────────────┬───────────────────────────────────┘
+                          │
+┌─────────────────────────┴───────────────────────────────────┐
+│                    Application Load Balancer                │
+│                   (Kubernetes Ingress)                      │
+└─────────────────────────┬───────────────────────────────────┘
+                          │
+    ┌─────────────────────┴─────────────────────┐
+    │                     │                     │
+┌───▼──────┐         ┌────▼──────┐         ┌────▼──────┐
+│ Public   │         │ Public    │         │           │
+│ Subnet   │         │ Subnet    │         │    RDS    │
+│          │         │           │         │ Database  │
+│ EKS Node │         │ EKS Node  │         │           │
+│ Group    │         │ Group     │         │           │
+│          │         │           │         │           │
+│ ┌─────┐  │         │ ┌─────┐   │         │           │
+│ │ Pod │  │         │ │ Pod │   │         │           │
+│ └─────┘  │         │ └─────┘   │         │           │
+└──────────┘         └───────────┘         └───────────┘
+```
+
+**Key Features:**
+- **Container Platform**: Kubernetes (EKS) with managed node groups
+- **Kubernetes Services**: Full K8s ecosystem (pods, services, ingress)
+- **Node Groups**: t3.small instances for pod distribution
+- **Cost Optimized**: Public subnets, no Fargate
+- **Kubectl Access**: Direct cluster management
+
+### Production Architecture (`production.tfvars`)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                           WAF                               │
+└─────────────────────────┬───────────────────────────────────┘
+                          │
+┌─────────────────────────┴───────────────────────────────────┐
+│                        Internet Gateway                     │
+└─────────────────────────┬───────────────────────────────────┘
+                          │
+┌─────────────────────────┴───────────────────────────────────┐
+│                    Application Load Balancer                │
+└─────────────────────────┬───────────────────────────────────┘
+                          │
+    ┌─────────────────────┴─────────────────────┐
+    │                     │                     │
+┌───▼──────┐         ┌────▼──────┐         ┌────▼──────┐
+│ Public   │         │ Public    │         │ Private   │
+│ Subnet   │         │ Subnet    │         │ Subnet    │
+│ (ALB)    │         │ (ALB)     │         │           │
+└──────────┘         └───────────┘         │    RDS    │
+    │                     │                │ Database  │
+    └─────────┬───────────┘                │           │
+              │                            └───────────┘
+┌─────────────▼─────────────┐
+│        NAT Gateway        │
+└─────────────┬─────────────┘
+              │
+    ┌─────────┴─────────────┐
+    │                       │
+┌───▼──────┐         ┌──────▼───┐
+│ Private  │         │ Private  │
+│ Subnet   │         │ Subnet   │
+│          │         │          │
+│ ECS      │         │ ECS      │
+│ Fargate  │         │ Fargate  │
+│ Tasks    │         │ Tasks    │
+└──────────┘         └──────────┘
+```
+
+**Key Features:**
+- **Security**: WAF protection, private subnets for workloads
+- **High Availability**: Multi-AZ deployment
+- **Controlled Internet Access**: NAT Gateway for outbound traffic
+- **Production Hardening**: Enhanced monitoring and logging
+
+## Configuration Switching
+
+### Quick Environment Switch
+
+```bash
+# Switch to ECS development
+terraform plan -var-file=working_ecs_dev.tfvars
+terraform apply -var-file=working_ecs_dev.tfvars
+
+# Switch to EKS development  
+terraform plan -var-file=working_eks_dev.tfvars
+terraform apply -var-file=working_eks_dev.tfvars
+
+# Deploy to production (includes backend switching)
+./switch-env.sh production
+terraform plan -var-file=production.tfvars
+terraform apply -var-file=production.tfvars
+
+# Switch backend state files for different environments
+./switch-env.sh dev      # Switches to dev backend state
+./switch-env.sh staging  # Switches to staging backend state
+```
+
+### Key Differences Summary
+
+| Feature | ECS Dev | EKS Dev | Staging | Production |
+|---------|---------|---------|---------|------------|
+| **Networking** | Public only | Public only | Private + NAT | Private + NAT + WAF |
+| **Compute** | ECS Fargate | EKS Nodes | Both ECS+EKS | ECS Fargate |
+| **Blue/Green** | ✅ | ✅ | ✅ | ✅ |
+| **Auto Scaling** | ECS Service | K8s HPA | Both | ECS Service |
+| **Monitoring** | Basic | Basic | Enhanced | Full |
+| **Security** | Development | Development | Pre-prod | Production |
+
 ## Migration from Existing Environments
 
 To migrate from the existing `environments/staging` and `environments/production` directories:
