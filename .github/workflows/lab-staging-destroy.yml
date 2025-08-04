@@ -108,7 +108,7 @@ jobs:
         working-directory: environments/terraform
         run: |
           terraform destroy \
-            -var-file=${{ env.WORKSPACE }}.tfvars \
+            -var-file=working_ecs_${{ env.WORKSPACE }}.tfvars \
             -auto-approve
 
       - name: Destroy Complete
