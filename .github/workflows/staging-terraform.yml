@@ -131,23 +131,39 @@ jobs:
       - name: Switch to Staging Backend
         if: steps.check-files.outputs.should_run == 'true'
         working-directory: environments/terraform
-        run: ./switch-env.sh staging ${{ github.event.inputs.platform || 'ecs' }}
+        run: |
+          echo "## 🔧 Backend Configuration Debug" >> $GITHUB_STEP_SUMMARY
+          echo "**Event Type**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Platform Input**: '${{ github.event.inputs.platform }}'" >> $GITHUB_STEP_SUMMARY
+          echo "**Platform Used**: '${{ github.event.inputs.platform || 'ecs' }}'" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          PLATFORM="${{ github.event.inputs.platform || 'ecs' }}"
+          echo "Running: ./switch-env.sh staging $PLATFORM"
+          ./switch-env.sh staging $PLATFORM
 
       - name: Terraform Init
         if: steps.check-files.outputs.should_run == 'true'
         working-directory: environments/terraform
         run: terraform init
 
-      - name: Select Staging Workspace
+
+      - name: Debug State
         if: steps.check-files.outputs.should_run == 'true'
         working-directory: environments/terraform
-        run: terraform workspace select ${{ env.WORKSPACE }}
+        run: |
+          echo "## 🔍 State Debug Information" >> $GITHUB_STEP_SUMMARY
+          echo "**Current Workspace**: $(terraform workspace show)" >> $GITHUB_STEP_SUMMARY
+          echo "**State Resource Count**: $(terraform state list | wc -l)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**First 5 Resources in State**:" >> $GITHUB_STEP_SUMMARY
+          terraform state list | head -5 >> $GITHUB_STEP_SUMMARY || echo "No resources found" >> $GITHUB_STEP_SUMMARY
 
       - name: Set Platform Variables
         if: steps.check-files.outputs.should_run == 'true'
         id: platform-vars
         run: |
-          if [ "${{ github.event.inputs.platform }}" == "eks" ]; then
+          if [ "${{ github.event.inputs.platform || 'ecs' }}" == "eks" ]; then
             echo "tfvars_file=working_eks_staging.tfvars" >> $GITHUB_OUTPUT
             echo "platform_name=EKS (Kubernetes)" >> $GITHUB_OUTPUT
           else
@@ -275,15 +291,14 @@ jobs:
 
       - name: Switch to Staging Backend
         working-directory: environments/terraform
-        run: ./switch-env.sh staging ${{ github.event.inputs.platform || 'ecs' }}
+        run: |
+          PLATFORM="${{ github.event.inputs.platform || 'ecs' }}"
+          echo "Running: ./switch-env.sh staging $PLATFORM"
+          ./switch-env.sh staging $PLATFORM
 
       - name: Terraform Init
         working-directory: environments/terraform
         run: terraform init
-
-      - name: Select Staging Workspace
-        working-directory: environments/terraform
-        run: terraform workspace select ${{ env.WORKSPACE }}
 
       - name: Set Platform Variables
         id: platform-vars
