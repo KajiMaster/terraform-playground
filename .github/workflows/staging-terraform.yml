@@ -413,7 +413,8 @@ jobs:
           
           # Login to ECR
           echo "🔐 Logging in to ECR..."
-          aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin $REGISTRY_URL
+          PASSWORD=$(aws ecr get-login-password --region ${{ env.AWS_REGION }})
+          echo "$PASSWORD" | docker login --username AWS --password-stdin $REGISTRY_URL
           
           # Pull existing image for cache (if it exists)
           echo "📥 Pulling existing image for cache..."
