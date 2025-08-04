@@ -24,6 +24,12 @@ variable "private_subnets" {
   type        = list(string)
 }
 
+variable "enable_private_subnets" {
+  description = "Whether to use private subnets (affects public IP assignment)"
+  type        = bool
+  default     = true
+}
+
 variable "alb_security_group_id" {
   description = "Security group ID of the ALB"
   type        = string

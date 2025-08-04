@@ -27,19 +27,22 @@ green_min_size        = 0
 # WAF Configuration (disabled for cost)
 environment_waf_use = false
 
-# ECS Configuration (ENABLED - switching from EKS)
-enable_ecs = true
-enable_asg = false  # Keep ASG disabled, ECS handles scaling
+# ECS Configuration (disabled - testing EKS instead)
+enable_ecs = false
+enable_asg = false  # Disable ASG since EKS handles scaling
 
-# EKS Configuration (DISABLED - switching back to ECS)
-enable_eks = false
-enable_node_groups = false
-enable_monitoring = false
-enable_alb_controller = false
+# EKS Configuration (NEW - testing Kubernetes)
+enable_eks = true
+enable_node_groups = true
+enable_fargate = false  # More expensive, use node groups for dev
+enable_monitoring = false  # Disable for cost savings
+enable_alb_controller = false  # Disable initially
 
-# ECS Service Configuration
-blue_ecs_desired_count = 1
-green_ecs_desired_count = 0
+# Node group configuration (minimal for dev)
+node_group_instance_types = ["t3.small"]  # Larger instance for more pod capacity
+node_group_desired_size = 2  # More nodes for better pod distribution
+node_group_max_size = 2
+node_group_min_size = 1
 
 # SSL/TLS Configuration
 certificate_arn = null

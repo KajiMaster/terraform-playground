@@ -15,10 +15,10 @@ output "system_log_group_name" {
 
 output "high_error_rate_alarm_arn" {
   description = "High error rate alarm ARN"
-  value       = aws_cloudwatch_metric_alarm.high_error_rate.arn
+  value       = var.alb_identifier != null ? aws_cloudwatch_metric_alarm.high_error_rate[0].arn : null
 }
 
 output "slow_response_time_alarm_arn" {
   description = "Slow response time alarm ARN"
-  value       = aws_cloudwatch_metric_alarm.slow_response_time.arn
+  value       = var.alb_identifier != null ? aws_cloudwatch_metric_alarm.slow_response_time[0].arn : null
 } 

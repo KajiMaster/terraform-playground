@@ -5,17 +5,17 @@
 # Load Balancer Outputs
 output "alb_dns_name" {
   description = "DNS name of the Application Load Balancer"
-  value       = module.loadbalancer.alb_dns_name
+  value       = (var.enable_asg || var.enable_ecs) ? module.loadbalancer[0].alb_dns_name : null
 }
 
 output "alb_url" {
   description = "URL to access the application via ALB"
-  value       = module.loadbalancer.alb_url
+  value       = (var.enable_asg || var.enable_ecs) ? module.loadbalancer[0].alb_url : null
 }
 
 output "alb_zone_id" {
   description = "Zone ID of the Application Load Balancer"
-  value       = module.loadbalancer.alb_zone_id
+  value       = (var.enable_asg || var.enable_ecs) ? module.loadbalancer[0].alb_zone_id : null
 }
 
 # SSH Key Outputs
@@ -39,33 +39,33 @@ output "ssh_public_key" {
 # Blue Auto Scaling Group Outputs
 output "blue_asg_id" {
   description = "ID of the blue Auto Scaling Group"
-  value       = var.disable_asg ? null : module.blue_asg[0].asg_id
+  value       = var.enable_asg ? module.blue_asg[0].asg_id : null
 }
 
 output "blue_asg_name" {
   description = "Name of the blue Auto Scaling Group"
-  value       = var.disable_asg ? null : module.blue_asg[0].asg_name
+  value       = var.enable_asg ? module.blue_asg[0].asg_name : null
 }
 
 output "blue_target_group_arn" {
   description = "ARN of the blue target group"
-  value       = module.loadbalancer.blue_target_group_arn
+  value       = (var.enable_asg || var.enable_ecs) ? module.loadbalancer[0].blue_target_group_arn : null
 }
 
 # Green Auto Scaling Group Outputs
 output "green_asg_id" {
   description = "ID of the green Auto Scaling Group"
-  value       = var.disable_asg ? null : module.green_asg[0].asg_id
+  value       = var.enable_asg ? module.green_asg[0].asg_id : null
 }
 
 output "green_asg_name" {
   description = "Name of the green Auto Scaling Group"
-  value       = var.disable_asg ? null : module.green_asg[0].asg_name
+  value       = var.enable_asg ? module.green_asg[0].asg_name : null
 }
 
 output "green_target_group_arn" {
   description = "ARN of the green target group"
-  value       = module.loadbalancer.green_target_group_arn
+  value       = (var.enable_asg || var.enable_ecs) ? module.loadbalancer[0].green_target_group_arn : null
 }
 
 # ECS Outputs
@@ -92,6 +92,32 @@ output "blue_ecs_service_name" {
 output "green_ecs_service_name" {
   description = "Name of the green ECS service"
   value       = var.enable_ecs ? module.ecs[0].green_service_name : null
+}
+
+# EKS Outputs
+output "eks_cluster_id" {
+  description = "ID of the EKS cluster"
+  value       = var.enable_eks ? module.eks[0].cluster_id : null
+}
+
+output "eks_cluster_name" {
+  description = "Name of the EKS cluster"
+  value       = var.enable_eks ? module.eks[0].cluster_name : null
+}
+
+output "eks_cluster_endpoint" {
+  description = "Endpoint of the EKS cluster"
+  value       = var.enable_eks ? module.eks[0].cluster_endpoint : null
+}
+
+output "eks_node_group_id" {
+  description = "ID of the EKS node group"
+  value       = var.enable_eks ? module.eks[0].node_group_id : null
+}
+
+output "eks_node_group_status" {
+  description = "Status of the EKS node group"
+  value       = var.enable_eks ? module.eks[0].node_group_status : null
 }
 
 # Database Outputs
@@ -129,12 +155,12 @@ output "private_subnet_ids" {
 # SSM Outputs
 output "ssm_automation_name" {
   description = "Name of the SSM automation for database initialization"
-  value       = var.disable_asg ? null : module.ssm[0].ssm_automation_name
+  value       = var.enable_asg ? module.ssm[0].ssm_automation_name : null
 }
 
 output "ssm_automation_role_arn" {
   description = "ARN of the SSM automation role"
-  value       = var.disable_asg ? null : module.ssm[0].ssm_automation_role_arn
+  value       = var.enable_asg ? module.ssm[0].ssm_automation_role_arn : null
 }
 
 # Database Outputs
@@ -161,18 +187,35 @@ output "db_secret_arn" {
 
 # Application URLs
 output "application_url" {
-  description = "URL to access the web application via ALB"
-  value       = module.loadbalancer.alb_url
+  description = "URL to access the application"
+  value = (var.enable_asg || var.enable_ecs) ? module.loadbalancer[0].alb_url : (
+    var.enable_eks ? "http://${kubernetes_service.flask_app[0].status[0].load_balancer[0].ingress[0].hostname}:8080" : "No load balancer configured"
+  )
 }
 
 output "health_check_url" {
-  description = "URL to access the health check endpoint"
-  value       = "${module.loadbalancer.alb_url}/health"
+  description = "URL for health checks"
+  value = (var.enable_asg || var.enable_ecs) ? "${module.loadbalancer[0].alb_url}/health" : (
+    var.enable_eks ? "http://${kubernetes_service.flask_app[0].status[0].load_balancer[0].ingress[0].hostname}:8080/health/simple" : "No load balancer configured"
+  )
 }
 
 output "deployment_validation_url" {
-  description = "URL to access the deployment validation endpoint"
-  value       = "${module.loadbalancer.alb_url}/deployment/validate"
+  description = "URL for deployment validation"
+  value = (var.enable_asg || var.enable_ecs) ? "${module.loadbalancer[0].alb_url}/deployment/validate" : (
+    var.enable_eks ? "http://${kubernetes_service.flask_app[0].status[0].load_balancer[0].ingress[0].hostname}:8080/health/simple" : "No load balancer configured"
+  )
+}
+
+# EKS LoadBalancer Service Outputs
+output "eks_loadbalancer_url" {
+  description = "URL of the EKS LoadBalancer service"
+  value = var.enable_eks ? "http://${kubernetes_service.flask_app[0].status[0].load_balancer[0].ingress[0].hostname}:8080" : null
+}
+
+output "eks_health_check_url" {
+  description = "Health check URL for EKS LoadBalancer service"
+  value = var.enable_eks ? "http://${kubernetes_service.flask_app[0].status[0].load_balancer[0].ingress[0].hostname}:8080/health/simple" : null
 }
 
 # Environment Summary
@@ -182,10 +225,12 @@ output "environment_summary" {
     environment       = var.environment
     region            = var.aws_region
     vpc_id            = module.networking.vpc_id
-    alb_dns_name      = module.loadbalancer.alb_dns_name
-    application_url   = module.loadbalancer.alb_url
-    blue_asg_name     = var.disable_asg ? null : module.blue_asg[0].asg_name
-    green_asg_name    = var.disable_asg ? null : module.green_asg[0].asg_name
+    alb_dns_name      = (var.enable_asg || var.enable_ecs) ? module.loadbalancer[0].alb_dns_name : null
+    application_url   = (var.enable_asg || var.enable_ecs) ? module.loadbalancer[0].alb_url : (
+      var.enable_eks ? "http://${kubernetes_service.flask_app[0].status[0].load_balancer[0].ingress[0].hostname}:8080" : "No load balancer configured"
+    )
+    blue_asg_name     = var.enable_asg ? module.blue_asg[0].asg_name : null
+    green_asg_name    = var.enable_asg ? module.green_asg[0].asg_name : null
     database_endpoint = module.database.db_instance_endpoint
     ssh_key_name      = aws_key_pair.environment_key.key_name
   }
@@ -193,12 +238,12 @@ output "environment_summary" {
 
 output "http_listener_arn" {
   description = "ARN of the HTTP listener"
-  value       = module.loadbalancer.http_listener_arn
+  value       = (var.enable_asg || var.enable_ecs) ? module.loadbalancer[0].http_listener_arn : null
 }
 
 output "https_listener_arn" {
   description = "ARN of the HTTPS listener (if created)"
-  value       = module.loadbalancer.https_listener_arn
+  value       = (var.enable_asg || var.enable_ecs) ? module.loadbalancer[0].https_listener_arn : null
 }
 
 output "deployment_timestamp" {

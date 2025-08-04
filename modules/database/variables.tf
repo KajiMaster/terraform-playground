@@ -13,6 +13,25 @@ variable "private_subnets" {
   type        = list(string)
 }
 
+variable "public_subnets" {
+  description = "List of public subnet IDs (used when private subnets are not available)"
+  type        = list(string)
+  default     = []
+}
+
+# Environment pattern variables
+variable "enable_private_subnets" {
+  description = "Whether private subnets are enabled (determines RDS subnet placement)"
+  type        = bool
+  default     = true
+}
+
+variable "enable_nat_gateway" {
+  description = "Whether NAT Gateway is enabled (indicates enterprise pattern)"
+  type        = bool
+  default     = true
+}
+
 
 
 variable "db_instance_type" {
@@ -61,6 +80,30 @@ variable "enable_asg" {
 
 variable "webserver_security_group_id" {
   description = "Security group ID for webservers (required when enable_asg is true)"
+  type        = string
+  default     = ""
+}
+
+variable "enable_eks" {
+  description = "Enable EKS deployment (affects security group rules)"
+  type        = bool
+  default     = false
+}
+
+variable "eks_pods_security_group_id" {
+  description = "Security group ID for EKS pods (required when enable_eks is true)"
+  type        = string
+  default     = ""
+}
+
+variable "eks_nodes_security_group_id" {
+  description = "Security group ID for EKS nodes (required when enable_eks is true)"
+  type        = string
+  default     = ""
+}
+
+variable "eks_cluster_security_group_id" {
+  description = "Security group ID for EKS cluster (automatically created by AWS)"
   type        = string
   default     = ""
 }

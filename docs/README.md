@@ -11,6 +11,7 @@ This directory contains the active, portfolio-relevant documentation for the Ter
 
 ### **Current Features & Achievements**
 - **[blue-green-deployment-project.md](blue-green-deployment-project.md)** - Complete blue-green deployment implementation (COMPLETED)
+- **[eks-loadbalancer-implementation-report.md](eks-loadbalancer-implementation-report.md)** - EKS container orchestration with automatic LoadBalancer (COMPLETED)
 - **[kms-migration-to-aws-managed.md](kms-migration-to-aws-managed.md)** - Cost optimization migration to AWS managed keys (COMPLETED)
 - **[centralized-secrets-refactor.md](centralized-secrets-refactor.md)** - Secrets management optimization (COMPLETED)
 

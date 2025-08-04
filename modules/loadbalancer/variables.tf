@@ -88,4 +88,16 @@ variable "ecs_tasks_security_group_id" {
   description = "Security group ID for ECS tasks (required when enable_ecs is true)"
   type        = string
   default     = ""
+}
+
+variable "enable_eks" {
+  description = "Enable EKS deployment (affects security group rules)"
+  type        = bool
+  default     = false
+}
+
+variable "eks_pods_security_group_id" {
+  description = "Security group ID for EKS pods (required when enable_eks is true)"
+  type        = string
+  default     = ""
 } 

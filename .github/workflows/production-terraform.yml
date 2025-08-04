@@ -27,6 +27,14 @@ on:
       - 'scripts/**'
   workflow_dispatch:
     inputs:
+      platform:
+        description: 'Choose compute platform to deploy'
+        required: true
+        default: 'ecs'
+        type: choice
+        options:
+          - 'ecs'
+          - 'eks'
       force_rebuild:
         description: 'Force rebuild infrastructure and containers'
         required: false
@@ -58,25 +66,56 @@ jobs:
   terraform-plan:
     name: Terraform Plan
     runs-on: ubuntu-latest
-    if: |
-      github.event_name == 'pull_request' && (
-        contains(github.event.pull_request.files.*.path, 'environments/') ||
-        contains(github.event.pull_request.files.*.path, 'modules/') ||
-        github.event.inputs.force_rebuild == 'true'
-      )
+    if: github.event_name == 'pull_request'
     
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           ref: ${{ github.head_ref || github.event.inputs.branch || 'main' }}
+          fetch-depth: 0  # Need full history for changed-files to work properly
+
+      - name: Check for Infrastructure Changes
+        uses: tj-actions/changed-files@v40
+        id: changed-files
+        with:
+          files: |
+            environments/**
+            modules/**
+            .github/workflows/production-terraform.yml
+
+      - name: Skip Plan if No Changes
+        if: steps.changed-files.outputs.any_changed != 'true'
+        run: |
+          echo "## ⏭️ Skipping Terraform Plan" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Reason**: No infrastructure changes detected" >> $GITHUB_STEP_SUMMARY
+          echo "**Changed files**: ${{ steps.changed-files.outputs.all_changed_files }}" >> $GITHUB_STEP_SUMMARY  
+          echo "**Files checked**: environments/**, modules/**, workflow file" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "ℹ️ Production plans only run when infrastructure files change" >> $GITHUB_STEP_SUMMARY
+          exit 0
+
+      - name: Set Platform Variables
+        if: steps.changed-files.outputs.any_changed == 'true'
+        id: platform-vars
+        run: |
+          if [ "${{ github.event.inputs.platform || 'ecs' }}" == "eks" ]; then
+            echo "tfvars_file=working_eks_production.tfvars" >> $GITHUB_OUTPUT
+            echo "platform_name=EKS (Kubernetes)" >> $GITHUB_OUTPUT
+          else
+            echo "tfvars_file=working_ecs_production.tfvars" >> $GITHUB_OUTPUT
+            echo "platform_name=ECS (Fargate)" >> $GITHUB_OUTPUT
+          fi
 
       - name: Setup Terraform
+        if: github.event_name == 'workflow_dispatch' || steps.changed-files.outputs.any_changed == 'true'
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
       - name: Clear AWS Credentials Cache
+        if: github.event_name == 'workflow_dispatch' || steps.changed-files.outputs.any_changed == 'true'
         run: |
           unset AWS_ACCESS_KEY_ID
           unset AWS_SECRET_ACCESS_KEY
@@ -87,6 +126,7 @@ jobs:
           echo "Cleared all AWS credentials cache"
 
       - name: Configure AWS Credentials
+        if: github.event_name == 'workflow_dispatch' || steps.changed-files.outputs.any_changed == 'true'
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::123324351829:role/github-actions-global
@@ -94,20 +134,23 @@ jobs:
           role-session-name: production-plan-${{ github.run_id }}-${{ github.run_number }}
 
       - name: Terraform Init
+        if: github.event_name == 'workflow_dispatch' || steps.changed-files.outputs.any_changed == 'true'
         working-directory: environments/terraform
         run: terraform init
 
       - name: Select Production Workspace
+        if: github.event_name == 'workflow_dispatch' || steps.changed-files.outputs.any_changed == 'true'
         working-directory: environments/terraform
         run: |
-          # Create workspace if it doesn't exist
-          terraform workspace new ${{ env.WORKSPACE }} || terraform workspace select ${{ env.WORKSPACE }}
+          # Select production workspace (must already exist)
+          terraform workspace select production
 
       - name: Terraform Plan
+        if: github.event_name == 'workflow_dispatch' || steps.changed-files.outputs.any_changed == 'true'
         working-directory: environments/terraform
         run: |
           terraform plan \
-            -var-file=${{ env.WORKSPACE }}.tfvars \
+            -var-file=${{ steps.platform-vars.outputs.tfvars_file }} \
             -out=tfplan
         continue-on-error: true
 
@@ -122,6 +165,7 @@ jobs:
             let comment = `## Terraform Plan for Production Environment
             
             **Environment**: Production
+            **Platform**: ${{ steps.platform-vars.outputs.platform_name || 'Auto-detected' }}
             **Workspace**: ${{ env.WORKSPACE }}
             **Branch**: main
             **Triggered by**: PR #${{ github.event.number }}`;
@@ -162,24 +206,38 @@ jobs:
   terraform-apply:
     name: Terraform Apply
     runs-on: ubuntu-latest
-    if: |
-      (github.event_name == 'push' && github.ref == 'refs/heads/main' && (
-        contains(github.event.commits.*.modified, 'environments/') ||
-        contains(github.event.commits.*.added, 'environments/') ||
-        contains(github.event.commits.*.removed, 'environments/') ||
-        contains(github.event.commits.*.modified, 'modules/') ||
-        contains(github.event.commits.*.added, 'modules/') ||
-        contains(github.event.commits.*.removed, 'modules/')
-      )) ||
-      (github.event_name == 'workflow_dispatch' && (github.event.inputs.force_rebuild == 'true' || github.event.inputs.branch != ''))
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           ref: ${{ github.head_ref || github.event.inputs.branch || 'main' }}
+          fetch-depth: 0  # Need full history for changed-files to work properly
+
+      - name: Check for Infrastructure Changes
+        uses: tj-actions/changed-files@v40
+        id: changed-files
+        with:
+          files: |
+            environments/**
+            modules/**
+            .github/workflows/production-terraform.yml
+
+      - name: Skip Apply if No Changes
+        if: github.event_name == 'push' && steps.changed-files.outputs.any_changed != 'true'
+        run: |
+          echo "## ⏭️ Skipping Terraform Apply" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Reason**: No infrastructure changes detected" >> $GITHUB_STEP_SUMMARY
+          echo "**Changed files**: ${{ steps.changed-files.outputs.all_changed_files }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Files checked**: environments/**, modules/**, workflow file" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "ℹ️ To force apply anyway, use workflow_dispatch manual trigger" >> $GITHUB_STEP_SUMMARY
+          exit 0
 
       - name: Debug Branch and Files
+        if: github.event_name == 'workflow_dispatch' || steps.changed-files.outputs.any_changed == 'true'
         run: |
           echo "## 🔍 DEBUG INFORMATION" >> $GITHUB_STEP_SUMMARY
           echo "**Current Branch:** $(git branch --show-current)" >> $GITHUB_STEP_SUMMARY
@@ -190,19 +248,17 @@ jobs:
           echo "**Terraform Directory Contents:**" >> $GITHUB_STEP_SUMMARY
           ls -la environments/terraform/ >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Production Variables (if exists):**" >> $GITHUB_STEP_SUMMARY
-          if [ -f "environments/terraform/production.tfvars" ]; then
-            cat environments/terraform/production.tfvars >> $GITHUB_STEP_SUMMARY
-          else
-            echo "❌ production.tfvars file NOT FOUND!" >> $GITHUB_STEP_SUMMARY
-          fi
+          echo "**Platform**: ${{ github.event.inputs.platform || 'ecs' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Production Variables File**: ${{ steps.platform-vars.outputs.tfvars_file || 'working_ecs_production.tfvars' }}" >> $GITHUB_STEP_SUMMARY
 
       - name: Setup Terraform
+        if: github.event_name == 'workflow_dispatch' || steps.changed-files.outputs.any_changed == 'true'
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
       - name: Clear AWS Credentials Cache
+        if: github.event_name == 'workflow_dispatch' || steps.changed-files.outputs.any_changed == 'true'
         run: |
           unset AWS_ACCESS_KEY_ID
           unset AWS_SECRET_ACCESS_KEY
@@ -213,6 +269,7 @@ jobs:
           echo "Cleared all AWS credentials cache"
 
       - name: Configure AWS Credentials
+        if: github.event_name == 'workflow_dispatch' || steps.changed-files.outputs.any_changed == 'true'
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::123324351829:role/github-actions-global
@@ -220,20 +277,35 @@ jobs:
           role-session-name: production-apply-${{ github.run_id }}-${{ github.run_number }}
 
       - name: Terraform Init
+        if: github.event_name == 'workflow_dispatch' || steps.changed-files.outputs.any_changed == 'true'
         working-directory: environments/terraform
         run: terraform init
 
       - name: Select Production Workspace
+        if: github.event_name == 'workflow_dispatch' || steps.changed-files.outputs.any_changed == 'true'
         working-directory: environments/terraform
         run: |
-          # Create workspace if it doesn't exist
-          terraform workspace new ${{ env.WORKSPACE }} || terraform workspace select ${{ env.WORKSPACE }}
+          # Select production workspace (must already exist)
+          terraform workspace select production
+
+      - name: Set Platform Variables
+        if: github.event_name == 'workflow_dispatch' || steps.changed-files.outputs.any_changed == 'true'
+        id: platform-vars
+        run: |
+          if [ "${{ github.event.inputs.platform || 'ecs' }}" == "eks" ]; then
+            echo "tfvars_file=working_eks_production.tfvars" >> $GITHUB_OUTPUT
+            echo "platform_name=EKS (Kubernetes)" >> $GITHUB_OUTPUT
+          else
+            echo "tfvars_file=working_ecs_production.tfvars" >> $GITHUB_OUTPUT
+            echo "platform_name=ECS (Fargate)" >> $GITHUB_OUTPUT
+          fi
 
       - name: Terraform Apply
+        if: github.event_name == 'workflow_dispatch' || steps.changed-files.outputs.any_changed == 'true'
         working-directory: environments/terraform
         run: |
           terraform apply \
-            -var-file=${{ env.WORKSPACE }}.tfvars \
+            -var-file=${{ steps.platform-vars.outputs.tfvars_file }} \
             -auto-approve
 
       - name: Get Outputs

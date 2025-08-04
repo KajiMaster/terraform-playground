@@ -55,5 +55,32 @@ output "public_route_table_id" {
 
 output "private_route_table_id" {
   description = "The ID of the private route table"
-  value       = aws_route_table.private.id
+  value       = var.enable_private_subnets ? aws_route_table.private[0].id : null
+}
+
+# Enhanced outputs for environment pattern logic
+output "eks_subnet_ids" {
+  description = "Subnet IDs for EKS based on environment pattern"
+  value       = var.enable_private_subnets ? aws_subnet.private[*].id : aws_subnet.public[*].id
+}
+
+output "environment_pattern" {
+  description = "Current environment pattern (dev/staging/production)"
+  value       = var.enable_private_subnets ? "staging-production" : "dev"
+}
+
+output "nat_gateway_enabled" {
+  description = "Whether NAT Gateway is enabled"
+  value       = var.create_nat_gateway && var.enable_nat_gateway && var.enable_private_subnets
+}
+
+# EKS Security Group outputs
+output "eks_nodes_security_group_id" {
+  description = "Security group ID for EKS nodes"
+  value       = var.enable_eks ? aws_security_group.eks_nodes[0].id : null
+}
+
+output "eks_pods_security_group_id" {
+  description = "Security group ID for EKS pods"
+  value       = var.enable_eks ? aws_security_group.eks_pods[0].id : null
 } 

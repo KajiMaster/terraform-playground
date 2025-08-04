@@ -23,6 +23,20 @@ resource "aws_security_group_rule" "alb_ecs_egress" {
   description              = "Allow outbound traffic to ECS tasks on port 8080"
 }
 
+# ALB to EKS pods egress rule (when EKS is enabled)
+# NOTE: Disabled for EKS environments - EKS uses its own LoadBalancer service
+# resource "aws_security_group_rule" "alb_eks_egress" {
+#   count = var.enable_eks ? 1 : 0
+#   
+#   type                     = "egress"
+#   from_port                = 8080
+#   to_port                  = 8080
+#   protocol                 = "tcp"
+#   source_security_group_id = var.eks_pods_security_group_id
+#   security_group_id        = var.security_group_id
+#   description              = "Allow outbound traffic to EKS pods on port 8080"
+# }
+
 # Application Load Balancer
 resource "aws_lb" "main" {
   name               = "${var.environment}-alb"
@@ -46,8 +60,10 @@ resource "aws_wafv2_web_acl_association" "alb" {
   web_acl_arn  = var.waf_web_acl_arn
 }
 
-# Target Group for Blue Environment
+# Target Group for Blue Environment (not created for EKS environments)
 resource "aws_lb_target_group" "blue" {
+  count = var.enable_eks ? 0 : 1
+  
   name        = var.target_type == "ip" ? "${var.environment}-blue-tg-ecs" : "${var.environment}-blue-tg"
   port        = 8080
   protocol    = "HTTP"
@@ -71,8 +87,10 @@ resource "aws_lb_target_group" "blue" {
   }
 }
 
-# Target Group for Green Environment
+# Target Group for Green Environment (not created for EKS environments)
 resource "aws_lb_target_group" "green" {
+  count = var.enable_eks ? 0 : 1
+  
   name        = var.target_type == "ip" ? "${var.environment}-green-tg-ecs" : "${var.environment}-green-tg"
   port        = 8080
   protocol    = "HTTP"
@@ -102,9 +120,24 @@ resource "aws_lb_listener" "http" {
   port              = "80"
   protocol          = "HTTP"
 
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.blue.arn
+  dynamic "default_action" {
+    for_each = var.enable_eks ? [1] : []
+    content {
+      type = "fixed-response"
+      fixed_response {
+        content_type = "text/plain"
+        message_body = "EKS environment - use Kubernetes LoadBalancer service"
+        status_code  = "200"
+      }
+    }
+  }
+
+  dynamic "default_action" {
+    for_each = var.enable_eks ? [] : [1]
+    content {
+      type             = "forward"
+      target_group_arn = aws_lb_target_group.blue[0].arn
+    }
   }
 
   tags = {
@@ -114,13 +147,13 @@ resource "aws_lb_listener" "http" {
 
 # Listener Rule for Green Environment (for blue-green deployments)
 resource "aws_lb_listener_rule" "green" {
-  count        = var.create_green_listener_rule ? 1 : 0
+  count        = (var.create_green_listener_rule && !var.enable_eks) ? 1 : 0
   listener_arn = aws_lb_listener.http.arn
   priority     = 100
 
   action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.green.arn
+    target_group_arn = aws_lb_target_group.green[0].arn
   }
 
   condition {
@@ -142,9 +175,24 @@ resource "aws_lb_listener" "https" {
   ssl_policy        = "ELBSecurityPolicy-2016-08"
   certificate_arn   = var.certificate_arn
 
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.blue.arn
+  dynamic "default_action" {
+    for_each = var.enable_eks ? [1] : []
+    content {
+      type = "fixed-response"
+      fixed_response {
+        content_type = "text/plain"
+        message_body = "EKS environment - use Kubernetes LoadBalancer service"
+        status_code  = "200"
+      }
+    }
+  }
+
+  dynamic "default_action" {
+    for_each = var.enable_eks ? [] : [1]
+    content {
+      type             = "forward"
+      target_group_arn = aws_lb_target_group.blue[0].arn
+    }
   }
 
   tags = {

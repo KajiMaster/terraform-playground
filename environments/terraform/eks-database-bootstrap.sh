@@ -1,13 +1,14 @@
 #!/bin/bash
 
-# Unified ECS Database Bootstrap Script
+# Unified EKS Database Bootstrap Script
 # Environment-agnostic script that takes environment name as argument
-# Usage: ./ecs-database-bootstrap.sh <environment>
+# Usage: ./eks-database-bootstrap.sh <environment>
 # Examples: 
-#   ./ecs-database-bootstrap.sh staging
-#   ./ecs-database-bootstrap.sh ws-dev
-#   ./ecs-database-bootstrap.sh ws-staging
-#   ./ecs-database-bootstrap.sh ws-prod
+#   ./eks-database-bootstrap.sh dev
+#   ./eks-database-bootstrap.sh staging
+#   ./eks-database-bootstrap.sh ws-dev
+#   ./eks-database-bootstrap.sh ws-staging
+#   ./eks-database-bootstrap.sh ws-prod
 
 AWS_REGION="us-east-2"
 
@@ -32,14 +33,14 @@ if [ $# -eq 0 ]; then
     echo "$AVAILABLE_ENVIRONMENTS" | tr ' ' '\n' | sed 's/^/  /'
     echo ""
     echo "Examples:"
+    echo "  $0 dev"
     echo "  $0 staging"
-    echo "  $0 ws-dev"
     exit 1
 fi
 
 ENVIRONMENT="$1"
 
-echo "ECS Database Bootstrap for Environment: $ENVIRONMENT"
+echo "EKS Database Bootstrap for Environment: $ENVIRONMENT"
 echo "=================================================="
 echo ""
 
@@ -102,33 +103,52 @@ if [ -z "$DB_NAME" ]; then
     exit 1
 fi
 
-# Get ALB URL
-ALB_URL=$(terraform output -raw application_url 2>/dev/null)
-if [ -z "$ALB_URL" ]; then
-    echo "❌ Error: Could not get ALB URL from Terraform outputs"
+# Get EKS LoadBalancer URL
+EKS_URL=$(terraform output -raw eks_loadbalancer_url 2>/dev/null)
+if [ -z "$EKS_URL" ]; then
+    echo "❌ Error: Could not get EKS LoadBalancer URL from Terraform outputs"
+    echo "Make sure EKS is enabled for this environment"
     exit 1
 fi
 
-# Construct cluster name from environment
-CLUSTER_NAME="${ENVIRONMENT}-ecs-cluster"
+# Get EKS cluster name
+CLUSTER_NAME=$(terraform output -raw eks_cluster_name 2>/dev/null)
+if [ -z "$CLUSTER_NAME" ]; then
+    echo "❌ Error: Could not get EKS cluster name from Terraform outputs"
+    exit 1
+fi
 
 echo "✅ Environment configuration:"
-echo "  Cluster: $CLUSTER_NAME"
+echo "  EKS Cluster: $CLUSTER_NAME"
 echo "  Database: $DB_NAME"
 echo "  Database Host: $DB_HOST"
-echo "  ALB URL: $ALB_URL"
+echo "  EKS LoadBalancer URL: $EKS_URL"
 echo ""
 
-echo "Getting ECS task ARN for cluster: $CLUSTER_NAME..."
-TASK_ARN=$(aws ecs list-tasks --cluster "$CLUSTER_NAME" --region "$AWS_REGION" --query 'taskArns[0]' --output text)
+# Configure kubectl for the EKS cluster
+echo "Configuring kubectl for EKS cluster: $CLUSTER_NAME..."
+aws eks update-kubeconfig --region "$AWS_REGION" --name "$CLUSTER_NAME"
 
-if [ "$TASK_ARN" == "None" ] || [ -z "$TASK_ARN" ]; then
-    echo "❌ Error: No ECS tasks found in cluster '$CLUSTER_NAME'"
-    echo "Make sure the ECS service is running for environment: $ENVIRONMENT"
+if [ $? -ne 0 ]; then
+    echo "❌ Error: Failed to configure kubectl for EKS cluster"
     exit 1
 fi
 
-echo "✅ Found ECS task: $TASK_ARN"
+echo "✅ kubectl configured for EKS cluster"
+
+# Get the pod name for the Flask app
+echo "Getting Flask app pod name..."
+POD_NAME=$(kubectl get pods -l app=flask-app -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+
+if [ -z "$POD_NAME" ]; then
+    echo "❌ Error: No Flask app pods found in EKS cluster"
+    echo "Make sure the Flask app deployment is running"
+    echo "Available pods:"
+    kubectl get pods
+    exit 1
+fi
+
+echo "✅ Found Flask app pod: $POD_NAME"
 
 echo "Getting database password from Parameter Store..."
 DB_PASSWORD=$(aws ssm get-parameter --name "/tf-playground/all/db-pword" --region "$AWS_REGION" --with-decryption --query Parameter.Value --output text)
@@ -140,13 +160,8 @@ fi
 
 echo "✅ Retrieved database password"
 
-echo "Creating SQL file in container..."
-aws ecs execute-command \
-    --cluster "$CLUSTER_NAME" \
-    --task "$TASK_ARN" \
-    --container flask-app \
-    --interactive \
-    --command "/bin/bash -c \"cat > /tmp/bootstrap-contacts.sql << 'EOF'
+echo "Creating SQL file in pod..."
+kubectl exec "$POD_NAME" -- /bin/bash -c "cat > /tmp/bootstrap-contacts.sql << 'EOF'
 -- Create contacts table if it doesn't exist
 CREATE TABLE IF NOT EXISTS contacts (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -162,39 +177,49 @@ INSERT INTO contacts (name, email, phone, created_at) VALUES
     ('Jane Smith', 'jane.smith@example.com', '+1-555-0102', NOW()),
     ('Bob Johnson', 'bob.johnson@example.com', '+1-555-0103', NOW()),
     ('Alice Brown', 'alice.brown@example.com', '+1-555-0104', NOW()),
-    ('Charlie Wilson', 'charlie.wilson@example.com', '+1-555-0105', NOW());
+    ('Charlie Wilson', 'charlie.wilson@example.com', '+1-555-0105', NOW()),
+    ('Diana Prince', 'diana.prince@example.com', '+1-555-0106', NOW()),
+    ('Clark Kent', 'clark.kent@example.com', '+1-555-0107', NOW()),
+    ('Bruce Wayne', 'bruce.wayne@example.com', '+1-555-0108', NOW()),
+    ('Peter Parker', 'peter.parker@example.com', '+1-555-0109', NOW()),
+    ('Tony Stark', 'tony.stark@example.com', '+1-555-0110', NOW());
 
 -- Verify the data
 SELECT COUNT(*) as contact_count FROM contacts;
-EOF\""
+EOF"
 
 if [ $? -ne 0 ]; then
-    echo "❌ Error: Failed to create SQL file in container"
+    echo "❌ Error: Failed to create SQL file in pod"
     exit 1
 fi
 
-echo "✅ Created SQL file in container"
+echo "✅ Created SQL file in pod"
 
 echo "Executing database bootstrap..."
 echo "Database: $DB_NAME"
 echo "Host: $DB_HOST"
 echo ""
 
-aws ecs execute-command \
-    --cluster "$CLUSTER_NAME" \
-    --task "$TASK_ARN" \
-    --container flask-app \
-    --interactive \
-    --command "/bin/bash -c \"mysql -h $DB_HOST -u tfplayground_user -p$DB_PASSWORD $DB_NAME < /tmp/bootstrap-contacts.sql\""
+kubectl exec "$POD_NAME" -- /bin/bash -c "mysql -h $DB_HOST -u tfplayground_user -p$DB_PASSWORD $DB_NAME < /tmp/bootstrap-contacts.sql"
 
 if [ $? -eq 0 ]; then
     echo ""
     echo "✅ Database bootstrap complete!"
-    echo "🌐 Check the application at: $ALB_URL"
+    echo "🌐 Check the application at: $EKS_URL"
     echo "📊 Database: $DB_NAME"
-    echo "🔗 Health check: ${ALB_URL}health/simple"
+    echo "🔗 Health check: ${EKS_URL}/health/simple"
+    echo "📞 Contacts endpoint: ${EKS_URL}/contacts"
+    echo ""
+    echo "Testing the contacts endpoint..."
+    sleep 2
+    CONTACT_COUNT=$(curl -s "${EKS_URL}/contacts" | python3 -c "import sys, json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "Error")
+    if [ "$CONTACT_COUNT" != "Error" ] && [ "$CONTACT_COUNT" -gt 0 ]; then
+        echo "✅ Success! Found $CONTACT_COUNT contacts in the database"
+    else
+        echo "⚠️  Note: Could not verify contacts endpoint, but database bootstrap completed"
+    fi
 else
     echo ""
     echo "❌ Error: Database bootstrap failed"
     exit 1
-fi 
+fi
