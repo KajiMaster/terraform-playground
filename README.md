@@ -135,15 +135,36 @@ The infrastructure supports **three deployment patterns** with environment-speci
 
 *EKS dev environments eliminate ALB costs (~$18/month savings)
 
+### Platform-Specific Deployment
+Select the appropriate configuration file based on your platform choice:
+
+```bash
+# ECS Deployment (Containerized Applications)
+terraform apply -var-file=working_ecs_dev.tfvars
+terraform apply -var-file=working_ecs_staging.tfvars
+terraform apply -var-file=working_ecs_production.tfvars
+
+# EKS Deployment (Kubernetes Workloads)
+terraform apply -var-file=working_eks_dev.tfvars
+terraform apply -var-file=working_eks_staging.tfvars
+terraform apply -var-file=working_eks_production.tfvars
+```
+
 ### Pattern Selection
 ```hcl
-# Development (Cost-Optimized)
-enable_eks = true
-enable_private_subnets = false  # Saves NAT gateway costs
-
-# Production (Security-Focused)  
+# ECS Configuration (Cost-Balanced)
+platform = "ecs"
 enable_ecs = true
+enable_eks = false
+enable_asg = false
 enable_private_subnets = true   # Full network isolation
+
+# EKS Configuration (Development Cost-Optimized)
+platform = "eks"
+enable_ecs = false
+enable_eks = true
+enable_asg = false
+enable_private_subnets = false  # Saves NAT gateway costs
 ```
 
 📖 **Detailed Implementation**: [EKS Implementation Project](docs/eks-implementation-project.md)
@@ -153,13 +174,20 @@ enable_private_subnets = true   # Full network isolation
 ```
 terraform-playground/
 ├── environments/
-│   ├── dev/              # Development environment
-│   ├── staging/          # Staging environment
-│   └── production/       # Production environment
+│   ├── global/           # Global resources (OIDC, secrets)
+│   └── terraform/        # Unified infrastructure with workspace separation
+│       ├── backend.tf    # Universal S3 backend configuration
+│       ├── main.tf       # Main infrastructure definition
+│       ├── working_ecs_dev.tfvars      # ECS development configuration
+│       ├── working_ecs_staging.tfvars  # ECS staging configuration
+│       ├── working_ecs_production.tfvars # ECS production configuration
+│       ├── working_eks_dev.tfvars      # EKS development configuration
+│       ├── working_eks_staging.tfvars  # EKS staging configuration
+│       └── working_eks_production.tfvars # EKS production configuration
 ├── modules/
 │   ├── networking/       # Network infrastructure
 │   ├── loadbalancer/     # Load balancer configuration
-│   ├── compute/          # Compute resources
+│   ├── compute/          # Compute resources (ASG, ECS, EKS)
 │   ├── database/         # Database resources
 │   ├── secrets/          # Secrets management
 │   ├── ssh-keys/         # Centralized SSH keys
@@ -197,15 +225,25 @@ aws configure
 cd environments/global
 terraform init
 terraform plan
-   terraform apply
+terraform apply
    ```
 
 ### 4. Deploy Development Environment
    ```bash
-cd ../dev
+cd ../terraform
 terraform init
-terraform plan
-   terraform apply
+
+# Create and select development workspace
+terraform workspace new dev
+terraform workspace select dev
+
+# Deploy with ECS platform (recommended for development)
+terraform plan -var-file=working_ecs_dev.tfvars
+terraform apply -var-file=working_ecs_dev.tfvars
+
+# Or deploy with EKS platform (for Kubernetes testing)
+# terraform plan -var-file=working_eks_dev.tfvars
+# terraform apply -var-file=working_eks_dev.tfvars
    ```
 
 ### 5. Access the Application
@@ -215,18 +253,44 @@ terraform output application_url
 
 ## 🔄 CI/CD Workflow
 
+### Universal Backend Architecture
+All environments use a single backend configuration with workspace-based separation:
+
+```hcl
+# environments/terraform/backend.tf
+terraform {
+  backend "s3" {
+    bucket = "tf-playground-state-vexus"
+    key    = "terraform.tfstate"
+    region = "us-east-2"
+  }
+}
+```
+
+### Automated Deployment Pipeline
+- **Reliable Change Detection**: Uses `tj-actions/changed-files@v40` for accurate file change detection
+- **Platform Selection**: Automatically selects ECS or EKS based on workflow input
+- **Workspace Management**: Automatically selects appropriate Terraform workspace
+- **Cost Optimization**: Only runs when infrastructure files change
+
 ### Development Workflow
 1. **Create feature branch** from `develop`
-2. **Make changes** and test locally
-3. **Push to feature branch** - triggers dev deployment
+2. **Make changes** to `environments/terraform/` files
+3. **Push to feature branch** - triggers automatic dev deployment if files changed
 4. **Create pull request** to `develop`
-5. **Merge to develop** - triggers staging deployment
+5. **Merge to develop** - triggers automatic staging deployment if files changed
 
 ### Production Promotion
 1. **Create release branch** from `develop`
 2. **Test in staging** environment
-3. **Merge to main** - triggers production deployment
+3. **Merge to main** - triggers production deployment (manual approval required)
 4. **Tag release** for version tracking
+
+### Workflow Features
+- **Conditional Execution**: Steps only run when infrastructure files change
+- **Platform Input**: Select ECS or EKS deployment platform
+- **Workspace Isolation**: Each environment maintains separate state
+- **Error Prevention**: Validates workspace exists before deployment
 
 ## 💰 Cost Optimization
 
@@ -246,17 +310,48 @@ terraform output application_url
 
 ## 🔧 Configuration
 
-### Environment Variables
-Each environment has its own `terraform.tfvars` file:
+### Platform Selection
+Choose between ECS and EKS deployments with platform-specific configuration files:
 
+#### ECS Configuration Files
+```bash
+# Development
+working_ecs_dev.tfvars
+
+# Staging  
+working_ecs_staging.tfvars
+
+# Production
+working_ecs_production.tfvars
+```
+
+#### EKS Configuration Files
+```bash
+# Development
+working_eks_dev.tfvars
+
+# Staging
+working_eks_staging.tfvars
+
+# Production
+working_eks_production.tfvars
+```
+
+### Sample Configuration
 ```hcl
-# environments/production/terraform.tfvars
+# environments/terraform/working_ecs_production.tfvars
 environment = "production"
 aws_region  = "us-east-2"
+platform    = "ecs"
 
 # Instance configurations
 webserver_instance_type = "t3.micro"
 db_instance_type       = "db.t3.micro"
+
+# ECS-specific settings
+enable_ecs = true
+enable_eks = false
+enable_asg = false
 
 # Auto Scaling Group settings
 blue_desired_capacity  = 1
@@ -264,8 +359,24 @@ blue_max_size         = 2
 blue_min_size         = 1
 ```
 
+### Workspace-Based Deployment
+Environments are separated using Terraform workspaces with a universal backend:
+
+```bash
+# Switch between environments
+terraform workspace select dev
+terraform workspace select staging
+terraform workspace select production
+
+# Each workspace maintains separate state
+# S3 Backend: s3://tf-playground-state-vexus/env:/dev/terraform.tfstate
+# S3 Backend: s3://tf-playground-state-vexus/env:/staging/terraform.tfstate
+# S3 Backend: s3://tf-playground-state-vexus/env:/production/terraform.tfstate
+```
+
 ### Customization
-- **Instance types** in `terraform.tfvars`
+- **Platform selection** in `working_*_*.tfvars` files
+- **Instance types** and sizing
 - **Auto Scaling Group** capacities
 - **Database** configurations
 - **Network** CIDR ranges
