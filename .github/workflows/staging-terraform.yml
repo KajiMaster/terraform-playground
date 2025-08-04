@@ -131,7 +131,7 @@ jobs:
       - name: Switch to Staging Backend
         if: steps.check-files.outputs.should_run == 'true'
         working-directory: environments/terraform
-        run: ./switch-env.sh staging
+        run: ./switch-env.sh staging ${{ github.event.inputs.platform || 'ecs' }}
 
       - name: Terraform Init
         if: steps.check-files.outputs.should_run == 'true'
@@ -275,7 +275,7 @@ jobs:
 
       - name: Switch to Staging Backend
         working-directory: environments/terraform
-        run: ./switch-env.sh staging
+        run: ./switch-env.sh staging ${{ github.event.inputs.platform || 'ecs' }}
 
       - name: Terraform Init
         working-directory: environments/terraform

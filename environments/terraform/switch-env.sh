@@ -1,24 +1,34 @@
 #!/bin/bash
 
 # Environment switching script for Terraform
-# Usage: ./switch-env.sh <environment>
-# Example: ./switch-env.sh dev
+# Usage: ./switch-env.sh <environment> [platform]
+# Example: ./switch-env.sh staging ecs
+# Example: ./switch-env.sh staging eks
 
 set -e
 
 ENV=$1
+PLATFORM=$2
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Validate environment argument
 if [ -z "$ENV" ]; then
-    echo "Usage: $0 <environment>"
+    echo "Usage: $0 <environment> [platform]"
     echo "Available environments: dev, staging, production"
+    echo "Available platforms: ecs, eks (optional - defaults to legacy .tfvars)"
     exit 1
+fi
+
+# Determine tfvars file based on platform
+if [ -n "$PLATFORM" ]; then
+    TFVARS_FILE="$SCRIPT_DIR/working_${PLATFORM}_${ENV}.tfvars"
+else
+    # Fallback to legacy naming for backward compatibility
+    TFVARS_FILE="$SCRIPT_DIR/${ENV}.tfvars"
 fi
 
 # Validate environment exists
 BACKEND_FILE="$SCRIPT_DIR/backend-${ENV}.hcl"
-TFVARS_FILE="$SCRIPT_DIR/${ENV}.tfvars"
 
 if [ ! -f "$BACKEND_FILE" ]; then
     echo "Error: Backend configuration not found: $BACKEND_FILE"
@@ -55,3 +65,10 @@ echo ""
 echo "You can now run:"
 echo "  terraform plan -var-file=$TFVARS_FILE"
 echo "  terraform apply -var-file=$TFVARS_FILE"
+echo ""
+if [ -n "$PLATFORM" ]; then
+    echo "Platform: $PLATFORM"
+    echo "Configuration: $TFVARS_FILE"
+else
+    echo "Using legacy configuration: $TFVARS_FILE"
+fi
