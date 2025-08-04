@@ -91,7 +91,9 @@ This Terraform configuration supports multiple compute platform architectures ba
 |---------------|-----------------|---------------|----------|
 | `working_ecs_dev.tfvars` | **ECS Fargate** | Public subnets only | Development & Testing |
 | `working_eks_dev.tfvars` | **EKS (Kubernetes)** | Public subnets only | K8s Development |
-| `staging.tfvars` | **ECS + EKS** | Private subnets + NAT | Pre-production |
+| `working_ecs_staging.tfvars` | **ECS Fargate** | Private subnets + NAT | Cost-optimized Staging |
+| `working_eks_staging.tfvars` | **EKS (Kubernetes)** | Private subnets + NAT | K8s Staging |
+| `staging.tfvars` | **ECS + EKS** | Private subnets + NAT | Full Pre-production |
 | `production.tfvars` | **ECS Fargate** | Private subnets + NAT + WAF | Production |
 
 ### ECS Architecture (`working_ecs_dev.tfvars`)
@@ -211,15 +213,26 @@ This Terraform configuration supports multiple compute platform architectures ba
 ### Quick Environment Switch
 
 ```bash
-# Switch to ECS development
-terraform plan -var-file=working_ecs_dev.tfvars
+# Development environments (public subnets, cost-optimized)
+terraform plan -var-file=working_ecs_dev.tfvars    # ECS development
 terraform apply -var-file=working_ecs_dev.tfvars
 
-# Switch to EKS development  
-terraform plan -var-file=working_eks_dev.tfvars
+terraform plan -var-file=working_eks_dev.tfvars    # EKS development
 terraform apply -var-file=working_eks_dev.tfvars
 
-# Deploy to production (includes backend switching)
+# Staging environments (private subnets + NAT, staging security)
+./switch-env.sh staging
+terraform plan -var-file=working_ecs_staging.tfvars  # ECS staging
+terraform apply -var-file=working_ecs_staging.tfvars
+
+terraform plan -var-file=working_eks_staging.tfvars  # EKS staging  
+terraform apply -var-file=working_eks_staging.tfvars
+
+# Full staging (both ECS + EKS)
+terraform plan -var-file=staging.tfvars
+terraform apply -var-file=staging.tfvars
+
+# Production (includes backend switching)
 ./switch-env.sh production
 terraform plan -var-file=production.tfvars
 terraform apply -var-file=production.tfvars
@@ -231,14 +244,16 @@ terraform apply -var-file=production.tfvars
 
 ### Key Differences Summary
 
-| Feature | ECS Dev | EKS Dev | Staging | Production |
-|---------|---------|---------|---------|------------|
-| **Networking** | Public only | Public only | Private + NAT | Private + NAT + WAF |
-| **Compute** | ECS Fargate | EKS Nodes | Both ECS+EKS | ECS Fargate |
-| **Blue/Green** | ✅ | ✅ | ✅ | ✅ |
-| **Auto Scaling** | ECS Service | K8s HPA | Both | ECS Service |
-| **Monitoring** | Basic | Basic | Enhanced | Full |
-| **Security** | Development | Development | Pre-prod | Production |
+| Feature | ECS Dev | EKS Dev | ECS Staging | EKS Staging | Full Staging | Production |
+|---------|---------|---------|-------------|-------------|--------------|------------|
+| **Networking** | Public only | Public only | Private + NAT | Private + NAT | Private + NAT | Private + NAT + WAF |
+| **Compute** | ECS Fargate | EKS Nodes (t3.small) | ECS Fargate | EKS Nodes (t3.small) | Both ECS+EKS | ECS Fargate |
+| **Instance Size** | Micro | Small (K8s req) | Micro | Small (K8s req) | Mixed | Micro |
+| **Blue/Green** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Auto Scaling** | ECS Service | K8s HPA | ECS Service | K8s HPA | Both | ECS Service |
+| **Monitoring** | Basic | Basic | Enhanced | Enhanced | Enhanced | Full |
+| **Security** | Development | Development | Staging | Staging | Pre-prod | Production |
+| **ALB Controller** | ❌ | ❌ | ❌ | ✅ | ✅ | ❌ |
 
 ## Migration from Existing Environments
 

@@ -27,6 +27,14 @@ on:
       - 'scripts/**'
   workflow_dispatch:
     inputs:
+      platform:
+        description: 'Choose compute platform to deploy'
+        required: true
+        default: 'ecs'
+        type: choice
+        options:
+          - 'ecs'
+          - 'eks'
       force_rebuild:
         description: 'Force rebuild infrastructure and containers'
         required: false
@@ -101,11 +109,22 @@ jobs:
         working-directory: environments/terraform
         run: terraform workspace select ${{ env.WORKSPACE }}
 
+      - name: Set Platform Variables
+        id: platform-vars
+        run: |
+          if [ "${{ github.event.inputs.platform }}" == "eks" ]; then
+            echo "tfvars_file=working_eks_staging.tfvars" >> $GITHUB_OUTPUT
+            echo "platform_name=EKS (Kubernetes)" >> $GITHUB_OUTPUT
+          else
+            echo "tfvars_file=working_ecs_staging.tfvars" >> $GITHUB_OUTPUT
+            echo "platform_name=ECS (Fargate)" >> $GITHUB_OUTPUT
+          fi
+
       - name: Terraform Plan
         working-directory: environments/terraform
         run: |
           terraform plan \
-            -var-file=${{ env.WORKSPACE }}.tfvars \
+            -var-file=${{ steps.platform-vars.outputs.tfvars_file }} \
             -out=tfplan
         continue-on-error: true
 
@@ -120,6 +139,7 @@ jobs:
             let comment = `## Terraform Plan for Staging Environment
             
             **Environment**: Staging
+            **Platform**: ${{ steps.platform-vars.outputs.platform_name || 'Auto-detected' }}
             **Workspace**: ${{ env.WORKSPACE }}
             **Branch**: develop
             **Triggered by**: PR #${{ github.event.number }}`;
@@ -225,11 +245,22 @@ jobs:
         working-directory: environments/terraform
         run: terraform workspace select ${{ env.WORKSPACE }}
 
+      - name: Set Platform Variables
+        id: platform-vars
+        run: |
+          if [ "${{ github.event.inputs.platform }}" == "eks" ]; then
+            echo "tfvars_file=working_eks_staging.tfvars" >> $GITHUB_OUTPUT
+            echo "platform_name=EKS (Kubernetes)" >> $GITHUB_OUTPUT
+          else
+            echo "tfvars_file=working_ecs_staging.tfvars" >> $GITHUB_OUTPUT
+            echo "platform_name=ECS (Fargate)" >> $GITHUB_OUTPUT
+          fi
+
       - name: Terraform Apply
         working-directory: environments/terraform
         run: |
           terraform apply \
-            -var-file=${{ env.WORKSPACE }}.tfvars \
+            -var-file=${{ steps.platform-vars.outputs.tfvars_file }} \
             -auto-approve
 
       - name: Get Outputs
@@ -337,10 +368,10 @@ jobs:
           echo "**Reason:** Only infrastructure changes detected" >> $GITHUB_STEP_SUMMARY
 
       - name: Deploy to ECS
-        if: success()
+        if: success() && github.event.inputs.platform == 'ecs'
         working-directory: environments/terraform
         run: |
-          echo "## 🚀 Deploying to ECS" >> $GITHUB_STEP_SUMMARY
+          echo "## 🚀 Deploying to ECS (Fargate)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           # Get ECS service information
@@ -367,6 +398,37 @@ jobs:
           
           echo "✅ ECS deployment initiated" >> $GITHUB_STEP_SUMMARY
           echo "**Service:** $BLUE_SERVICE" >> $GITHUB_STEP_SUMMARY
+
+      - name: Deploy to EKS
+        if: success() && github.event.inputs.platform == 'eks'
+        working-directory: environments/terraform
+        run: |
+          echo "## 🚀 Deploying to EKS (Kubernetes)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Get EKS cluster information
+          CLUSTER_NAME=$(terraform output -raw eks_cluster_name 2>/dev/null || echo "")
+          
+          if [ -z "$CLUSTER_NAME" ]; then
+            echo "❌ EKS cluster not found. EKS may not be enabled." >> $GITHUB_STEP_SUMMARY
+            echo "Skipping EKS deployment." >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+          
+          echo "**EKS Cluster:** $CLUSTER_NAME" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Update kubeconfig
+          echo "🔧 Updating kubeconfig..."
+          aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name $CLUSTER_NAME
+          
+          # For now, just verify cluster access
+          echo "🔍 Verifying cluster access..."
+          kubectl get nodes
+          kubectl get pods --all-namespaces
+          
+          echo "✅ EKS cluster access verified" >> $GITHUB_STEP_SUMMARY
+          echo "**Note:** EKS application deployment requires additional K8s manifests" >> $GITHUB_STEP_SUMMARY
 
       - name: Quick Infrastructure Validation
         working-directory: environments/terraform
@@ -405,6 +467,7 @@ jobs:
           echo "## 🎉 Staging Deployment Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Environment**: Staging" >> $GITHUB_STEP_SUMMARY
+          echo "**Platform**: ${{ steps.platform-vars.outputs.platform_name || 'Legacy' }}" >> $GITHUB_STEP_SUMMARY
           echo "**Workspace**: ${{ env.WORKSPACE }}" >> $GITHUB_STEP_SUMMARY
           echo "**Branch**: develop" >> $GITHUB_STEP_SUMMARY
           echo "**Status**: ✅ Deployed Successfully" >> $GITHUB_STEP_SUMMARY
