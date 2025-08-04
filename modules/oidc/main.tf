@@ -171,6 +171,9 @@ resource "aws_iam_role_policy" "terraform_permissions" {
           "arn:aws:iam::*:role/prod-*",
           "arn:aws:iam::*:role/production-*",
           "arn:aws:iam::*:role/cleanup-logs-lambda-*",
+          "arn:aws:iam::*:role/*-eks-cluster-*",
+          "arn:aws:iam::*:role/*-cluster-role",
+          "arn:aws:iam::*:role/*-node-group-role",
           "arn:aws:iam::*:policy/tf-playground-*",
           "arn:aws:iam::*:policy/staging-*",
           "arn:aws:iam::*:policy/dev-*",
@@ -187,9 +190,27 @@ resource "aws_iam_role_policy" "terraform_permissions" {
         Effect = "Allow"
         Action = [
           "iam:ListOpenIDConnectProviders",
-          "iam:GetOpenIDConnectProvider"
+          "iam:GetOpenIDConnectProvider",
+          "iam:CreateOpenIDConnectProvider",
+          "iam:DeleteOpenIDConnectProvider",
+          "iam:TagOpenIDConnectProvider",
+          "iam:UntagOpenIDConnectProvider"
         ]
         Resource = "*"
+      },
+      # Service-Linked Role permissions for EKS
+      {
+        Effect = "Allow"
+        Action = [
+          "iam:GetRole",
+          "iam:ListRoles",
+          "iam:CreateServiceLinkedRole"
+        ]
+        Resource = [
+          "arn:aws:iam::*:role/aws-service-role/*",
+          "arn:aws:iam::*:role/AWSServiceRoleForAmazonEKS*",
+          "arn:aws:iam::*:role/AWSServiceRoleForAmazonEKSNodegroup"
+        ]
       },
       # KMS permissions for AWS managed keys (limited scope)
       {
@@ -291,6 +312,14 @@ resource "aws_iam_role_policy" "terraform_permissions" {
         Effect = "Allow"
         Action = [
           "ecr:*"
+        ]
+        Resource = "*"
+      },
+      # EKS permissions for Kubernetes cluster management
+      {
+        Effect = "Allow"
+        Action = [
+          "eks:*"
         ]
         Resource = "*"
       }
