@@ -58,18 +58,35 @@ jobs:
   terraform-plan:
     name: Terraform Plan
     runs-on: ubuntu-latest
-    if: |
-      github.event_name == 'pull_request' && (
-        contains(github.event.pull_request.files.*.path, 'environments/') ||
-        contains(github.event.pull_request.files.*.path, 'modules/') ||
-        github.event.inputs.force_rebuild == 'true'
-      )
+    if: github.event_name == 'pull_request'
     
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           ref: ${{ github.head_ref || github.event.inputs.branch || 'main' }}
+          fetch-depth: 0  # Need full history for changed-files to work properly
+
+      - name: Check for Infrastructure Changes
+        uses: tj-actions/changed-files@v40
+        id: changed-files
+        with:
+          files: |
+            environments/**
+            modules/**
+            .github/workflows/production-terraform.yml
+
+      - name: Skip Plan if No Changes
+        if: steps.changed-files.outputs.any_changed != 'true'
+        run: |
+          echo "## ⏭️ Skipping Terraform Plan" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Reason**: No infrastructure changes detected" >> $GITHUB_STEP_SUMMARY
+          echo "**Changed files**: ${{ steps.changed-files.outputs.all_changed_files }}" >> $GITHUB_STEP_SUMMARY  
+          echo "**Files checked**: environments/**, modules/**, workflow file" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "ℹ️ Production plans only run when infrastructure files change" >> $GITHUB_STEP_SUMMARY
+          exit 0
 
       - name: Setup Terraform
         if: github.event_name == 'workflow_dispatch' || steps.changed-files.outputs.any_changed == 'true'
