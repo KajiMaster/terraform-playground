@@ -23,7 +23,26 @@ variable "azs" {
   type        = list(string)
 }
 
+# Feature flags for cost optimization
+variable "enable_private_subnets" {
+  description = "Enable private subnets and NAT Gateway"
+  type        = bool
+  default     = true
+}
 
+variable "enable_nat_gateway" {
+  description = "Enable NAT Gateway (requires private subnets)"
+  type        = bool
+  default     = true
+}
+
+
+
+variable "enable_eks" {
+  description = "Enable EKS cluster (affects security group creation)"
+  type        = bool
+  default     = false
+}
 
 variable "alb_security_group_id" {
   description = "Security group ID for the Application Load Balancer"
@@ -52,8 +71,8 @@ variable "enable_ecs" {
 
 # Variable removed - security group rules moved to individual modules
 
-variable "disable_asg" {
-  description = "Disable Auto Scaling Groups (when ECS is used instead)"
+variable "enable_asg" {
+  description = "Enable Auto Scaling Groups (disable when using ECS or EKS)"
   type        = bool
-  default     = false
+  default     = true
 } 

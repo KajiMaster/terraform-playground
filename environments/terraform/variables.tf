@@ -106,10 +106,10 @@ variable "environment_waf_use" {
 }
 
 # ECS Migration Variables
-variable "disable_asg" {
-  description = "Disable ASG and use ECS only"
+variable "enable_asg" {
+  description = "Enable Auto Scaling Groups (disable when using ECS or EKS)"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "enable_ecs" {
@@ -140,4 +140,112 @@ variable "create_nat_gateway" {
   description = "Whether to create NAT Gateway (cost consideration)"
   type        = bool
   default     = true
+}
+
+# Feature flags for cost optimization
+variable "enable_private_subnets" {
+  description = "Enable private subnets and NAT Gateway"
+  type        = bool
+  default     = true
+}
+
+variable "enable_nat_gateway" {
+  description = "Enable NAT Gateway (requires private subnets)"
+  type        = bool
+  default     = true
+}
+
+
+
+# EKS Configuration Variables
+variable "enable_eks" {
+  description = "Enable EKS cluster"
+  type        = bool
+  default     = false
+}
+
+variable "enable_node_groups" {
+  description = "Enable managed node groups (cheaper than Fargate)"
+  type        = bool
+  default     = true
+}
+
+variable "enable_fargate" {
+  description = "Enable Fargate profiles (more expensive but serverless)"
+  type        = bool
+  default     = false
+}
+
+variable "enable_monitoring" {
+  description = "Enable CloudWatch monitoring for EKS"
+  type        = bool
+  default     = false
+}
+
+variable "enable_alb_controller" {
+  description = "Enable AWS Load Balancer Controller"
+  type        = bool
+  default     = false
+}
+
+# Node group configuration
+variable "node_group_instance_types" {
+  description = "Instance types for node groups"
+  type        = list(string)
+  default     = ["t3.medium"]
+}
+
+variable "node_group_desired_size" {
+  description = "Desired number of nodes"
+  type        = number
+  default     = 1
+}
+
+variable "node_group_max_size" {
+  description = "Maximum number of nodes"
+  type        = number
+  default     = 2
+}
+
+variable "node_group_min_size" {
+  description = "Minimum number of nodes"
+  type        = number
+  default     = 1
+}
+
+# Flask Application Variables
+variable "flask_app_replicas" {
+  description = "Number of Flask app replicas"
+  type        = number
+  default     = 1
+}
+
+variable "flask_memory_request" {
+  description = "Memory request for Flask app containers"
+  type        = string
+  default     = "64Mi"
+}
+
+variable "flask_memory_limit" {
+  description = "Memory limit for Flask app containers"
+  type        = string
+  default     = "128Mi"
+}
+
+variable "flask_cpu_request" {
+  description = "CPU request for Flask app containers"
+  type        = string
+  default     = "50m"
+}
+
+variable "flask_cpu_limit" {
+  description = "CPU limit for Flask app containers"
+  type        = string
+  default     = "100m"
+}
+
+variable "image_tag" {
+  description = "Docker image tag for Flask app"
+  type        = string
+  default     = "latest"
 } 

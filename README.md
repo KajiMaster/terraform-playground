@@ -7,8 +7,10 @@ A comprehensive Terraform project demonstrating enterprise-grade Infrastructure-
 This project showcases advanced Terraform patterns and AWS infrastructure management, designed to demonstrate real-world enterprise skills including:
 
 - **Multi-environment Infrastructure** (dev, staging, production)
+- **Multi-pattern Deployment Support** (ASG, ECS, EKS) with conditional resource creation
 - **GitFlow CI/CD Workflow** with automated deployments
 - **Blue-Green Deployment** patterns with zero-downtime updates
+- **Cost-Optimized Architecture** with environment-specific resource patterns
 - **Modular Terraform Architecture** with reusable components
 - **Centralized Secrets Management** for cost optimization
 - **Automated Database Bootstrapping** via AWS SSM
@@ -120,6 +122,31 @@ modules/
 - **Encrypted secrets storage**
 - **Network security groups**
 - **SSL/TLS termination**
+
+## 🎛️ Deployment Patterns
+
+The infrastructure supports **three deployment patterns** with environment-specific optimizations:
+
+| Pattern | Use Case | Cost | Complexity |
+|---------|----------|------|------------|
+| **ASG** | Traditional EC2 | Medium | Low |
+| **ECS** | Containerized apps | Medium | Medium |
+| **EKS** | Kubernetes workloads | Low* | High |
+
+*EKS dev environments eliminate ALB costs (~$18/month savings)
+
+### Pattern Selection
+```hcl
+# Development (Cost-Optimized)
+enable_eks = true
+enable_private_subnets = false  # Saves NAT gateway costs
+
+# Production (Security-Focused)  
+enable_ecs = true
+enable_private_subnets = true   # Full network isolation
+```
+
+📖 **Detailed Implementation**: [EKS Implementation Project](docs/eks-implementation-project.md)
 
 ## 📁 Project Structure
 

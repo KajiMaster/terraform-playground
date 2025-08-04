@@ -55,9 +55,9 @@ resource "aws_subnet" "public" {
   }
 }
 
-# Private Subnets
+# Private Subnets (conditional)
 resource "aws_subnet" "private" {
-  count             = length(var.private_cidrs)
+  count             = var.enable_private_subnets ? length(var.private_cidrs) : 0
   vpc_id            = aws_vpc.main.id
   cidr_block        = var.private_cidrs[count.index]
   availability_zone = var.azs[count.index]
@@ -96,7 +96,7 @@ resource "aws_route_table_association" "public" {
 
 # NAT Gateway (cost optimized - can be shared across environments)
 resource "aws_eip" "nat" {
-  count = var.create_nat_gateway ? 1 : 0
+  count = (var.create_nat_gateway && var.enable_nat_gateway && var.enable_private_subnets) ? 1 : 0
 
   domain = "vpc"
 
@@ -109,7 +109,7 @@ resource "aws_eip" "nat" {
 }
 
 resource "aws_nat_gateway" "main" {
-  count = var.create_nat_gateway ? 1 : 0
+  count = (var.create_nat_gateway && var.enable_nat_gateway && var.enable_private_subnets) ? 1 : 0
 
   allocation_id = aws_eip.nat[0].id
   subnet_id     = aws_subnet.public[0].id
@@ -124,12 +124,13 @@ resource "aws_nat_gateway" "main" {
   depends_on = [aws_internet_gateway.main]
 }
 
-# Private Route Table
+# Private Route Table (conditional)
 resource "aws_route_table" "private" {
+  count  = var.enable_private_subnets ? 1 : 0
   vpc_id = aws_vpc.main.id
 
   dynamic "route" {
-    for_each = var.create_nat_gateway ? [1] : []
+    for_each = (var.create_nat_gateway && var.enable_nat_gateway) ? [1] : []
     content {
       cidr_block     = "0.0.0.0/0"
       nat_gateway_id = aws_nat_gateway.main[0].id
@@ -144,11 +145,11 @@ resource "aws_route_table" "private" {
   }
 }
 
-# Private Route Table Association
+# Private Route Table Association (conditional)
 resource "aws_route_table_association" "private" {
-  count          = length(var.private_cidrs)
+  count          = var.enable_private_subnets ? length(var.private_cidrs) : 0
   subnet_id      = aws_subnet.private[count.index].id
-  route_table_id = aws_route_table.private.id
+  route_table_id = aws_route_table.private[0].id
 }
 
 # Security Groups - Centralized Network Security
@@ -257,7 +258,7 @@ resource "aws_security_group" "alb" {
 
 # Separate security group rule to avoid circular dependency
 resource "aws_security_group_rule" "alb_webserver_egress" {
-  count = var.disable_asg ? 0 : 1  # Only create when ASG is enabled
+  count = var.enable_asg ? 1 : 0  # Only create when ASG is enabled
   
   type                     = "egress"
   from_port                = 8080
@@ -266,6 +267,118 @@ resource "aws_security_group_rule" "alb_webserver_egress" {
   source_security_group_id = aws_security_group.webserver.id
   security_group_id        = aws_security_group.alb.id
   description              = "Allow outbound traffic to webservers on port 8080"
+}
+
+# EKS Security Group
+resource "aws_security_group" "eks_nodes" {
+  count = var.enable_eks ? 1 : 0
+  
+  name        = "${var.environment}-eks-nodes-sg"
+  description = "Security group for EKS nodes"
+  vpc_id      = aws_vpc.main.id
+
+  # Allow all outbound traffic
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow all outbound traffic"
+  }
+
+  tags = {
+    Name        = "${var.environment}-eks-nodes-sg"
+    Environment = var.environment
+    Project     = "tf-playground"
+    ManagedBy   = "terraform"
+  }
+}
+
+# EKS Node Security Group Rules
+resource "aws_security_group_rule" "eks_nodes_ingress_self" {
+  count = var.enable_eks ? 1 : 0
+  
+  type              = "ingress"
+  from_port         = 0
+  to_port           = 65535
+  protocol          = "tcp"
+  security_group_id = aws_security_group.eks_nodes[0].id
+  source_security_group_id = aws_security_group.eks_nodes[0].id
+  description       = "Allow nodes to communicate with each other"
+}
+
+resource "aws_security_group_rule" "eks_nodes_ingress_control_plane" {
+  count = var.enable_eks ? 1 : 0
+  
+  type              = "ingress"
+  from_port         = 1025
+  to_port           = 65535
+  protocol          = "tcp"
+  security_group_id = aws_security_group.eks_nodes[0].id
+  cidr_blocks       = [var.vpc_cidr]
+  description       = "Allow control plane to communicate with nodes"
+}
+
+# EKS Pods Security Group
+resource "aws_security_group" "eks_pods" {
+  count = var.enable_eks ? 1 : 0
+  
+  name        = "${var.environment}-eks-pods-sg"
+  description = "Security group for EKS pods"
+  vpc_id      = aws_vpc.main.id
+
+  # Allow all outbound traffic
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow all outbound traffic"
+  }
+
+  tags = {
+    Name        = "${var.environment}-eks-pods-sg"
+    Environment = var.environment
+    Project     = "tf-playground"
+    ManagedBy   = "terraform"
+  }
+}
+
+# EKS Pod Security Group Rules
+resource "aws_security_group_rule" "eks_pods_ingress_alb" {
+  count = var.enable_eks ? 1 : 0
+  
+  type              = "ingress"
+  from_port         = 0
+  to_port           = 65535
+  protocol          = "tcp"
+  security_group_id = aws_security_group.eks_pods[0].id
+  source_security_group_id = aws_security_group.alb.id
+  description       = "Allow ALB to communicate with EKS pods"
+}
+
+resource "aws_security_group_rule" "eks_pods_ingress_nodes" {
+  count = var.enable_eks ? 1 : 0
+  
+  type              = "ingress"
+  from_port         = 0
+  to_port           = 65535
+  protocol          = "tcp"
+  security_group_id = aws_security_group.eks_pods[0].id
+  source_security_group_id = aws_security_group.eks_nodes[0].id
+  description       = "Allow EKS nodes to communicate with pods"
+}
+
+resource "aws_security_group_rule" "eks_pods_ingress_self" {
+  count = var.enable_eks ? 1 : 0
+  
+  type              = "ingress"
+  from_port         = 0
+  to_port           = 65535
+  protocol          = "tcp"
+  security_group_id = aws_security_group.eks_pods[0].id
+  source_security_group_id = aws_security_group.eks_pods[0].id
+  description       = "Allow pods to communicate with each other"
 }
 
 # ALB egress rule moved to load balancer module to avoid circular dependency

@@ -9,6 +9,11 @@ terraform {
       source  = "hashicorp/null"
       version = "~> 3.0"
     }
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = "~> 2.20"
+    }
+
   }
 }
 
@@ -31,6 +36,19 @@ provider "aws" {
   }
 }
 
+# Kubernetes provider configuration
+provider "kubernetes" {
+  host                   = var.enable_eks ? module.eks[0].cluster_endpoint : null
+  cluster_ca_certificate = var.enable_eks ? base64decode(module.eks[0].cluster_certificate_authority_data) : null
+  exec {
+    api_version = "client.authentication.k8s.io/v1beta1"
+    command     = "aws"
+    args        = ["eks", "get-token", "--cluster-name", var.enable_eks ? module.eks[0].cluster_name : ""]
+  }
+}
+
+
+
 # Remote state data source for global OIDC provider
 data "terraform_remote_state" "global" {
   backend = "s3"
@@ -52,7 +70,13 @@ module "networking" {
   azs           = var.availability_zones
   enable_ecs    = var.enable_ecs
   # ecs_tasks_security_group_id = local.ecs_tasks_security_group_id  # Moved to individual modules
-  disable_asg   = var.disable_asg
+  enable_asg    = var.enable_asg
+  enable_eks    = var.enable_eks
+  
+  # Environment pattern variables for networking logic
+  enable_private_subnets = var.enable_private_subnets
+  enable_nat_gateway     = var.enable_nat_gateway
+  create_nat_gateway     = var.create_nat_gateway
 }
 
 # Centralized Secrets Configuration
@@ -106,8 +130,9 @@ resource "aws_key_pair" "environment_key" {
   }
 }
 
-# Application Load Balancer Module
+# Application Load Balancer Module (conditionally created)
 module "loadbalancer" {
+  count = (var.enable_asg || var.enable_ecs) ? 1 : 0
   source = "../../modules/loadbalancer"
 
   environment       = var.environment
@@ -120,6 +145,8 @@ module "loadbalancer" {
   create_green_listener_rule = var.enable_ecs
   enable_ecs        = var.enable_ecs
   ecs_tasks_security_group_id = local.ecs_tasks_security_group_id
+  enable_eks        = false  # EKS environments don't use ALB
+  eks_pods_security_group_id = module.networking.eks_pods_security_group_id
 }
 
 # Database Module
@@ -128,6 +155,12 @@ module "database" {
   environment       = var.environment
   vpc_id            = module.networking.vpc_id
   private_subnets   = module.networking.private_subnet_ids
+  public_subnets    = module.networking.public_subnet_ids
+  
+  # Environment pattern variables
+  enable_private_subnets = var.enable_private_subnets
+  enable_nat_gateway     = var.enable_nat_gateway
+  
   db_instance_type  = var.db_instance_type
   db_name           = var.db_name
   db_username       = "tfplayground_user"
@@ -135,21 +168,25 @@ module "database" {
   security_group_id = module.networking.database_security_group_id
   enable_ecs        = var.enable_ecs
   ecs_tasks_security_group_id = local.ecs_tasks_security_group_id
-  enable_asg        = !var.disable_asg
+  enable_asg        = var.enable_asg
   webserver_security_group_id = module.networking.webserver_security_group_id
+  enable_eks        = var.enable_eks
+  eks_pods_security_group_id = module.networking.eks_pods_security_group_id
+  eks_nodes_security_group_id = module.networking.eks_nodes_security_group_id
+  eks_cluster_security_group_id = var.enable_eks ? module.eks[0].cluster_security_group_id : ""
 }
 
 # Blue Auto Scaling Group (conditionally created)
 module "blue_asg" {
-  count  = var.disable_asg ? 0 : 1
+  count  = var.enable_asg ? 1 : 0
   source = "../../modules/compute/asg"
 
   environment           = var.environment
   deployment_color      = "blue"
   vpc_id                = module.networking.vpc_id
   subnet_ids            = module.networking.public_subnet_ids
-  alb_security_group_id = module.loadbalancer.alb_security_group_id
-  target_group_arn      = module.loadbalancer.blue_target_group_arn
+  alb_security_group_id = var.enable_asg ? module.loadbalancer[0].alb_security_group_id : null
+  target_group_arn      = var.enable_asg ? module.loadbalancer[0].blue_target_group_arn : null
   instance_type         = var.webserver_instance_type
   ami_id                = var.ami_id
   desired_capacity      = var.blue_desired_capacity
@@ -167,15 +204,15 @@ module "blue_asg" {
 
 # Green Auto Scaling Group (conditionally created)
 module "green_asg" {
-  count  = var.disable_asg ? 0 : 1
+  count  = var.enable_asg ? 1 : 0
   source = "../../modules/compute/asg"
 
   environment           = var.environment
   deployment_color      = "green"
   vpc_id                = module.networking.vpc_id
   subnet_ids            = module.networking.public_subnet_ids
-  alb_security_group_id = module.loadbalancer.alb_security_group_id
-  target_group_arn      = module.loadbalancer.green_target_group_arn
+  alb_security_group_id = var.enable_asg ? module.loadbalancer[0].alb_security_group_id : null
+  target_group_arn      = var.enable_asg ? module.loadbalancer[0].green_target_group_arn : null
   instance_type         = var.webserver_instance_type
   ami_id                = var.ami_id
   desired_capacity      = var.green_desired_capacity
@@ -193,15 +230,46 @@ module "green_asg" {
 
 # SSM Module for Database Bootstrapping (conditionally created)
 module "ssm" {
-  count                 = var.disable_asg ? 0 : 1
+  count                 = var.enable_asg ? 1 : 0
   source                = "../../modules/ssm"
   environment           = var.environment
   webserver_instance_id = module.blue_asg[0].asg_id
-  webserver_public_ip   = module.loadbalancer.alb_dns_name
+  webserver_public_ip   = var.enable_asg ? module.loadbalancer[0].alb_dns_name : null
   database_endpoint     = module.database.db_instance_address
   database_name         = var.db_name
   database_username     = "tfplayground_user"
   database_password     = data.aws_secretsmanager_secret_version.db_password.secret_string
+}
+
+# EKS Module (conditionally created)
+module "eks" {
+  count  = var.enable_eks ? 1 : 0
+  source = "../../modules/eks"
+
+  environment = var.environment
+  cluster_name = "${var.environment}-eks-cluster"
+  vpc_id = module.networking.vpc_id
+  
+  # Subnet selection logic based on environment pattern:
+  # - Dev: Public subnets (no NAT needed)
+  # - Staging/Production: Private subnets (with NAT Gateway)
+  subnet_ids = module.networking.eks_subnet_ids
+  
+  # EKS configuration
+  enable_node_groups = var.enable_node_groups
+  enable_fargate = var.enable_fargate
+  enable_monitoring = var.enable_monitoring
+  enable_alb_controller = var.enable_alb_controller
+  
+  # Security groups
+  eks_nodes_security_group_id = module.networking.eks_nodes_security_group_id
+  eks_pods_security_group_id = module.networking.eks_pods_security_group_id
+  
+  # Node group configuration
+  node_group_instance_types = var.node_group_instance_types
+  node_group_desired_size = var.node_group_desired_size
+  node_group_max_size = var.node_group_max_size
+  node_group_min_size = var.node_group_min_size
 }
 
 # Logging Module
@@ -210,8 +278,8 @@ module "logging" {
 
   environment    = var.environment
   aws_region     = var.aws_region
-  alb_name       = module.loadbalancer.alb_name
-  alb_identifier = module.loadbalancer.alb_identifier
+  alb_name       = (var.enable_asg || var.enable_ecs) ? module.loadbalancer[0].alb_name : null
+  alb_identifier = (var.enable_asg || var.enable_ecs) ? module.loadbalancer[0].alb_identifier : null
 
   # Use log group names from global environment
   application_log_group_name = data.terraform_remote_state.global.outputs.application_log_groups[var.environment]
@@ -230,4 +298,149 @@ module "logging" {
 #   source_security_group_id = module.ecs[0].ecs_tasks_security_group_id
 #   security_group_id        = module.networking.alb_security_group_id
 #   description              = "Allow outbound traffic to ECS tasks on port 8080"
-# } 
+# }
+
+# Kubernetes Resources (when EKS is enabled)
+locals {
+  ecr_repository_url = data.terraform_remote_state.global.outputs.ecr_repository_url
+}
+
+# Data source for database password from Parameter Store
+data "aws_ssm_parameter" "db_password" {
+  count           = var.enable_eks ? 1 : 0
+  name            = "/tf-playground/all/db-password"
+  with_decryption = true
+}
+
+# Note: EKS node group information is available via module.eks[0].node_group_id
+# No need for data source since we're creating the node group in the same configuration
+
+# Kubernetes Secret for Database Password
+resource "kubernetes_secret" "db_password" {
+  count = var.enable_eks ? 1 : 0
+  
+  metadata {
+    name = "db-password"
+  }
+  
+  data = {
+    password = data.aws_ssm_parameter.db_password[0].value
+  }
+}
+
+# Flask Application Deployment
+resource "kubernetes_deployment" "flask_app" {
+  count = var.enable_eks ? 1 : 0
+  
+  metadata {
+    name = "${var.environment}-flask-app"
+    labels = {
+      app = "flask-app"
+      environment = var.environment
+    }
+  }
+  
+  spec {
+    replicas = var.flask_app_replicas
+    
+    selector {
+      match_labels = {
+        app = "flask-app"
+      }
+    }
+    
+    template {
+      metadata {
+        labels = {
+          app = "flask-app"
+          environment = var.environment
+        }
+      }
+      
+      spec {
+        container {
+          name  = "flask-app"
+          image = "${local.ecr_repository_url}:${var.image_tag}"
+          
+          port {
+            container_port = 8080
+          }
+          
+          env {
+            name  = "DB_HOST"
+            value = module.database.db_instance_address
+          }
+          
+          env {
+            name  = "DB_PORT"
+            value = "3306"
+          }
+          
+          env {
+            name  = "DB_NAME"
+            value = var.db_name
+          }
+          
+          env {
+            name  = "DB_USER"
+            value = "tfplayground_user"
+          }
+          
+          env {
+            name = "DB_PASSWORD"
+            value_from {
+              secret_key_ref {
+                name = kubernetes_secret.db_password[0].metadata[0].name
+                key  = "password"
+              }
+            }
+          }
+          
+          resources {
+            requests = {
+              memory = var.flask_memory_request
+              cpu    = var.flask_cpu_request
+            }
+            limits = {
+              memory = var.flask_memory_limit
+              cpu    = var.flask_cpu_limit
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+# Flask Application Service
+resource "kubernetes_service" "flask_app" {
+  count = var.enable_eks ? 1 : 0
+  
+  metadata {
+    name = "${var.environment}-flask-app-service"
+  }
+  
+  spec {
+    selector = {
+      app = "flask-app"
+    }
+    
+    port {
+      protocol    = "TCP"
+      port        = 8080
+      target_port = 8080
+    }
+    
+    type = "LoadBalancer"
+  }
+}
+
+# Note: Ingress resource removed - using LoadBalancer service type only
+# This avoids dependency on AWS Load Balancer Controller
+# The LoadBalancer service type automatically provisions a Classic ELB
+
+
+
+
+
+ 
