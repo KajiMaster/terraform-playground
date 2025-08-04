@@ -189,33 +189,33 @@ output "db_secret_arn" {
 output "application_url" {
   description = "URL to access the application"
   value = (var.enable_asg || var.enable_ecs) ? module.loadbalancer[0].alb_url : (
-    var.enable_eks ? "http://a3b392faa32d94e6a9db65bc0989f997-652733936.us-east-2.elb.amazonaws.com:8080" : "No load balancer configured"
+    var.enable_eks ? "http://${kubernetes_service.flask_app[0].status[0].load_balancer[0].ingress[0].hostname}:8080" : "No load balancer configured"
   )
 }
 
 output "health_check_url" {
   description = "URL for health checks"
   value = (var.enable_asg || var.enable_ecs) ? "${module.loadbalancer[0].alb_url}/health" : (
-    var.enable_eks ? "http://a3b392faa32d94e6a9db65bc0989f997-652733936.us-east-2.elb.amazonaws.com:8080/health/simple" : "No load balancer configured"
+    var.enable_eks ? "http://${kubernetes_service.flask_app[0].status[0].load_balancer[0].ingress[0].hostname}:8080/health/simple" : "No load balancer configured"
   )
 }
 
 output "deployment_validation_url" {
   description = "URL for deployment validation"
   value = (var.enable_asg || var.enable_ecs) ? "${module.loadbalancer[0].alb_url}/deployment/validate" : (
-    var.enable_eks ? "http://a3b392faa32d94e6a9db65bc0989f997-652733936.us-east-2.elb.amazonaws.com:8080/health/simple" : "No load balancer configured"
+    var.enable_eks ? "http://${kubernetes_service.flask_app[0].status[0].load_balancer[0].ingress[0].hostname}:8080/health/simple" : "No load balancer configured"
   )
 }
 
 # EKS LoadBalancer Service Outputs
 output "eks_loadbalancer_url" {
   description = "URL of the EKS LoadBalancer service"
-  value = var.enable_eks ? "http://a3b392faa32d94e6a9db65bc0989f997-652733936.us-east-2.elb.amazonaws.com:8080" : null
+  value = var.enable_eks ? "http://${kubernetes_service.flask_app[0].status[0].load_balancer[0].ingress[0].hostname}:8080" : null
 }
 
 output "eks_health_check_url" {
   description = "Health check URL for EKS LoadBalancer service"
-  value = var.enable_eks ? "http://a3b392faa32d94e6a9db65bc0989f997-652733936.us-east-2.elb.amazonaws.com:8080/health/simple" : null
+  value = var.enable_eks ? "http://${kubernetes_service.flask_app[0].status[0].load_balancer[0].ingress[0].hostname}:8080/health/simple" : null
 }
 
 # Environment Summary
@@ -227,7 +227,7 @@ output "environment_summary" {
     vpc_id            = module.networking.vpc_id
     alb_dns_name      = (var.enable_asg || var.enable_ecs) ? module.loadbalancer[0].alb_dns_name : null
     application_url   = (var.enable_asg || var.enable_ecs) ? module.loadbalancer[0].alb_url : (
-      var.enable_eks ? "http://a3b392faa32d94e6a9db65bc0989f997-652733936.us-east-2.elb.amazonaws.com:8080" : "No load balancer configured"
+      var.enable_eks ? "http://${kubernetes_service.flask_app[0].status[0].load_balancer[0].ingress[0].hostname}:8080" : "No load balancer configured"
     )
     blue_asg_name     = var.enable_asg ? module.blue_asg[0].asg_name : null
     green_asg_name    = var.enable_asg ? module.green_asg[0].asg_name : null

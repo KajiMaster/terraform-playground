@@ -27,19 +27,34 @@ resource "aws_cloudwatch_dashboard" "main" {
           type   = "metric"
           x      = 0
           y      = 0
-          width  = 12
+          width  = 6
           height = 6
           properties = {
             metrics = [
               ["AWS/ApplicationELB", "RequestCount", "LoadBalancer", var.alb_identifier],
-              [".", "TargetResponseTime", ".", "."],
-              [".", "HTTPCode_Target_5XX_Count", ".", "."],
+              [".", "TargetResponseTime", ".", "."]
+            ]
+            period = 300
+            stat   = "Sum"
+            region = var.aws_region
+            title  = "ALB Request & Response Time"
+          }
+        },
+        {
+          type   = "metric"
+          x      = 6
+          y      = 0
+          width  = 6
+          height = 6
+          properties = {
+            metrics = [
+              ["AWS/ApplicationELB", "HTTPCode_Target_5XX_Count", "LoadBalancer", var.alb_identifier],
               [".", "HTTPCode_Target_4XX_Count", ".", "."]
             ]
             period = 300
             stat   = "Sum"
             region = var.aws_region
-            title  = "Application Load Balancer Metrics"
+            title  = "ALB Error Rates"
           }
         }
       ] : [],
