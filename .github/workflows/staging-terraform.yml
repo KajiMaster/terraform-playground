@@ -128,6 +128,11 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: staging-plan-${{ github.run_id }}-${{ github.run_number }}
 
+      - name: Switch to Staging Backend
+        if: steps.check-files.outputs.should_run == 'true'
+        working-directory: environments/terraform
+        run: ./switch-env.sh staging
+
       - name: Terraform Init
         if: steps.check-files.outputs.should_run == 'true'
         working-directory: environments/terraform
@@ -267,6 +272,10 @@ jobs:
           role-to-assume: arn:aws:iam::123324351829:role/github-actions-global
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: staging-apply-${{ github.run_id }}-${{ github.run_number }}
+
+      - name: Switch to Staging Backend
+        working-directory: environments/terraform
+        run: ./switch-env.sh staging
 
       - name: Terraform Init
         working-directory: environments/terraform
