@@ -159,14 +159,41 @@ jobs:
       - name: Set Platform Variables
         if: steps.check-files.outputs.should_run == 'true'
         id: platform-vars
+        working-directory: environments/terraform
         run: |
-          if [ "${{ github.event.inputs.platform || 'ecs' }}" == "eks" ]; then
+          echo "## 🔍 Platform Detection (PR Plan)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Auto-detect platform from current Terraform state
+          echo "**Source**: Auto-detected from Terraform state" >> $GITHUB_STEP_SUMMARY
+          
+          # Check for EKS cluster in outputs
+          if terraform output eks_cluster_name >/dev/null 2>&1; then
+            PLATFORM="eks"
+            CLUSTER_NAME=$(terraform output -raw eks_cluster_name)
+            echo "**EKS Cluster Found**: $CLUSTER_NAME" >> $GITHUB_STEP_SUMMARY
+          # Check for ECS cluster in outputs  
+          elif terraform output ecs_cluster_name >/dev/null 2>&1; then
+            PLATFORM="ecs"
+            CLUSTER_NAME=$(terraform output -raw ecs_cluster_name)
+            echo "**ECS Cluster Found**: $CLUSTER_NAME" >> $GITHUB_STEP_SUMMARY
+          else
+            # Default to ECS for new deployments
+            PLATFORM="ecs"
+            echo "**No clusters found**: Defaulting to ECS for new deployment" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Set outputs based on detected platform
+          if [ "$PLATFORM" == "eks" ]; then
             echo "tfvars_file=working_eks_staging.tfvars" >> $GITHUB_OUTPUT
             echo "platform_name=EKS (Kubernetes)" >> $GITHUB_OUTPUT
           else
             echo "tfvars_file=working_ecs_staging.tfvars" >> $GITHUB_OUTPUT
             echo "platform_name=ECS (Fargate)" >> $GITHUB_OUTPUT
           fi
+          
+          echo "**Platform Selected**: $PLATFORM" >> $GITHUB_STEP_SUMMARY
+          echo "**Tfvars File**: $([ "$PLATFORM" == "eks" ] && echo "working_eks_staging.tfvars" || echo "working_ecs_staging.tfvars")" >> $GITHUB_STEP_SUMMARY
 
       - name: Terraform Plan
         if: steps.check-files.outputs.should_run == 'true'
@@ -320,14 +347,49 @@ jobs:
       - name: Set Platform Variables
         if: github.event_name == 'workflow_dispatch' || steps.changed-files.outputs.any_changed == 'true'
         id: platform-vars
+        working-directory: environments/terraform
         run: |
-          if [ "${{ github.event.inputs.platform }}" == "eks" ]; then
+          echo "## 🔍 Platform Detection" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # For workflow_dispatch, use the input parameter
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ github.event.inputs.platform }}" ]; then
+            PLATFORM="${{ github.event.inputs.platform }}"
+            echo "**Source**: Manual workflow input" >> $GITHUB_STEP_SUMMARY
+          else
+            # Auto-detect platform from current Terraform state
+            echo "**Source**: Auto-detected from Terraform state" >> $GITHUB_STEP_SUMMARY
+            
+            # Check for EKS cluster in outputs
+            if terraform output eks_cluster_name >/dev/null 2>&1; then
+              PLATFORM="eks"
+              CLUSTER_NAME=$(terraform output -raw eks_cluster_name)
+              echo "**EKS Cluster Found**: $CLUSTER_NAME" >> $GITHUB_STEP_SUMMARY
+            # Check for ECS cluster in outputs  
+            elif terraform output ecs_cluster_name >/dev/null 2>&1; then
+              PLATFORM="ecs"
+              CLUSTER_NAME=$(terraform output -raw ecs_cluster_name)
+              echo "**ECS Cluster Found**: $CLUSTER_NAME" >> $GITHUB_STEP_SUMMARY
+            else
+              # Default to ECS for new deployments
+              PLATFORM="ecs"
+              echo "**No clusters found**: Defaulting to ECS for new deployment" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+          
+          # Set outputs based on detected/selected platform
+          if [ "$PLATFORM" == "eks" ]; then
             echo "tfvars_file=working_eks_staging.tfvars" >> $GITHUB_OUTPUT
             echo "platform_name=EKS (Kubernetes)" >> $GITHUB_OUTPUT
+            echo "platform=eks" >> $GITHUB_OUTPUT
           else
             echo "tfvars_file=working_ecs_staging.tfvars" >> $GITHUB_OUTPUT
             echo "platform_name=ECS (Fargate)" >> $GITHUB_OUTPUT
+            echo "platform=ecs" >> $GITHUB_OUTPUT
           fi
+          
+          echo "**Platform Selected**: $PLATFORM" >> $GITHUB_STEP_SUMMARY
+          echo "**Tfvars File**: $([ "$PLATFORM" == "eks" ] && echo "working_eks_staging.tfvars" || echo "working_ecs_staging.tfvars")" >> $GITHUB_STEP_SUMMARY
 
       - name: Terraform Apply
         if: github.event_name == 'workflow_dispatch' || steps.changed-files.outputs.any_changed == 'true'
@@ -445,7 +507,7 @@ jobs:
           echo "**Reason:** Only infrastructure changes detected" >> $GITHUB_STEP_SUMMARY
 
       - name: Deploy to ECS
-        if: success() && github.event.inputs.platform == 'ecs'
+        if: success() && steps.platform-vars.outputs.platform == 'ecs'
         working-directory: environments/terraform
         run: |
           echo "## 🚀 Deploying to ECS (Fargate)" >> $GITHUB_STEP_SUMMARY
@@ -477,7 +539,7 @@ jobs:
           echo "**Service:** $BLUE_SERVICE" >> $GITHUB_STEP_SUMMARY
 
       - name: Deploy to EKS
-        if: success() && github.event.inputs.platform == 'eks'
+        if: success() && steps.platform-vars.outputs.platform == 'eks'
         working-directory: environments/terraform
         run: |
           echo "## 🚀 Deploying to EKS (Kubernetes)" >> $GITHUB_STEP_SUMMARY
