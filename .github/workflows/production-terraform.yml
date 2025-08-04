@@ -72,11 +72,13 @@ jobs:
           ref: ${{ github.head_ref || github.event.inputs.branch || 'main' }}
 
       - name: Setup Terraform
+        if: github.event_name == 'workflow_dispatch' || steps.changed-files.outputs.any_changed == 'true'
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
       - name: Clear AWS Credentials Cache
+        if: github.event_name == 'workflow_dispatch' || steps.changed-files.outputs.any_changed == 'true'
         run: |
           unset AWS_ACCESS_KEY_ID
           unset AWS_SECRET_ACCESS_KEY
@@ -87,6 +89,7 @@ jobs:
           echo "Cleared all AWS credentials cache"
 
       - name: Configure AWS Credentials
+        if: github.event_name == 'workflow_dispatch' || steps.changed-files.outputs.any_changed == 'true'
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::123324351829:role/github-actions-global
@@ -94,14 +97,16 @@ jobs:
           role-session-name: production-plan-${{ github.run_id }}-${{ github.run_number }}
 
       - name: Terraform Init
+        if: github.event_name == 'workflow_dispatch' || steps.changed-files.outputs.any_changed == 'true'
         working-directory: environments/terraform
         run: terraform init
 
       - name: Select Production Workspace
+        if: github.event_name == 'workflow_dispatch' || steps.changed-files.outputs.any_changed == 'true'
         working-directory: environments/terraform
         run: |
-          # Create workspace if it doesn't exist
-          terraform workspace new ${{ env.WORKSPACE }} || terraform workspace select ${{ env.WORKSPACE }}
+          # Select production workspace (must already exist)
+          terraform workspace select production
 
       - name: Terraform Plan
         working-directory: environments/terraform
@@ -162,24 +167,38 @@ jobs:
   terraform-apply:
     name: Terraform Apply
     runs-on: ubuntu-latest
-    if: |
-      (github.event_name == 'push' && github.ref == 'refs/heads/main' && (
-        contains(github.event.commits.*.modified, 'environments/') ||
-        contains(github.event.commits.*.added, 'environments/') ||
-        contains(github.event.commits.*.removed, 'environments/') ||
-        contains(github.event.commits.*.modified, 'modules/') ||
-        contains(github.event.commits.*.added, 'modules/') ||
-        contains(github.event.commits.*.removed, 'modules/')
-      )) ||
-      (github.event_name == 'workflow_dispatch' && (github.event.inputs.force_rebuild == 'true' || github.event.inputs.branch != ''))
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           ref: ${{ github.head_ref || github.event.inputs.branch || 'main' }}
+          fetch-depth: 0  # Need full history for changed-files to work properly
+
+      - name: Check for Infrastructure Changes
+        uses: tj-actions/changed-files@v40
+        id: changed-files
+        with:
+          files: |
+            environments/**
+            modules/**
+            .github/workflows/production-terraform.yml
+
+      - name: Skip Apply if No Changes
+        if: github.event_name == 'push' && steps.changed-files.outputs.any_changed != 'true'
+        run: |
+          echo "## ⏭️ Skipping Terraform Apply" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Reason**: No infrastructure changes detected" >> $GITHUB_STEP_SUMMARY
+          echo "**Changed files**: ${{ steps.changed-files.outputs.all_changed_files }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Files checked**: environments/**, modules/**, workflow file" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "ℹ️ To force apply anyway, use workflow_dispatch manual trigger" >> $GITHUB_STEP_SUMMARY
+          exit 0
 
       - name: Debug Branch and Files
+        if: github.event_name == 'workflow_dispatch' || steps.changed-files.outputs.any_changed == 'true'
         run: |
           echo "## 🔍 DEBUG INFORMATION" >> $GITHUB_STEP_SUMMARY
           echo "**Current Branch:** $(git branch --show-current)" >> $GITHUB_STEP_SUMMARY
@@ -198,11 +217,13 @@ jobs:
           fi
 
       - name: Setup Terraform
+        if: github.event_name == 'workflow_dispatch' || steps.changed-files.outputs.any_changed == 'true'
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
       - name: Clear AWS Credentials Cache
+        if: github.event_name == 'workflow_dispatch' || steps.changed-files.outputs.any_changed == 'true'
         run: |
           unset AWS_ACCESS_KEY_ID
           unset AWS_SECRET_ACCESS_KEY
@@ -213,6 +234,7 @@ jobs:
           echo "Cleared all AWS credentials cache"
 
       - name: Configure AWS Credentials
+        if: github.event_name == 'workflow_dispatch' || steps.changed-files.outputs.any_changed == 'true'
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::123324351829:role/github-actions-global
@@ -220,16 +242,19 @@ jobs:
           role-session-name: production-apply-${{ github.run_id }}-${{ github.run_number }}
 
       - name: Terraform Init
+        if: github.event_name == 'workflow_dispatch' || steps.changed-files.outputs.any_changed == 'true'
         working-directory: environments/terraform
         run: terraform init
 
       - name: Select Production Workspace
+        if: github.event_name == 'workflow_dispatch' || steps.changed-files.outputs.any_changed == 'true'
         working-directory: environments/terraform
         run: |
-          # Create workspace if it doesn't exist
-          terraform workspace new ${{ env.WORKSPACE }} || terraform workspace select ${{ env.WORKSPACE }}
+          # Select production workspace (must already exist)
+          terraform workspace select production
 
       - name: Terraform Apply
+        if: github.event_name == 'workflow_dispatch' || steps.changed-files.outputs.any_changed == 'true'
         working-directory: environments/terraform
         run: |
           terraform apply \
