@@ -35,6 +35,7 @@ on:
         options:
           - 'ecs'
           - 'eks'
+          - 'serverless'
       force_rebuild:
         description: 'Force rebuild infrastructure and containers'
         required: false
@@ -187,13 +188,16 @@ jobs:
           if [ "$PLATFORM" == "eks" ]; then
             echo "tfvars_file=working_eks_staging.tfvars" >> $GITHUB_OUTPUT
             echo "platform_name=EKS (Kubernetes)" >> $GITHUB_OUTPUT
+          elif [ "$PLATFORM" == "serverless" ]; then
+            echo "tfvars_file=serverless-staging.tfvars" >> $GITHUB_OUTPUT
+            echo "platform_name=Serverless (Lambda + API Gateway)" >> $GITHUB_OUTPUT
           else
             echo "tfvars_file=working_ecs_staging.tfvars" >> $GITHUB_OUTPUT
             echo "platform_name=ECS (Fargate)" >> $GITHUB_OUTPUT
           fi
           
           echo "**Platform Selected**: $PLATFORM" >> $GITHUB_STEP_SUMMARY
-          echo "**Tfvars File**: $([ "$PLATFORM" == "eks" ] && echo "working_eks_staging.tfvars" || echo "working_ecs_staging.tfvars")" >> $GITHUB_STEP_SUMMARY
+          echo "**Tfvars File**: $([ "$PLATFORM" == "eks" ] && echo "working_eks_staging.tfvars" || [ "$PLATFORM" == "serverless" ] && echo "serverless-staging.tfvars" || echo "working_ecs_staging.tfvars")" >> $GITHUB_STEP_SUMMARY
 
       - name: Terraform Plan
         if: steps.check-files.outputs.should_run == 'true'
@@ -382,6 +386,10 @@ jobs:
             echo "tfvars_file=working_eks_staging.tfvars" >> $GITHUB_OUTPUT
             echo "platform_name=EKS (Kubernetes)" >> $GITHUB_OUTPUT
             echo "platform=eks" >> $GITHUB_OUTPUT
+          elif [ "$PLATFORM" == "serverless" ]; then
+            echo "tfvars_file=serverless-staging.tfvars" >> $GITHUB_OUTPUT
+            echo "platform_name=Serverless (Lambda + API Gateway)" >> $GITHUB_OUTPUT
+            echo "platform=serverless" >> $GITHUB_OUTPUT
           else
             echo "tfvars_file=working_ecs_staging.tfvars" >> $GITHUB_OUTPUT
             echo "platform_name=ECS (Fargate)" >> $GITHUB_OUTPUT
@@ -389,7 +397,7 @@ jobs:
           fi
           
           echo "**Platform Selected**: $PLATFORM" >> $GITHUB_STEP_SUMMARY
-          echo "**Tfvars File**: $([ "$PLATFORM" == "eks" ] && echo "working_eks_staging.tfvars" || echo "working_ecs_staging.tfvars")" >> $GITHUB_STEP_SUMMARY
+          echo "**Tfvars File**: $([ "$PLATFORM" == "eks" ] && echo "working_eks_staging.tfvars" || [ "$PLATFORM" == "serverless" ] && echo "serverless-staging.tfvars" || echo "working_ecs_staging.tfvars")" >> $GITHUB_STEP_SUMMARY
 
       - name: Terraform Apply
         if: github.event_name == 'workflow_dispatch' || steps.changed-files.outputs.any_changed == 'true'
