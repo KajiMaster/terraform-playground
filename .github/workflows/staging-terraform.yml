@@ -165,23 +165,44 @@ jobs:
           echo "## 🔍 Platform Detection (PR Plan)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          # Auto-detect platform from current Terraform state
-          echo "**Source**: Auto-detected from Terraform state" >> $GITHUB_STEP_SUMMARY
+          # Check for manual platform override in PR comments
+          MANUAL_PLATFORM=""
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            # Get the latest comment that contains /plan
+            LATEST_COMMENT=$(gh pr view ${{ github.event.number }} --json comments --jq '.comments[-1].body' 2>/dev/null || echo "")
+            if echo "$LATEST_COMMENT" | grep -q "/plan serverless"; then
+              MANUAL_PLATFORM="serverless"
+              echo "**Source**: Manual override via PR comment '/plan serverless'" >> $GITHUB_STEP_SUMMARY
+            elif echo "$LATEST_COMMENT" | grep -q "/plan eks"; then
+              MANUAL_PLATFORM="eks"
+              echo "**Source**: Manual override via PR comment '/plan eks'" >> $GITHUB_STEP_SUMMARY
+            elif echo "$LATEST_COMMENT" | grep -q "/plan ecs"; then
+              MANUAL_PLATFORM="ecs"
+              echo "**Source**: Manual override via PR comment '/plan ecs'" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
           
-          # Check for EKS cluster in outputs
-          if terraform output eks_cluster_name >/dev/null 2>&1; then
-            PLATFORM="eks"
-            CLUSTER_NAME=$(terraform output -raw eks_cluster_name)
-            echo "**EKS Cluster Found**: $CLUSTER_NAME" >> $GITHUB_STEP_SUMMARY
-          # Check for ECS cluster in outputs  
-          elif terraform output ecs_cluster_name >/dev/null 2>&1; then
-            PLATFORM="ecs"
-            CLUSTER_NAME=$(terraform output -raw ecs_cluster_name)
-            echo "**ECS Cluster Found**: $CLUSTER_NAME" >> $GITHUB_STEP_SUMMARY
+          if [ -n "$MANUAL_PLATFORM" ]; then
+            PLATFORM="$MANUAL_PLATFORM"
           else
-            # Default to ECS for new deployments
-            PLATFORM="ecs"
-            echo "**No clusters found**: Defaulting to ECS for new deployment" >> $GITHUB_STEP_SUMMARY
+            # Auto-detect platform from current Terraform state
+            echo "**Source**: Auto-detected from Terraform state" >> $GITHUB_STEP_SUMMARY
+            
+            # Check for EKS cluster in outputs
+            if terraform output eks_cluster_name >/dev/null 2>&1; then
+              PLATFORM="eks"
+              CLUSTER_NAME=$(terraform output -raw eks_cluster_name)
+              echo "**EKS Cluster Found**: $CLUSTER_NAME" >> $GITHUB_STEP_SUMMARY
+            # Check for ECS cluster in outputs  
+            elif terraform output ecs_cluster_name >/dev/null 2>&1; then
+              PLATFORM="ecs"
+              CLUSTER_NAME=$(terraform output -raw ecs_cluster_name)
+              echo "**ECS Cluster Found**: $CLUSTER_NAME" >> $GITHUB_STEP_SUMMARY
+            else
+              # Default to ECS for new deployments
+              PLATFORM="ecs"
+              echo "**No clusters found**: Defaulting to ECS for new deployment" >> $GITHUB_STEP_SUMMARY
+            fi
           fi
           
           # Set outputs based on detected platform
