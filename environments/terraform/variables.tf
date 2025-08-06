@@ -248,4 +248,17 @@ variable "image_tag" {
   description = "Docker image tag for Flask app"
   type        = string
   default     = "latest"
+}
+
+# Serverless Architecture Toggle Variables
+variable "enable_rds" {
+  description = "Enable RDS database resources (disable for serverless architectures)"
+  type        = bool
+  default     = true
+}
+
+variable "enable_platform" {
+  description = "Enable platform resources (ASG/ECS/EKS/ALB - disable for pure serverless)"
+  type        = bool
+  default     = true
 } 

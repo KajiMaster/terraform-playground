@@ -35,6 +35,7 @@ on:
         options:
           - 'ecs'
           - 'eks'
+          - 'serverless'
       force_rebuild:
         description: 'Force rebuild infrastructure and containers'
         required: false
@@ -164,36 +165,60 @@ jobs:
           echo "## 🔍 Platform Detection (PR Plan)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          # Auto-detect platform from current Terraform state
-          echo "**Source**: Auto-detected from Terraform state" >> $GITHUB_STEP_SUMMARY
+          # Check for manual platform override in PR comments
+          MANUAL_PLATFORM=""
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            # Get the latest comment that contains /plan
+            LATEST_COMMENT=$(gh pr view ${{ github.event.number }} --json comments --jq '.comments[-1].body' 2>/dev/null || echo "")
+            if echo "$LATEST_COMMENT" | grep -q "/plan serverless"; then
+              MANUAL_PLATFORM="serverless"
+              echo "**Source**: Manual override via PR comment '/plan serverless'" >> $GITHUB_STEP_SUMMARY
+            elif echo "$LATEST_COMMENT" | grep -q "/plan eks"; then
+              MANUAL_PLATFORM="eks"
+              echo "**Source**: Manual override via PR comment '/plan eks'" >> $GITHUB_STEP_SUMMARY
+            elif echo "$LATEST_COMMENT" | grep -q "/plan ecs"; then
+              MANUAL_PLATFORM="ecs"
+              echo "**Source**: Manual override via PR comment '/plan ecs'" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
           
-          # Check for EKS cluster in outputs
-          if terraform output eks_cluster_name >/dev/null 2>&1; then
-            PLATFORM="eks"
-            CLUSTER_NAME=$(terraform output -raw eks_cluster_name)
-            echo "**EKS Cluster Found**: $CLUSTER_NAME" >> $GITHUB_STEP_SUMMARY
-          # Check for ECS cluster in outputs  
-          elif terraform output ecs_cluster_name >/dev/null 2>&1; then
-            PLATFORM="ecs"
-            CLUSTER_NAME=$(terraform output -raw ecs_cluster_name)
-            echo "**ECS Cluster Found**: $CLUSTER_NAME" >> $GITHUB_STEP_SUMMARY
+          if [ -n "$MANUAL_PLATFORM" ]; then
+            PLATFORM="$MANUAL_PLATFORM"
           else
-            # Default to ECS for new deployments
-            PLATFORM="ecs"
-            echo "**No clusters found**: Defaulting to ECS for new deployment" >> $GITHUB_STEP_SUMMARY
+            # Auto-detect platform from current Terraform state
+            echo "**Source**: Auto-detected from Terraform state" >> $GITHUB_STEP_SUMMARY
+            
+            # Check for EKS cluster in outputs
+            if terraform output eks_cluster_name >/dev/null 2>&1; then
+              PLATFORM="eks"
+              CLUSTER_NAME=$(terraform output -raw eks_cluster_name)
+              echo "**EKS Cluster Found**: $CLUSTER_NAME" >> $GITHUB_STEP_SUMMARY
+            # Check for ECS cluster in outputs  
+            elif terraform output ecs_cluster_name >/dev/null 2>&1; then
+              PLATFORM="ecs"
+              CLUSTER_NAME=$(terraform output -raw ecs_cluster_name)
+              echo "**ECS Cluster Found**: $CLUSTER_NAME" >> $GITHUB_STEP_SUMMARY
+            else
+              # Default to ECS for new deployments
+              PLATFORM="ecs"
+              echo "**No clusters found**: Defaulting to ECS for new deployment" >> $GITHUB_STEP_SUMMARY
+            fi
           fi
           
           # Set outputs based on detected platform
           if [ "$PLATFORM" == "eks" ]; then
             echo "tfvars_file=working_eks_staging.tfvars" >> $GITHUB_OUTPUT
             echo "platform_name=EKS (Kubernetes)" >> $GITHUB_OUTPUT
+          elif [ "$PLATFORM" == "serverless" ]; then
+            echo "tfvars_file=serverless-staging.tfvars" >> $GITHUB_OUTPUT
+            echo "platform_name=Serverless (Lambda + API Gateway)" >> $GITHUB_OUTPUT
           else
             echo "tfvars_file=working_ecs_staging.tfvars" >> $GITHUB_OUTPUT
             echo "platform_name=ECS (Fargate)" >> $GITHUB_OUTPUT
           fi
           
           echo "**Platform Selected**: $PLATFORM" >> $GITHUB_STEP_SUMMARY
-          echo "**Tfvars File**: $([ "$PLATFORM" == "eks" ] && echo "working_eks_staging.tfvars" || echo "working_ecs_staging.tfvars")" >> $GITHUB_STEP_SUMMARY
+          echo "**Tfvars File**: $([ "$PLATFORM" == "eks" ] && echo "working_eks_staging.tfvars" || [ "$PLATFORM" == "serverless" ] && echo "serverless-staging.tfvars" || echo "working_ecs_staging.tfvars")" >> $GITHUB_STEP_SUMMARY
 
       - name: Terraform Plan
         if: steps.check-files.outputs.should_run == 'true'
@@ -382,6 +407,10 @@ jobs:
             echo "tfvars_file=working_eks_staging.tfvars" >> $GITHUB_OUTPUT
             echo "platform_name=EKS (Kubernetes)" >> $GITHUB_OUTPUT
             echo "platform=eks" >> $GITHUB_OUTPUT
+          elif [ "$PLATFORM" == "serverless" ]; then
+            echo "tfvars_file=serverless-staging.tfvars" >> $GITHUB_OUTPUT
+            echo "platform_name=Serverless (Lambda + API Gateway)" >> $GITHUB_OUTPUT
+            echo "platform=serverless" >> $GITHUB_OUTPUT
           else
             echo "tfvars_file=working_ecs_staging.tfvars" >> $GITHUB_OUTPUT
             echo "platform_name=ECS (Fargate)" >> $GITHUB_OUTPUT
@@ -389,7 +418,7 @@ jobs:
           fi
           
           echo "**Platform Selected**: $PLATFORM" >> $GITHUB_STEP_SUMMARY
-          echo "**Tfvars File**: $([ "$PLATFORM" == "eks" ] && echo "working_eks_staging.tfvars" || echo "working_ecs_staging.tfvars")" >> $GITHUB_STEP_SUMMARY
+          echo "**Tfvars File**: $([ "$PLATFORM" == "eks" ] && echo "working_eks_staging.tfvars" || [ "$PLATFORM" == "serverless" ] && echo "serverless-staging.tfvars" || echo "working_ecs_staging.tfvars")" >> $GITHUB_STEP_SUMMARY
 
       - name: Terraform Apply
         if: github.event_name == 'workflow_dispatch' || steps.changed-files.outputs.any_changed == 'true'
