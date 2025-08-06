@@ -64,6 +64,111 @@ permissions:
   pull-requests: write
 
 jobs:
+  comment-plan:
+    name: Comment Triggered Plan
+    runs-on: ubuntu-latest
+    if: github.event_name == 'issue_comment' && github.event.issue.pull_request && startsWith(github.event.comment.body, '/plan')
+    
+    steps:
+      - name: Check Comment and Extract Platform
+        id: comment-check
+        run: |
+          COMMENT="${{ github.event.comment.body }}"
+          echo "Comment: $COMMENT"
+          
+          if echo "$COMMENT" | grep -q "/plan serverless"; then
+            PLATFORM="serverless"
+            TFVARS_FILE="serverless-staging.tfvars"
+          elif echo "$COMMENT" | grep -q "/plan eks"; then
+            PLATFORM="eks"
+            TFVARS_FILE="working_eks_staging.tfvars"
+          elif echo "$COMMENT" | grep -q "/plan ecs"; then
+            PLATFORM="ecs"
+            TFVARS_FILE="working_ecs_staging.tfvars"
+          else
+            echo "Invalid /plan command. Use: /plan serverless, /plan eks, or /plan ecs"
+            exit 1
+          fi
+          
+          echo "platform=$PLATFORM" >> $GITHUB_OUTPUT
+          echo "tfvars_file=$TFVARS_FILE" >> $GITHUB_OUTPUT
+          echo "Platform: $PLATFORM, Tfvars: $TFVARS_FILE"
+
+      - name: Checkout PR
+        uses: actions/checkout@v4
+        with:
+          token: ${{ github.token }}
+          ref: refs/pull/${{ github.event.issue.number }}/head
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::123324351829:role/github-actions-global
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: comment-plan-${{ github.run_id }}-${{ github.run_number }}
+
+      - name: Initialize Terraform Backend
+        working-directory: environments/terraform
+        run: |
+          terraform init
+          terraform workspace select staging
+
+      - name: Terraform Plan
+        working-directory: environments/terraform
+        run: |
+          terraform plan -var-file=${{ steps.comment-check.outputs.tfvars_file }} -out=comment-plan.tfplan
+        continue-on-error: true
+
+      - name: Comment Plan Results
+        uses: actions/github-script@v7
+        if: always()
+        with:
+          script: |
+            const fs = require('fs');
+            const { execSync } = require('child_process');
+            
+            let comment = `## 📋 Terraform Plan Results
+            
+            **Triggered by**: /plan ${{ steps.comment-check.outputs.platform }}
+            **Platform**: ${{ steps.comment-check.outputs.platform }}
+            **Tfvars File**: ${{ steps.comment-check.outputs.tfvars_file }}
+            **Environment**: Staging`;
+            
+            try {
+              const plan = execSync('cd environments/terraform && terraform show comment-plan.tfplan', { encoding: 'utf8' });
+              const cleanPlan = plan.replace(/\x1b\[[0-9;]*m/g, '');
+              
+              comment += `
+              
+              <details><summary>Click to expand plan output</summary>
+              
+              \`\`\`hcl
+              ${cleanPlan}
+              \`\`\`
+              
+              </details>`;
+            } catch (error) {
+              comment += `
+              
+              ❌ **Plan Failed**
+              
+              Check the workflow logs for details.
+              
+              Error: ${error.message}`;
+            }
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
   terraform-plan:
     name: Terraform Plan
     runs-on: ubuntu-latest
