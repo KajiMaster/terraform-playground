@@ -1,0 +1,34 @@
+name: Test Comment Trigger
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  test-comment:
+    name: Test Comment Response
+    runs-on: ubuntu-latest
+    if: github.event_name == 'issue_comment' && github.event.issue.pull_request
+    
+    steps:
+      - name: Debug Comment
+        run: |
+          echo "Comment received!"
+          echo "Event: ${{ github.event_name }}"
+          echo "Comment: ${{ github.event.comment.body }}"
+          echo "Is PR: ${{ !!github.event.issue.pull_request }}"
+          echo "User: ${{ github.event.comment.user.login }}"
+
+      - name: Reply to Comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `✅ Comment trigger test successful! 
+              
+              Comment was: "${context.payload.comment.body}"
+              Event: ${context.eventName}`
+            });
