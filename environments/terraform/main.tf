@@ -48,9 +48,6 @@ provider "kubernetes" {
 }
 
 
-# Delete line 51 - this does nothing, just a comment to trigger GHActionsest/comment-for-pr-for-gha-testing
-# Delete line 52 - this also does nohting just another comment.
-
 # Remote state data source for global OIDC provider
 data "terraform_remote_state" "global" {
   backend = "s3"
