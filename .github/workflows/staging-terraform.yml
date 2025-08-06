@@ -401,7 +401,7 @@ jobs:
   terraform-apply:
     name: Terraform Apply
     runs-on: ubuntu-latest
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/develop' && false) || github.event_name == 'workflow_dispatch'  # Temporarily disabled push auto-apply for testing
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop' || github.event_name == 'workflow_dispatch'
     
     steps:
       - name: Checkout
