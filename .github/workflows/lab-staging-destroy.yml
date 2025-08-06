@@ -3,6 +3,15 @@ name: Lab Staging Destroy
 on:
   workflow_dispatch:
     inputs:
+      platform:
+        description: 'Choose platform infrastructure to destroy'
+        required: true
+        default: 'serverless'
+        type: choice
+        options:
+          - 'serverless'
+          - 'ecs'
+          - 'eks'
       confirm_destroy:
         description: "Type 'DESTROY-STAGING' to confirm you want to destroy staging infrastructure"
         required: true
@@ -104,17 +113,44 @@ jobs:
           terraform workspace select "${{ env.WORKSPACE }}"
           echo "✅ Selected workspace: ${{ env.WORKSPACE }}"
 
+      - name: Set Platform Variables
+        id: platform-vars
+        run: |
+          PLATFORM="${{ github.event.inputs.platform }}"
+          
+          if [ "$PLATFORM" == "eks" ]; then
+            TFVARS_FILE="working_eks_${{ env.WORKSPACE }}.tfvars"
+            PLATFORM_NAME="EKS (Kubernetes)"
+          elif [ "$PLATFORM" == "ecs" ]; then
+            TFVARS_FILE="working_ecs_${{ env.WORKSPACE }}.tfvars"
+            PLATFORM_NAME="ECS (Fargate)"
+          else
+            TFVARS_FILE="serverless-${{ env.WORKSPACE }}.tfvars"
+            PLATFORM_NAME="Serverless (Lambda + API Gateway)"
+          fi
+          
+          echo "tfvars_file=$TFVARS_FILE" >> $GITHUB_OUTPUT
+          echo "platform_name=$PLATFORM_NAME" >> $GITHUB_OUTPUT
+          echo "platform=$PLATFORM" >> $GITHUB_OUTPUT
+          
+          echo "## 🔍 Platform Selection" >> $GITHUB_STEP_SUMMARY
+          echo "**Platform**: $PLATFORM_NAME" >> $GITHUB_STEP_SUMMARY
+          echo "**Tfvars File**: $TFVARS_FILE" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
       - name: Terraform Destroy
         working-directory: environments/terraform
         run: |
+          echo "🗑️ Destroying ${{ steps.platform-vars.outputs.platform_name }} infrastructure..."
           terraform destroy \
-            -var-file=working_ecs_${{ env.WORKSPACE }}.tfvars \
+            -var-file=${{ steps.platform-vars.outputs.tfvars_file }} \
             -auto-approve
 
       - name: Destroy Complete
         run: |
           echo "## 🧹 Staging Environment Destroyed" >> $GITHUB_STEP_SUMMARY
           echo "**Environment**: Staging" >> $GITHUB_STEP_SUMMARY
+          echo "**Platform**: ${{ steps.platform-vars.outputs.platform_name }}" >> $GITHUB_STEP_SUMMARY
           echo "**Workspace**: ${{ env.WORKSPACE }}" >> $GITHUB_STEP_SUMMARY
           echo "**Status**: ✅ Destroyed" >> $GITHUB_STEP_SUMMARY
           echo "**Time**: $(date)" >> $GITHUB_STEP_SUMMARY
@@ -122,4 +158,4 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Next Steps:" >> $GITHUB_STEP_SUMMARY
           echo "- **To rebuild**: Create a PR with changes to `environments/terraform/`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Or run manually**: Use the staging-terraform workflow" >> $GITHUB_STEP_SUMMARY 
+          echo "- **Or run manually**: Use the staging-terraform workflow with platform selection" >> $GITHUB_STEP_SUMMARY 

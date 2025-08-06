@@ -49,6 +49,7 @@ provider "kubernetes" {
 
 
 # Delete line 51 - this does nothing, just a comment to trigger GHActions
+
 # Remote state data source for global OIDC provider
 data "terraform_remote_state" "global" {
   backend = "s3"

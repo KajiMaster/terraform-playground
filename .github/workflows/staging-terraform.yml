@@ -32,12 +32,12 @@ on:
       platform:
         description: 'Choose compute platform to deploy'
         required: true
-        default: 'ecs'
+        default: 'serverless'
         type: choice
         options:
+          - 'serverless'
           - 'ecs'
           - 'eks'
-          - 'serverless'
       force_rebuild:
         description: 'Force rebuild infrastructure and containers'
         required: false
@@ -78,18 +78,16 @@ jobs:
           COMMENT="${{ github.event.comment.body }}"
           echo "Comment: $COMMENT"
           
-          if echo "$COMMENT" | grep -q "/plan serverless"; then
-            PLATFORM="serverless"
-            TFVARS_FILE="serverless-staging.tfvars"
-          elif echo "$COMMENT" | grep -q "/plan eks"; then
+          if echo "$COMMENT" | grep -q "/plan eks"; then
             PLATFORM="eks"
             TFVARS_FILE="working_eks_staging.tfvars"
           elif echo "$COMMENT" | grep -q "/plan ecs"; then
             PLATFORM="ecs"
             TFVARS_FILE="working_ecs_staging.tfvars"
           else
-            echo "Invalid /plan command. Use: /plan serverless, /plan eks, or /plan ecs"
-            exit 1
+            # Default to serverless for /plan, /plan serverless, or any other /plan variant
+            PLATFORM="serverless"
+            TFVARS_FILE="serverless-staging.tfvars"
           fi
           
           echo "platform=$PLATFORM" >> $GITHUB_OUTPUT
@@ -298,8 +296,8 @@ jobs:
             # Check if state has any resources first
             RESOURCE_COUNT=$(terraform state list 2>/dev/null | wc -l)
             if [ "$RESOURCE_COUNT" -eq 0 ]; then
-              PLATFORM="ecs"
-              echo "**Empty State**: Defaulting to ECS for new deployment" >> $GITHUB_STEP_SUMMARY
+              PLATFORM="serverless"
+              echo "**Empty State**: Defaulting to serverless for new deployment" >> $GITHUB_STEP_SUMMARY
             else
               # Check for EKS cluster in outputs
               if terraform output eks_cluster_name >/dev/null 2>&1; then
@@ -317,9 +315,9 @@ jobs:
                   PLATFORM="serverless"
                   echo "**Lambda Functions Found**: Detected serverless deployment" >> $GITHUB_STEP_SUMMARY
                 else
-                  # Default to ECS
-                  PLATFORM="ecs"
-                  echo "**No specific platform detected**: Defaulting to ECS" >> $GITHUB_STEP_SUMMARY
+                  # Default to serverless
+                  PLATFORM="serverless"
+                  echo "**No specific platform detected**: Defaulting to serverless" >> $GITHUB_STEP_SUMMARY
                 fi
               fi
             fi
@@ -401,7 +399,7 @@ jobs:
   terraform-apply:
     name: Terraform Apply
     runs-on: ubuntu-latest
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/develop' && false) || github.event_name == 'workflow_dispatch'  # Temporarily disabled push auto-apply for testing
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop' || github.event_name == 'workflow_dispatch'
     
     steps:
       - name: Checkout
@@ -500,7 +498,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           
           # Set platform from manual input
-          PLATFORM="${{ github.event.inputs.platform || 'ecs' }}"
+          PLATFORM="${{ github.event.inputs.platform || 'serverless' }}"
           
           # Set tfvars file based on platform
           if [ "$PLATFORM" == "eks" ]; then
@@ -555,9 +553,9 @@ jobs:
               CLUSTER_NAME=$(terraform output -raw ecs_cluster_name)
               echo "**ECS Cluster Found**: $CLUSTER_NAME" >> $GITHUB_STEP_SUMMARY
             else
-              # Default to ECS for new deployments
-              PLATFORM="ecs"
-              echo "**No clusters found**: Defaulting to ECS for new deployment" >> $GITHUB_STEP_SUMMARY
+              # Default to serverless for new deployments
+              PLATFORM="serverless"
+              echo "**No clusters found**: Defaulting to serverless for new deployment" >> $GITHUB_STEP_SUMMARY
             fi
           fi
           
