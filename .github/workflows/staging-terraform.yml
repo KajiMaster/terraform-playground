@@ -481,7 +481,7 @@ jobs:
           fi
 
       - name: Build and Push Docker Image
-        if: success() && steps.check-changes.outputs.has_changes == 'true'
+        if: success() && steps.check-changes.outputs.has_changes == 'true' && steps.platform-vars.outputs.platform != 'serverless'
         run: |
           echo "## 🐳 Building and Pushing Docker Image" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -527,13 +527,21 @@ jobs:
           echo "✅ Docker image built and pushed successfully" >> $GITHUB_STEP_SUMMARY
           echo "**Image:** $ECR_REPO:staging-latest" >> $GITHUB_STEP_SUMMARY
 
-      - name: Skip Docker Build
-        if: success() && steps.check-changes.outputs.has_changes == 'false'
+      - name: Skip Docker Build - No Changes
+        if: success() && steps.check-changes.outputs.has_changes == 'false' && steps.platform-vars.outputs.platform != 'serverless'
         run: |
           echo "## ⏭️ Skipping Docker Build" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "ℹ️ No application changes detected. Using existing image." >> $GITHUB_STEP_SUMMARY
           echo "**Reason:** Only infrastructure changes detected" >> $GITHUB_STEP_SUMMARY
+
+      - name: Skip Docker Build - Serverless Platform
+        if: success() && steps.platform-vars.outputs.platform == 'serverless'
+        run: |
+          echo "## ⏭️ Skipping Docker Build - Serverless Platform" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🚀 Serverless deployment doesn't require container images." >> $GITHUB_STEP_SUMMARY
+          echo "**Platform:** Lambda + API Gateway" >> $GITHUB_STEP_SUMMARY
 
       - name: Deploy to ECS
         if: success() && steps.platform-vars.outputs.platform == 'ecs'
