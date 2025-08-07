@@ -21,7 +21,7 @@ output "alb_zone_id" {
 # SSH Key Outputs
 output "ssh_key_name" {
   description = "Name of the SSH key pair"
-  value       = aws_key_pair.environment_key.key_name
+  value       = length(aws_key_pair.environment_key) > 0 ? aws_key_pair.environment_key[0].key_name : null
 }
 
 output "ssh_private_key" {
