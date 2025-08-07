@@ -66,10 +66,10 @@ permissions:
   pull-requests: write
 
 jobs:
-  comment-plan:
-    name: Comment Triggered Plan
+  comment-triggered:
+    name: Comment Triggered Plan/Apply
     runs-on: ubuntu-latest
-    if: github.event_name == 'issue_comment' && github.event.issue.pull_request && startsWith(github.event.comment.body, '/plan')
+    if: github.event_name == 'issue_comment' && github.event.issue.pull_request && (startsWith(github.event.comment.body, '/plan') || startsWith(github.event.comment.body, '/apply'))
     
     steps:
       - name: Check Comment and Extract Platform
@@ -78,21 +78,31 @@ jobs:
           COMMENT="${{ github.event.comment.body }}"
           echo "Comment: $COMMENT"
           
-          if echo "$COMMENT" | grep -q "/plan eks"; then
+          # Determine action (plan or apply)
+          if echo "$COMMENT" | grep -q "^/apply"; then
+            ACTION="apply"
+            echo "**🚀 APPLY ACTION DETECTED**"
+          else
+            ACTION="plan"
+          fi
+          
+          # Determine platform
+          if echo "$COMMENT" | grep -q "eks"; then
             PLATFORM="eks"
             TFVARS_FILE="working_eks_staging.tfvars"
-          elif echo "$COMMENT" | grep -q "/plan ecs"; then
+          elif echo "$COMMENT" | grep -q "ecs"; then
             PLATFORM="ecs"
             TFVARS_FILE="working_ecs_staging.tfvars"
           else
-            # Default to serverless for /plan, /plan serverless, or any other /plan variant
+            # Default to serverless for /plan, /plan serverless, /apply, /apply serverless
             PLATFORM="serverless"
             TFVARS_FILE="serverless-staging.tfvars"
           fi
           
+          echo "action=$ACTION" >> $GITHUB_OUTPUT
           echo "platform=$PLATFORM" >> $GITHUB_OUTPUT
           echo "tfvars_file=$TFVARS_FILE" >> $GITHUB_OUTPUT
-          echo "Platform: $PLATFORM, Tfvars: $TFVARS_FILE"
+          echo "Action: $ACTION, Platform: $PLATFORM, Tfvars: $TFVARS_FILE"
 
       - name: Checkout PR
         uses: actions/checkout@v4
@@ -119,55 +129,86 @@ jobs:
           terraform workspace select staging
 
       - name: Terraform Plan
+        if: steps.comment-check.outputs.action == 'plan'
         working-directory: environments/terraform
         run: |
           terraform plan -var-file=${{ steps.comment-check.outputs.tfvars_file }} -out=comment-plan.tfplan
         continue-on-error: true
 
-      - name: Comment Plan Results
+      - name: Terraform Apply
+        if: steps.comment-check.outputs.action == 'apply'
+        working-directory: environments/terraform
+        run: |
+          echo "🚀 Applying ${{ steps.comment-check.outputs.platform }} infrastructure..."
+          terraform apply -var-file=${{ steps.comment-check.outputs.tfvars_file }} -auto-approve
+
+      - name: Comment Results
         uses: actions/github-script@v7
         if: always()
         with:
           script: |
             const fs = require('fs');
             const { execSync } = require('child_process');
+            const action = '${{ steps.comment-check.outputs.action }}';
+            const platform = '${{ steps.comment-check.outputs.platform }}';
             
-            let comment = `## 📋 Terraform Plan Results
-            
-            **Triggered by**: /plan ${{ steps.comment-check.outputs.platform }}
-            **Platform**: ${{ steps.comment-check.outputs.platform }}
-            **Tfvars File**: ${{ steps.comment-check.outputs.tfvars_file }}
-            **Environment**: Staging`;
-            
-            try {
-              const plan = execSync('cd environments/terraform && terraform show comment-plan.tfplan', { encoding: 'utf8' });
-              const cleanPlan = plan.replace(/\x1b\[[0-9;]*m/g, '');
+            if (action === 'plan') {
+              let comment = `## 📋 Terraform Plan Results
               
-              comment += `
+              **Triggered by**: /${action} ${platform}
+              **Platform**: ${platform}
+              **Tfvars File**: ${{ steps.comment-check.outputs.tfvars_file }}
+              **Environment**: Staging`;
               
-              <details><summary>Click to expand plan output</summary>
+              try {
+                const plan = execSync('cd environments/terraform && terraform show comment-plan.tfplan', { encoding: 'utf8' });
+                const cleanPlan = plan.replace(/\x1b\[[0-9;]*m/g, '');
+                
+                comment += `
+                
+                <details><summary>Click to expand plan output</summary>
+                
+                \`\`\`hcl
+                ${cleanPlan}
+                \`\`\`
+                
+                </details>
+                
+                **Ready to apply?** Comment \`/apply ${platform}\` to deploy these changes.`;
+              } catch (error) {
+                comment += `
+                
+                ❌ **Plan Failed**
+                
+                Check the workflow logs for details.
+                
+                Error: ${error.message}`;
+              }
               
-              \`\`\`hcl
-              ${cleanPlan}
-              \`\`\`
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: comment
+              });
+            } else if (action === 'apply') {
+              let comment = `## 🚀 Terraform Apply Results
               
-              </details>`;
-            } catch (error) {
-              comment += `
+              **Triggered by**: /${action} ${platform}
+              **Platform**: ${platform}
+              **Tfvars File**: ${{ steps.comment-check.outputs.tfvars_file }}
+              **Environment**: Staging
+              **Status**: ✅ Applied Successfully
               
-              ❌ **Plan Failed**
+              Infrastructure has been deployed to staging environment.`;
               
-              Check the workflow logs for details.
-              
-              Error: ${error.message}`;
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: comment
+              });
             }
-            
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: comment
-            });
 
   terraform-plan:
     name: Terraform Plan (Auto)
@@ -399,7 +440,7 @@ jobs:
   terraform-apply:
     name: Terraform Apply
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/develop' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch'  # Only manual applies, no auto-apply on push
     
     steps:
       - name: Checkout
