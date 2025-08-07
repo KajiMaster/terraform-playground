@@ -32,7 +32,7 @@ output "ssh_private_key" {
 
 output "ssh_public_key" {
   description = "Public key content"
-  value       = data.aws_secretsmanager_secret_version.ssh_public.secret_string
+  value       = length(data.aws_secretsmanager_secret_version.ssh_public) > 0 ? data.aws_secretsmanager_secret_version.ssh_public[0].secret_string : null
   sensitive   = true
 }
 
@@ -232,7 +232,7 @@ output "environment_summary" {
     blue_asg_name     = var.enable_asg ? module.blue_asg[0].asg_name : null
     green_asg_name    = var.enable_asg ? module.green_asg[0].asg_name : null
     database_endpoint = var.enable_rds ? module.database[0].db_instance_endpoint : "serverless-architecture"
-    ssh_key_name      = aws_key_pair.environment_key.key_name
+    ssh_key_name      = length(aws_key_pair.environment_key) > 0 ? aws_key_pair.environment_key[0].key_name : null
   }
 }
 
