@@ -21,7 +21,7 @@ output "alb_zone_id" {
 # SSH Key Outputs
 output "ssh_key_name" {
   description = "Name of the SSH key pair"
-  value       = aws_key_pair.environment_key.key_name
+  value       = length(aws_key_pair.environment_key) > 0 ? aws_key_pair.environment_key[0].key_name : null
 }
 
 output "ssh_private_key" {
@@ -32,7 +32,7 @@ output "ssh_private_key" {
 
 output "ssh_public_key" {
   description = "Public key content"
-  value       = data.aws_secretsmanager_secret_version.ssh_public.secret_string
+  value       = length(data.aws_secretsmanager_secret_version.ssh_public) > 0 ? data.aws_secretsmanager_secret_version.ssh_public[0].secret_string : null
   sensitive   = true
 }
 
@@ -120,20 +120,20 @@ output "eks_node_group_status" {
   value       = var.enable_eks ? module.eks[0].node_group_status : null
 }
 
-# Database Outputs
+# Database Outputs (conditional on enable_rds)
 output "database_endpoint" {
   description = "The connection endpoint of the RDS instance"
-  value       = module.database.db_instance_endpoint
+  value       = var.enable_rds ? module.database[0].db_instance_endpoint : null
 }
 
 output "database_name" {
   description = "The database name"
-  value       = module.database.db_instance_name
+  value       = var.enable_rds ? module.database[0].db_instance_name : null
 }
 
 output "database_port" {
   description = "The database port"
-  value       = module.database.db_instance_port
+  value       = var.enable_rds ? module.database[0].db_instance_port : null
 }
 
 # Network Outputs
@@ -170,19 +170,19 @@ output "db_username" {
 }
 
 output "db_password" {
-  description = "Database password (sensitive)"
-  value       = data.aws_secretsmanager_secret_version.db_password.secret_string
+  description = "Database password from Parameter Store (sensitive)"
+  value       = var.enable_rds ? data.aws_ssm_parameter.db_password[0].value : null
   sensitive   = true
 }
 
 output "db_secret_name" {
-  description = "Name of the centralized database credentials secret"
-  value       = data.aws_secretsmanager_secret.db_password.name
+  description = "Name of the centralized database credentials parameter"
+  value       = var.enable_rds ? "/tf-playground/all/db-password" : null
 }
 
 output "db_secret_arn" {
-  description = "ARN of the centralized database credentials secret"
-  value       = data.aws_secretsmanager_secret.db_password.arn
+  description = "ARN of the centralized database credentials parameter"
+  value       = var.enable_rds ? data.aws_ssm_parameter.db_password[0].arn : null
 }
 
 # Application URLs
@@ -231,8 +231,8 @@ output "environment_summary" {
     )
     blue_asg_name     = var.enable_asg ? module.blue_asg[0].asg_name : null
     green_asg_name    = var.enable_asg ? module.green_asg[0].asg_name : null
-    database_endpoint = module.database.db_instance_endpoint
-    ssh_key_name      = aws_key_pair.environment_key.key_name
+    database_endpoint = var.enable_rds ? module.database[0].db_instance_endpoint : "serverless-architecture"
+    ssh_key_name      = length(aws_key_pair.environment_key) > 0 ? aws_key_pair.environment_key[0].key_name : null
   }
 }
 

@@ -3,7 +3,7 @@
 
 # ECS Module (conditionally created)
 module "ecs" {
-  count  = var.enable_ecs ? 1 : 0
+  count  = var.enable_platform && var.enable_ecs ? 1 : 0
   source = "../../modules/ecs"
 
   environment = local.environment
@@ -19,13 +19,13 @@ module "ecs" {
   alb_security_group_id = module.networking.alb_security_group_id
 
   # Load Balancer Integration (uses existing ALB)
-  blue_target_group_arn  = var.enable_ecs ? module.loadbalancer[0].blue_target_group_arn : null
-  green_target_group_arn = var.enable_ecs ? module.loadbalancer[0].green_target_group_arn : null
+  blue_target_group_arn  = (var.enable_platform && var.enable_ecs) ? module.loadbalancer[0].blue_target_group_arn : null
+  green_target_group_arn = (var.enable_platform && var.enable_ecs) ? module.loadbalancer[0].green_target_group_arn : null
 
   # Database Configuration
-  db_host = module.database.db_instance_address
+  db_host = var.enable_rds ? module.database[0].db_instance_address : ""
   db_user = "tfplayground_user"
-  db_password = data.aws_secretsmanager_secret_version.db_password.secret_string
+  db_password = var.enable_rds ? data.aws_ssm_parameter.db_password[0].value : ""
   db_name = var.db_name
 
   # Logging (uses existing CloudWatch log groups)

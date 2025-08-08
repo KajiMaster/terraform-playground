@@ -48,6 +48,7 @@ provider "kubernetes" {
 }
 
 
+# Delete line 51 - this does nothing, just a comment to trigger GHActions
 
 # Remote state data source for global OIDC provider
 data "terraform_remote_state" "global" {
@@ -79,23 +80,21 @@ module "networking" {
   create_nat_gateway     = var.create_nat_gateway
 }
 
-# Centralized Secrets Configuration
+# Centralized Parameter Store Configuration
 locals {
-  db_password_secret_name     = "/tf-playground/all/db-pword"
+  db_password_parameter_name  = "/tf-playground/all/db-password"
   ssh_private_key_secret_name = "/tf-playground/all/ssh-key"
   ssh_public_key_secret_name  = "/tf-playground/all/ssh-key-public"
   
   # ECS Tasks Security Group ID (for database access)
-  ecs_tasks_security_group_id = var.enable_ecs ? module.ecs[0].ecs_tasks_security_group_id : null
+  ecs_tasks_security_group_id = (var.enable_platform && var.enable_ecs) ? module.ecs[0].ecs_tasks_security_group_id : null
 }
 
-# Get centralized database password
-data "aws_secretsmanager_secret" "db_password" {
-  name = local.db_password_secret_name
-}
-
-data "aws_secretsmanager_secret_version" "db_password" {
-  secret_id = data.aws_secretsmanager_secret.db_password.id
+# Get centralized database password from Parameter Store (only when RDS is enabled)
+data "aws_ssm_parameter" "db_password" {
+  count           = var.enable_rds ? 1 : 0
+  name            = local.db_password_parameter_name
+  with_decryption = true
 }
 
 # Get centralized SSH private key
@@ -109,17 +108,21 @@ data "aws_secretsmanager_secret_version" "ssh_private" {
 
 # Get centralized SSH public key
 data "aws_secretsmanager_secret" "ssh_public" {
-  name = local.ssh_public_key_secret_name
+  count = var.enable_platform && (var.enable_ecs || var.enable_eks) ? 1 : 0
+  name  = local.ssh_public_key_secret_name
 }
 
 data "aws_secretsmanager_secret_version" "ssh_public" {
-  secret_id = data.aws_secretsmanager_secret.ssh_public.id
+  count     = var.enable_platform && (var.enable_ecs || var.enable_eks) ? 1 : 0
+  secret_id = data.aws_secretsmanager_secret.ssh_public[0].id
 }
 
 # Create environment-specific AWS key pair using centralized SSH public key
 resource "aws_key_pair" "environment_key" {
+  count = var.enable_platform && (var.enable_ecs || var.enable_eks) ? 1 : 0
+  
   key_name   = "tf-playground-${local.environment}-key"
-  public_key = data.aws_secretsmanager_secret_version.ssh_public.secret_string
+  public_key = data.aws_secretsmanager_secret_version.ssh_public[0].secret_string
 
   tags = {
     Name        = "tf-playground-${local.environment}-key"
@@ -132,7 +135,7 @@ resource "aws_key_pair" "environment_key" {
 
 # Application Load Balancer Module (conditionally created)
 module "loadbalancer" {
-  count = (var.enable_asg || var.enable_ecs) ? 1 : 0
+  count = var.enable_platform && (var.enable_asg || var.enable_ecs) ? 1 : 0
   source = "../../modules/loadbalancer"
 
   environment       = var.environment
@@ -149,8 +152,9 @@ module "loadbalancer" {
   eks_pods_security_group_id = module.networking.eks_pods_security_group_id
 }
 
-# Database Module
+# Database Module (conditionally created)
 module "database" {
+  count = var.enable_rds ? 1 : 0
   source            = "../../modules/database"
   environment       = var.environment
   vpc_id            = module.networking.vpc_id
@@ -164,7 +168,7 @@ module "database" {
   db_instance_type  = var.db_instance_type
   db_name           = var.db_name
   db_username       = "tfplayground_user"
-  db_password       = data.aws_secretsmanager_secret_version.db_password.secret_string
+  db_password       = data.aws_ssm_parameter.db_password[0].value
   security_group_id = module.networking.database_security_group_id
   enable_ecs        = var.enable_ecs
   ecs_tasks_security_group_id = local.ecs_tasks_security_group_id
@@ -178,72 +182,72 @@ module "database" {
 
 # Blue Auto Scaling Group (conditionally created)
 module "blue_asg" {
-  count  = var.enable_asg ? 1 : 0
+  count  = var.enable_platform && var.enable_asg ? 1 : 0
   source = "../../modules/compute/asg"
 
   environment           = var.environment
   deployment_color      = "blue"
   vpc_id                = module.networking.vpc_id
   subnet_ids            = module.networking.public_subnet_ids
-  alb_security_group_id = var.enable_asg ? module.loadbalancer[0].alb_security_group_id : null
-  target_group_arn      = var.enable_asg ? module.loadbalancer[0].blue_target_group_arn : null
+  alb_security_group_id = (var.enable_platform && var.enable_asg) ? module.loadbalancer[0].alb_security_group_id : null
+  target_group_arn      = (var.enable_platform && var.enable_asg) ? module.loadbalancer[0].blue_target_group_arn : null
   instance_type         = var.webserver_instance_type
   ami_id                = var.ami_id
   desired_capacity      = var.blue_desired_capacity
   max_size              = var.blue_max_size
   min_size              = var.blue_min_size
-  db_host               = module.database.db_instance_address
+  db_host               = var.enable_rds ? module.database[0].db_instance_address : ""
   db_name               = var.db_name
   db_user               = "tfplayground_user"
-  db_password           = data.aws_secretsmanager_secret_version.db_password.secret_string
+  db_password           = var.enable_rds ? data.aws_ssm_parameter.db_password[0].value : ""
   security_group_id     = module.networking.webserver_security_group_id
-  key_name              = aws_key_pair.environment_key.key_name
+  key_name              = length(aws_key_pair.environment_key) > 0 ? aws_key_pair.environment_key[0].key_name : null
   application_log_group_name = data.terraform_remote_state.global.outputs.application_log_groups[var.environment]
   system_log_group_name      = data.terraform_remote_state.global.outputs.system_log_groups[var.environment]
 }
 
 # Green Auto Scaling Group (conditionally created)
 module "green_asg" {
-  count  = var.enable_asg ? 1 : 0
+  count  = var.enable_platform && var.enable_asg ? 1 : 0
   source = "../../modules/compute/asg"
 
   environment           = var.environment
   deployment_color      = "green"
   vpc_id                = module.networking.vpc_id
   subnet_ids            = module.networking.public_subnet_ids
-  alb_security_group_id = var.enable_asg ? module.loadbalancer[0].alb_security_group_id : null
-  target_group_arn      = var.enable_asg ? module.loadbalancer[0].green_target_group_arn : null
+  alb_security_group_id = (var.enable_platform && var.enable_asg) ? module.loadbalancer[0].alb_security_group_id : null
+  target_group_arn      = (var.enable_platform && var.enable_asg) ? module.loadbalancer[0].green_target_group_arn : null
   instance_type         = var.webserver_instance_type
   ami_id                = var.ami_id
   desired_capacity      = var.green_desired_capacity
   max_size              = var.green_max_size
   min_size              = var.green_min_size
-  db_host               = module.database.db_instance_address
+  db_host               = var.enable_rds ? module.database[0].db_instance_address : ""
   db_name               = var.db_name
   db_user               = "tfplayground_user"
-  db_password           = data.aws_secretsmanager_secret_version.db_password.secret_string
+  db_password           = var.enable_rds ? data.aws_ssm_parameter.db_password[0].value : ""
   security_group_id     = module.networking.webserver_security_group_id
-  key_name              = aws_key_pair.environment_key.key_name
+  key_name              = length(aws_key_pair.environment_key) > 0 ? aws_key_pair.environment_key[0].key_name : null
   application_log_group_name = data.terraform_remote_state.global.outputs.application_log_groups[var.environment]
   system_log_group_name      = data.terraform_remote_state.global.outputs.system_log_groups[var.environment]
 }
 
 # SSM Module for Database Bootstrapping (conditionally created)
 module "ssm" {
-  count                 = var.enable_asg ? 1 : 0
+  count                 = var.enable_platform && var.enable_asg && var.enable_rds ? 1 : 0
   source                = "../../modules/ssm"
   environment           = var.environment
   webserver_instance_id = module.blue_asg[0].asg_id
-  webserver_public_ip   = var.enable_asg ? module.loadbalancer[0].alb_dns_name : null
-  database_endpoint     = module.database.db_instance_address
+  webserver_public_ip   = (var.enable_platform && var.enable_asg) ? module.loadbalancer[0].alb_dns_name : null
+  database_endpoint     = module.database[0].db_instance_address
   database_name         = var.db_name
   database_username     = "tfplayground_user"
-  database_password     = data.aws_secretsmanager_secret_version.db_password.secret_string
+  database_password     = data.aws_ssm_parameter.db_password[0].value
 }
 
 # EKS Module (conditionally created)
 module "eks" {
-  count  = var.enable_eks ? 1 : 0
+  count  = var.enable_platform && var.enable_eks ? 1 : 0
   source = "../../modules/eks"
 
   environment = var.environment
@@ -278,8 +282,8 @@ module "logging" {
 
   environment    = var.environment
   aws_region     = var.aws_region
-  alb_name       = (var.enable_asg || var.enable_ecs) ? module.loadbalancer[0].alb_name : null
-  alb_identifier = (var.enable_asg || var.enable_ecs) ? module.loadbalancer[0].alb_identifier : null
+  alb_name       = var.enable_platform && (var.enable_asg || var.enable_ecs) ? module.loadbalancer[0].alb_name : null
+  alb_identifier = var.enable_platform && (var.enable_asg || var.enable_ecs) ? module.loadbalancer[0].alb_identifier : null
 
   # Use log group names from global environment
   application_log_group_name = data.terraform_remote_state.global.outputs.application_log_groups[var.environment]
@@ -305,19 +309,14 @@ locals {
   ecr_repository_url = data.terraform_remote_state.global.outputs.ecr_repository_url
 }
 
-# Data source for database password from Parameter Store
-data "aws_ssm_parameter" "db_password" {
-  count           = var.enable_eks ? 1 : 0
-  name            = "/tf-playground/all/db-password"
-  with_decryption = true
-}
+# Note: Database password from Parameter Store is defined above for all modules
 
 # Note: EKS node group information is available via module.eks[0].node_group_id
 # No need for data source since we're creating the node group in the same configuration
 
-# Kubernetes Secret for Database Password
+# Kubernetes Secret for Database Password (only when both EKS and RDS are enabled)
 resource "kubernetes_secret" "db_password" {
-  count = var.enable_eks ? 1 : 0
+  count = (var.enable_platform && var.enable_eks && var.enable_rds) ? 1 : 0
   
   metadata {
     name = "db-password"
@@ -330,7 +329,7 @@ resource "kubernetes_secret" "db_password" {
 
 # Flask Application Deployment
 resource "kubernetes_deployment" "flask_app" {
-  count = var.enable_eks ? 1 : 0
+  count = var.enable_platform && var.enable_eks ? 1 : 0
   
   metadata {
     name = "${var.environment}-flask-app"
@@ -368,7 +367,7 @@ resource "kubernetes_deployment" "flask_app" {
           
           env {
             name  = "DB_HOST"
-            value = module.database.db_instance_address
+            value = var.enable_rds ? module.database[0].db_instance_address : ""
           }
           
           env {
@@ -414,7 +413,7 @@ resource "kubernetes_deployment" "flask_app" {
 
 # Flask Application Service
 resource "kubernetes_service" "flask_app" {
-  count = var.enable_eks ? 1 : 0
+  count = var.enable_platform && var.enable_eks ? 1 : 0
   
   metadata {
     name = "${var.environment}-flask-app-service"

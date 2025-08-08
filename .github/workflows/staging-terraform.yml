@@ -15,6 +15,8 @@ on:
       - 'modules/secrets/**'
       - 'docs/**'
       - 'scripts/**'
+  issue_comment:
+    types: [created]
   push:
     branches: [develop]
     paths-ignore:
@@ -30,9 +32,10 @@ on:
       platform:
         description: 'Choose compute platform to deploy'
         required: true
-        default: 'ecs'
+        default: 'serverless'
         type: choice
         options:
+          - 'serverless'
           - 'ecs'
           - 'eks'
       force_rebuild:
@@ -63,8 +66,152 @@ permissions:
   pull-requests: write
 
 jobs:
+  comment-triggered:
+    name: Comment Triggered Plan/Apply
+    runs-on: ubuntu-latest
+    if: github.event_name == 'issue_comment' && github.event.issue.pull_request && (startsWith(github.event.comment.body, '/plan') || startsWith(github.event.comment.body, '/apply'))
+    
+    steps:
+      - name: Check Comment and Extract Platform
+        id: comment-check
+        run: |
+          COMMENT="${{ github.event.comment.body }}"
+          echo "Comment: $COMMENT"
+          
+          # Determine action (plan or apply)
+          if echo "$COMMENT" | grep -q "^/apply"; then
+            ACTION="apply"
+            echo "**🚀 APPLY ACTION DETECTED**"
+          else
+            ACTION="plan"
+          fi
+          
+          # Determine platform
+          if echo "$COMMENT" | grep -q "eks"; then
+            PLATFORM="eks"
+            TFVARS_FILE="working_eks_staging.tfvars"
+          elif echo "$COMMENT" | grep -q "ecs"; then
+            PLATFORM="ecs"
+            TFVARS_FILE="working_ecs_staging.tfvars"
+          else
+            # Default to serverless for /plan, /plan serverless, /apply, /apply serverless
+            PLATFORM="serverless"
+            TFVARS_FILE="serverless-staging.tfvars"
+          fi
+          
+          echo "action=$ACTION" >> $GITHUB_OUTPUT
+          echo "platform=$PLATFORM" >> $GITHUB_OUTPUT
+          echo "tfvars_file=$TFVARS_FILE" >> $GITHUB_OUTPUT
+          echo "Action: $ACTION, Platform: $PLATFORM, Tfvars: $TFVARS_FILE"
+
+      - name: Checkout PR
+        uses: actions/checkout@v4
+        with:
+          token: ${{ github.token }}
+          ref: refs/pull/${{ github.event.issue.number }}/head
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::123324351829:role/github-actions-global
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: comment-plan-${{ github.run_id }}-${{ github.run_number }}
+
+      - name: Initialize Terraform Backend
+        working-directory: environments/terraform
+        run: |
+          terraform init
+          terraform workspace select staging
+
+      - name: Terraform Plan
+        if: steps.comment-check.outputs.action == 'plan'
+        working-directory: environments/terraform
+        run: |
+          terraform plan -var-file=${{ steps.comment-check.outputs.tfvars_file }} -out=comment-plan.tfplan
+        continue-on-error: true
+
+      - name: Terraform Apply
+        if: steps.comment-check.outputs.action == 'apply'
+        working-directory: environments/terraform
+        run: |
+          echo "🚀 Applying ${{ steps.comment-check.outputs.platform }} infrastructure..."
+          terraform apply -var-file=${{ steps.comment-check.outputs.tfvars_file }} -auto-approve
+
+      - name: Comment Results
+        uses: actions/github-script@v7
+        if: always()
+        with:
+          script: |
+            const fs = require('fs');
+            const { execSync } = require('child_process');
+            const action = '${{ steps.comment-check.outputs.action }}';
+            const platform = '${{ steps.comment-check.outputs.platform }}';
+            
+            if (action === 'plan') {
+              let comment = `## 📋 Terraform Plan Results
+              
+              **Triggered by**: /${action} ${platform}
+              **Platform**: ${platform}
+              **Tfvars File**: ${{ steps.comment-check.outputs.tfvars_file }}
+              **Environment**: Staging`;
+              
+              try {
+                const plan = execSync('cd environments/terraform && terraform show comment-plan.tfplan', { encoding: 'utf8' });
+                const cleanPlan = plan.replace(/\x1b\[[0-9;]*m/g, '');
+                
+                comment += `
+                
+                <details><summary>Click to expand plan output</summary>
+                
+                \`\`\`hcl
+                ${cleanPlan}
+                \`\`\`
+                
+                </details>
+                
+                **Ready to apply?** Comment \`/apply ${platform}\` to deploy these changes.`;
+              } catch (error) {
+                comment += `
+                
+                ❌ **Plan Failed**
+                
+                Check the workflow logs for details.
+                
+                Error: ${error.message}`;
+              }
+              
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: comment
+              });
+            } else if (action === 'apply') {
+              let comment = `## 🚀 Terraform Apply Results
+              
+              **Triggered by**: /${action} ${platform}
+              **Platform**: ${platform}
+              **Tfvars File**: ${{ steps.comment-check.outputs.tfvars_file }}
+              **Environment**: Staging
+              **Status**: ✅ Applied Successfully
+              
+              Infrastructure has been deployed to staging environment.`;
+              
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: comment
+              });
+            }
+
   terraform-plan:
-    name: Terraform Plan
+    name: Terraform Plan (Auto)
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
     
@@ -164,36 +311,73 @@ jobs:
           echo "## 🔍 Platform Detection (PR Plan)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          # Auto-detect platform from current Terraform state
-          echo "**Source**: Auto-detected from Terraform state" >> $GITHUB_STEP_SUMMARY
+          # Check for manual platform override in PR comments
+          MANUAL_PLATFORM=""
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            # Get the latest comment that contains /plan
+            LATEST_COMMENT=$(gh pr view ${{ github.event.number }} --json comments --jq '.comments[-1].body' 2>/dev/null || echo "")
+            if echo "$LATEST_COMMENT" | grep -q "/plan serverless"; then
+              MANUAL_PLATFORM="serverless"
+              echo "**Source**: Manual override via PR comment '/plan serverless'" >> $GITHUB_STEP_SUMMARY
+            elif echo "$LATEST_COMMENT" | grep -q "/plan eks"; then
+              MANUAL_PLATFORM="eks"
+              echo "**Source**: Manual override via PR comment '/plan eks'" >> $GITHUB_STEP_SUMMARY
+            elif echo "$LATEST_COMMENT" | grep -q "/plan ecs"; then
+              MANUAL_PLATFORM="ecs"
+              echo "**Source**: Manual override via PR comment '/plan ecs'" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
           
-          # Check for EKS cluster in outputs
-          if terraform output eks_cluster_name >/dev/null 2>&1; then
-            PLATFORM="eks"
-            CLUSTER_NAME=$(terraform output -raw eks_cluster_name)
-            echo "**EKS Cluster Found**: $CLUSTER_NAME" >> $GITHUB_STEP_SUMMARY
-          # Check for ECS cluster in outputs  
-          elif terraform output ecs_cluster_name >/dev/null 2>&1; then
-            PLATFORM="ecs"
-            CLUSTER_NAME=$(terraform output -raw ecs_cluster_name)
-            echo "**ECS Cluster Found**: $CLUSTER_NAME" >> $GITHUB_STEP_SUMMARY
+          if [ -n "$MANUAL_PLATFORM" ]; then
+            PLATFORM="$MANUAL_PLATFORM"
           else
-            # Default to ECS for new deployments
-            PLATFORM="ecs"
-            echo "**No clusters found**: Defaulting to ECS for new deployment" >> $GITHUB_STEP_SUMMARY
+            # Auto-detect platform from current Terraform state
+            echo "**Source**: Auto-detected from Terraform state" >> $GITHUB_STEP_SUMMARY
+            
+            # Check if state has any resources first
+            RESOURCE_COUNT=$(terraform state list 2>/dev/null | wc -l)
+            if [ "$RESOURCE_COUNT" -eq 0 ]; then
+              PLATFORM="serverless"
+              echo "**Empty State**: Defaulting to serverless for new deployment" >> $GITHUB_STEP_SUMMARY
+            else
+              # Check for EKS cluster in outputs
+              if terraform output eks_cluster_name >/dev/null 2>&1; then
+                PLATFORM="eks"
+                CLUSTER_NAME=$(terraform output -raw eks_cluster_name)
+                echo "**EKS Cluster Found**: $CLUSTER_NAME" >> $GITHUB_STEP_SUMMARY
+              # Check for ECS cluster in outputs  
+              elif terraform output ecs_cluster_name >/dev/null 2>&1; then
+                PLATFORM="ecs"
+                CLUSTER_NAME=$(terraform output -raw ecs_cluster_name)
+                echo "**ECS Cluster Found**: $CLUSTER_NAME" >> $GITHUB_STEP_SUMMARY
+              else
+                # Check for Lambda functions (serverless)
+                if terraform state list 2>/dev/null | grep -q "aws_lambda_function"; then
+                  PLATFORM="serverless"
+                  echo "**Lambda Functions Found**: Detected serverless deployment" >> $GITHUB_STEP_SUMMARY
+                else
+                  # Default to serverless
+                  PLATFORM="serverless"
+                  echo "**No specific platform detected**: Defaulting to serverless" >> $GITHUB_STEP_SUMMARY
+                fi
+              fi
+            fi
           fi
           
           # Set outputs based on detected platform
           if [ "$PLATFORM" == "eks" ]; then
             echo "tfvars_file=working_eks_staging.tfvars" >> $GITHUB_OUTPUT
             echo "platform_name=EKS (Kubernetes)" >> $GITHUB_OUTPUT
+          elif [ "$PLATFORM" == "serverless" ]; then
+            echo "tfvars_file=serverless-staging.tfvars" >> $GITHUB_OUTPUT
+            echo "platform_name=Serverless (Lambda + API Gateway)" >> $GITHUB_OUTPUT
           else
             echo "tfvars_file=working_ecs_staging.tfvars" >> $GITHUB_OUTPUT
             echo "platform_name=ECS (Fargate)" >> $GITHUB_OUTPUT
           fi
           
           echo "**Platform Selected**: $PLATFORM" >> $GITHUB_STEP_SUMMARY
-          echo "**Tfvars File**: $([ "$PLATFORM" == "eks" ] && echo "working_eks_staging.tfvars" || echo "working_ecs_staging.tfvars")" >> $GITHUB_STEP_SUMMARY
+          echo "**Tfvars File**: $([ "$PLATFORM" == "eks" ] && echo "working_eks_staging.tfvars" || [ "$PLATFORM" == "serverless" ] && echo "serverless-staging.tfvars" || echo "working_ecs_staging.tfvars")" >> $GITHUB_STEP_SUMMARY
 
       - name: Terraform Plan
         if: steps.check-files.outputs.should_run == 'true'
@@ -256,7 +440,7 @@ jobs:
   terraform-apply:
     name: Terraform Apply
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/develop' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch'  # Only manual applies, no auto-apply on push
     
     steps:
       - name: Checkout
@@ -344,6 +528,45 @@ jobs:
           # Select staging workspace (must already exist)
           terraform workspace select staging
 
+      - name: Plan for Manual Workflows (Workflow Dispatch Only)
+        if: github.event_name == 'workflow_dispatch'
+        id: manual-plan
+        working-directory: environments/terraform
+        run: |
+          echo "## 🔍 Manual Workflow - Terraform Plan" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Safety Check**: Running plan before apply for manual workflows" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Set platform from manual input
+          PLATFORM="${{ github.event.inputs.platform || 'serverless' }}"
+          
+          # Set tfvars file based on platform
+          if [ "$PLATFORM" == "eks" ]; then
+            TFVARS_FILE="working_eks_staging.tfvars"
+          elif [ "$PLATFORM" == "serverless" ]; then
+            TFVARS_FILE="serverless-staging.tfvars"
+          else
+            TFVARS_FILE="working_ecs_staging.tfvars"
+          fi
+          
+          echo "**Platform**: $PLATFORM" >> $GITHUB_STEP_SUMMARY
+          echo "**Tfvars File**: $TFVARS_FILE" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Run terraform plan
+          echo "🔍 Running terraform plan..."
+          terraform plan -var-file=$TFVARS_FILE -out=manual-plan.tfplan
+          
+          # Store plan output for summary
+          terraform show manual-plan.tfplan > plan-output.txt
+          
+          echo "✅ Plan completed successfully" >> $GITHUB_STEP_SUMMARY
+          
+          # Store platform for later use
+          echo "platform=$PLATFORM" >> $GITHUB_OUTPUT
+          echo "tfvars_file=$TFVARS_FILE" >> $GITHUB_OUTPUT
+
       - name: Set Platform Variables
         if: github.event_name == 'workflow_dispatch' || steps.changed-files.outputs.any_changed == 'true'
         id: platform-vars
@@ -352,10 +575,10 @@ jobs:
           echo "## 🔍 Platform Detection" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          # For workflow_dispatch, use the input parameter
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ github.event.inputs.platform }}" ]; then
-            PLATFORM="${{ github.event.inputs.platform }}"
-            echo "**Source**: Manual workflow input" >> $GITHUB_STEP_SUMMARY
+          # For workflow_dispatch, use values from manual-plan step
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            PLATFORM="${{ steps.manual-plan.outputs.platform }}"
+            echo "**Source**: Manual workflow input (plan completed successfully)" >> $GITHUB_STEP_SUMMARY
           else
             # Auto-detect platform from current Terraform state
             echo "**Source**: Auto-detected from Terraform state" >> $GITHUB_STEP_SUMMARY
@@ -371,9 +594,9 @@ jobs:
               CLUSTER_NAME=$(terraform output -raw ecs_cluster_name)
               echo "**ECS Cluster Found**: $CLUSTER_NAME" >> $GITHUB_STEP_SUMMARY
             else
-              # Default to ECS for new deployments
-              PLATFORM="ecs"
-              echo "**No clusters found**: Defaulting to ECS for new deployment" >> $GITHUB_STEP_SUMMARY
+              # Default to serverless for new deployments
+              PLATFORM="serverless"
+              echo "**No clusters found**: Defaulting to serverless for new deployment" >> $GITHUB_STEP_SUMMARY
             fi
           fi
           
@@ -382,6 +605,10 @@ jobs:
             echo "tfvars_file=working_eks_staging.tfvars" >> $GITHUB_OUTPUT
             echo "platform_name=EKS (Kubernetes)" >> $GITHUB_OUTPUT
             echo "platform=eks" >> $GITHUB_OUTPUT
+          elif [ "$PLATFORM" == "serverless" ]; then
+            echo "tfvars_file=serverless-staging.tfvars" >> $GITHUB_OUTPUT
+            echo "platform_name=Serverless (Lambda + API Gateway)" >> $GITHUB_OUTPUT
+            echo "platform=serverless" >> $GITHUB_OUTPUT
           else
             echo "tfvars_file=working_ecs_staging.tfvars" >> $GITHUB_OUTPUT
             echo "platform_name=ECS (Fargate)" >> $GITHUB_OUTPUT
@@ -389,15 +616,31 @@ jobs:
           fi
           
           echo "**Platform Selected**: $PLATFORM" >> $GITHUB_STEP_SUMMARY
-          echo "**Tfvars File**: $([ "$PLATFORM" == "eks" ] && echo "working_eks_staging.tfvars" || echo "working_ecs_staging.tfvars")" >> $GITHUB_STEP_SUMMARY
+          echo "**Tfvars File**: $([ "$PLATFORM" == "eks" ] && echo "working_eks_staging.tfvars" || [ "$PLATFORM" == "serverless" ] && echo "serverless-staging.tfvars" || echo "working_ecs_staging.tfvars")" >> $GITHUB_STEP_SUMMARY
 
       - name: Terraform Apply
         if: github.event_name == 'workflow_dispatch' || steps.changed-files.outputs.any_changed == 'true'
         working-directory: environments/terraform
         run: |
-          terraform apply \
-            -var-file=${{ steps.platform-vars.outputs.tfvars_file }} \
-            -auto-approve
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "## 🚀 Applying Terraform Plan" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Using pre-validated plan from manual workflow**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            # Apply the plan that was created and validated
+            terraform apply manual-plan.tfplan
+          else
+            echo "## 🚀 Terraform Apply (Push/Merge)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Direct apply after merge (plan was validated in PR)**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            # Direct apply for push/merge (plan was already seen in PR)
+            terraform apply \
+              -var-file=${{ steps.platform-vars.outputs.tfvars_file }} \
+              -auto-approve
+          fi
 
       - name: Get Outputs
         if: github.event_name == 'workflow_dispatch' || steps.changed-files.outputs.any_changed == 'true'
@@ -452,7 +695,7 @@ jobs:
           fi
 
       - name: Build and Push Docker Image
-        if: success() && steps.check-changes.outputs.has_changes == 'true'
+        if: success() && steps.check-changes.outputs.has_changes == 'true' && steps.platform-vars.outputs.platform != 'serverless'
         run: |
           echo "## 🐳 Building and Pushing Docker Image" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -498,13 +741,21 @@ jobs:
           echo "✅ Docker image built and pushed successfully" >> $GITHUB_STEP_SUMMARY
           echo "**Image:** $ECR_REPO:staging-latest" >> $GITHUB_STEP_SUMMARY
 
-      - name: Skip Docker Build
-        if: success() && steps.check-changes.outputs.has_changes == 'false'
+      - name: Skip Docker Build - No Changes
+        if: success() && steps.check-changes.outputs.has_changes == 'false' && steps.platform-vars.outputs.platform != 'serverless'
         run: |
           echo "## ⏭️ Skipping Docker Build" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "ℹ️ No application changes detected. Using existing image." >> $GITHUB_STEP_SUMMARY
           echo "**Reason:** Only infrastructure changes detected" >> $GITHUB_STEP_SUMMARY
+
+      - name: Skip Docker Build - Serverless Platform
+        if: success() && steps.platform-vars.outputs.platform == 'serverless'
+        run: |
+          echo "## ⏭️ Skipping Docker Build - Serverless Platform" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🚀 Serverless deployment doesn't require container images." >> $GITHUB_STEP_SUMMARY
+          echo "**Platform:** Lambda + API Gateway" >> $GITHUB_STEP_SUMMARY
 
       - name: Deploy to ECS
         if: success() && steps.platform-vars.outputs.platform == 'ecs'
