@@ -108,17 +108,21 @@ data "aws_secretsmanager_secret_version" "ssh_private" {
 
 # Get centralized SSH public key
 data "aws_secretsmanager_secret" "ssh_public" {
-  name = local.ssh_public_key_secret_name
+  count = var.enable_platform && (var.enable_ecs || var.enable_eks) ? 1 : 0
+  name  = local.ssh_public_key_secret_name
 }
 
 data "aws_secretsmanager_secret_version" "ssh_public" {
-  secret_id = data.aws_secretsmanager_secret.ssh_public.id
+  count     = var.enable_platform && (var.enable_ecs || var.enable_eks) ? 1 : 0
+  secret_id = data.aws_secretsmanager_secret.ssh_public[0].id
 }
 
 # Create environment-specific AWS key pair using centralized SSH public key
 resource "aws_key_pair" "environment_key" {
+  count = var.enable_platform && (var.enable_ecs || var.enable_eks) ? 1 : 0
+  
   key_name   = "tf-playground-${local.environment}-key"
-  public_key = data.aws_secretsmanager_secret_version.ssh_public.secret_string
+  public_key = data.aws_secretsmanager_secret_version.ssh_public[0].secret_string
 
   tags = {
     Name        = "tf-playground-${local.environment}-key"
@@ -197,7 +201,7 @@ module "blue_asg" {
   db_user               = "tfplayground_user"
   db_password           = var.enable_rds ? data.aws_ssm_parameter.db_password[0].value : ""
   security_group_id     = module.networking.webserver_security_group_id
-  key_name              = aws_key_pair.environment_key.key_name
+  key_name              = length(aws_key_pair.environment_key) > 0 ? aws_key_pair.environment_key[0].key_name : null
   application_log_group_name = data.terraform_remote_state.global.outputs.application_log_groups[var.environment]
   system_log_group_name      = data.terraform_remote_state.global.outputs.system_log_groups[var.environment]
 }
@@ -223,7 +227,7 @@ module "green_asg" {
   db_user               = "tfplayground_user"
   db_password           = var.enable_rds ? data.aws_ssm_parameter.db_password[0].value : ""
   security_group_id     = module.networking.webserver_security_group_id
-  key_name              = aws_key_pair.environment_key.key_name
+  key_name              = length(aws_key_pair.environment_key) > 0 ? aws_key_pair.environment_key[0].key_name : null
   application_log_group_name = data.terraform_remote_state.global.outputs.application_log_groups[var.environment]
   system_log_group_name      = data.terraform_remote_state.global.outputs.system_log_groups[var.environment]
 }
