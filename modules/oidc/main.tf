@@ -322,6 +322,14 @@ resource "aws_iam_role_policy" "terraform_permissions" {
           "eks:*"
         ]
         Resource = "*"
+      },
+      # API Gateway permissions for REST API management
+      {
+        Effect = "Allow"
+        Action = [
+          "apigateway:*"
+        ]
+        Resource = "*"
       }
     ]
   })
