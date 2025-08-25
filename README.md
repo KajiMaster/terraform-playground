@@ -12,7 +12,7 @@ This project showcases advanced Terraform patterns and AWS infrastructure manage
 - **Blue-Green Deployment** patterns with zero-downtime updates
 - **Cost-Optimized Architecture** with environment-specific resource patterns
 - **Modular Terraform Architecture** with reusable components
-- **Centralized Secrets Management** for cost optimization
+- **SSM Session Manager** for keyless EC2 access
 - **Automated Database Bootstrapping** via AWS SSM
 - **Security Best Practices** with IAM roles and OIDC
 
@@ -57,45 +57,17 @@ This project showcases advanced Terraform patterns and AWS infrastructure manage
 ├─────────────────────────────────────────────────────────────────────────────────┤
 │                        Centralized Resources                                    │
 │  ┌─────────────────────────────────────────────────────────────────────────────┐ │
-│  │ • Secrets Manager (SSH Keys, DB Passwords)                                 │ │
+│  │ • Parameter Store (DB Passwords only - SecureString)                       │ │
 │  │ • ECR Registry (Shared Container Images)                                   │ │
 │  │ • OIDC Provider (GitHub Actions CI/CD)                                     │ │
 │  │ • S3 Backend + DynamoDB State Locking                                      │ │
 │  │ • IAM Roles (Cross-service permissions)                                    │ │
+│  │ • SSM Session Manager (Keyless EC2 access)                                 │ │
 │  │ • SSM Automation (Database bootstrap)                                      │ │
 │  └─────────────────────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Centralized Secrets Management
-
-**Cost Optimization**: Instead of creating separate secrets for each environment, this project uses a centralized approach:
-
-#### Before (Expensive)
-```
-AWS Secrets Manager:
-├── /tf-playground/dev/ssh-key
-├── /tf-playground/dev/ssh-key-public  
-├── /tf-playground/staging/ssh-key
-├── /tf-playground/staging/ssh-key-public
-├── /tf-playground/production/ssh-key
-└── /tf-playground/production/ssh-key-public
-```
-
-#### After (Cost Optimized)
-```
-AWS Secrets Manager:
-├── /tf-playground/all/ssh-key (single private key)
-├── /tf-playground/all/ssh-key-public (single public key)
-└── /tf-playground/all/db-pword (single database password)
-
-AWS Key Pairs:
-├── tf-playground-dev-key
-├── tf-playground-staging-key  
-└── tf-playground-production-key
-```
-
-**Cost Savings**: 67% reduction in Secrets Manager costs ($1.60/month savings)
 
 ## 🚀 Features
 
@@ -125,9 +97,8 @@ modules/
 ├── loadbalancer/        # ALB, target groups, listeners
 ├── compute/asg/         # Auto Scaling Groups
 ├── database/            # RDS instances
-├── secrets/             # Secrets Manager integration
-├── ssh-keys/            # Centralized SSH key management
-├── ssm/                 # Systems Manager automation
+├── secrets/             # Parameter Store integration
+├── ssm/                 # Systems Manager automation & Session Manager
 └── oidc/                # GitHub Actions OIDC
 ```
 
@@ -204,9 +175,8 @@ terraform-playground/
 │   ├── loadbalancer/     # Load balancer configuration
 │   ├── compute/          # Compute resources (ASG, ECS, EKS)
 │   ├── database/         # Database resources
-│   ├── secrets/          # Secrets management
-│   ├── ssh-keys/         # Centralized SSH keys
-│   ├── ssm/              # Systems Manager
+│   ├── secrets/          # Parameter Store secrets
+│   ├── ssm/              # Systems Manager & Session Manager
 │   └── oidc/             # OIDC provider
 ├── .github/
 │   └── workflows/        # GitHub Actions CI/CD
@@ -318,10 +288,30 @@ terraform {
 - **Total**: ~$55-90/month
 
 ### Cost Optimization Features
-- **Centralized SSH keys** (67% secrets cost reduction)
+- **SSM Session Manager** (eliminates EC2 key pairs and SSH key management)
+- **Parameter Store over Secrets Manager** (free SecureString vs $0.40/secret/month)
 - **Minimal instance sizes** for demonstration
 - **Auto-scaling** to reduce idle costs
 - **Resource tagging** for cost tracking
+
+### Access Management Strategy
+
+**Zero SSH Key Management**: This project demonstrates modern AWS-native access patterns:
+
+- **SSM Session Manager**: Secure shell access without SSH keys or open ports
+- **IAM-based Authentication**: Access controlled through IAM roles and OIDC
+- **No EC2 Key Pairs**: Eliminates key pair management overhead
+- **Full Audit Trail**: All access logged through CloudTrail
+
+**Secrets Storage**:
+```
+AWS Parameter Store (SecureString - Free):
+└── /tf-playground/all/db-pword
+
+No SSH Keys or EC2 Key Pairs Required!
+```
+
+**Production Note**: For production workloads, consider AWS Secrets Manager (~$0.40/secret/month) for automatic rotation and cross-region replication capabilities.
 
 ## 🔧 Configuration
 
@@ -471,7 +461,7 @@ This project demonstrates:
 - **✅ Blue-Green Deployment Excellence** - Complete zero-downtime deployment implementation
 - **✅ Enterprise Infrastructure Patterns** - Production-ready AWS automation
 - **✅ CI/CD Pipeline Mastery** - GitFlow integration with automated validation
-- **✅ Cost Optimization Strategy** - Measurable cost reductions (67% secrets cost savings)
+- **✅ Cost Optimization Strategy** - Zero-cost secrets via Parameter Store and keyless access via SSM
 - **✅ Security Best Practices** - IAM, OIDC, encryption, and centralized secrets
 - **✅ Strategic Decision Making** - Career-focused technology choices and prioritization
 - **✅ Terraform Module Design** - Reusable, maintainable infrastructure components
