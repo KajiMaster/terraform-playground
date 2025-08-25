@@ -279,7 +279,10 @@ resource "aws_iam_role_policy" "terraform_permissions" {
           "lambda:GetRuntimeManagementConfig",
           "lambda:TagResource",
           "lambda:UntagResource",
-          "lambda:ListTags"
+          "lambda:ListTags",
+          "lambda:AddPermission",
+          "lambda:RemovePermission",
+          "lambda:GetPolicy"
         ]
         Resource = "*"
       },
