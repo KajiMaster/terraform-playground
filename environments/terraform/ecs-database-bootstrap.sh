@@ -142,6 +142,7 @@ echo "✅ Retrieved database password"
 
 echo "Creating SQL file in container..."
 aws ecs execute-command \
+    --region "$AWS_REGION" \
     --cluster "$CLUSTER_NAME" \
     --task "$TASK_ARN" \
     --container flask-app \
@@ -181,6 +182,7 @@ echo "Host: $DB_HOST"
 echo ""
 
 aws ecs execute-command \
+    --region "$AWS_REGION" \
     --cluster "$CLUSTER_NAME" \
     --task "$TASK_ARN" \
     --container flask-app \
