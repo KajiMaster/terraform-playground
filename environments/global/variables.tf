@@ -1,6 +1,15 @@
 # Global environment variables
 # These control shared resources across all environments
 
+variable "shared_github_repositories" {
+  description = "List of GitHub repositories that can access shared AWS resources"
+  type        = list(string)
+  default = [
+    "KajiMaster/terraform-playground",
+    "KajiMaster/virtualexponent-website"
+  ]
+}
+
 variable "enable_waf" {
   description = "Enable WAF globally (affects all environments)"
   type        = bool
