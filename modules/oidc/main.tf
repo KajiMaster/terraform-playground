@@ -8,6 +8,11 @@ terraform {
   }
 }
 
+# Handle backwards compatibility and merge repository lists
+locals {
+  repositories = var.github_repository != null ? concat(var.github_repositories, [var.github_repository]) : var.github_repositories
+}
+
 # GitHub OIDC Provider (conditional to avoid conflicts)
 resource "aws_iam_openid_connect_provider" "github" {
   count = var.create_oidc_provider ? 1 : 0
@@ -54,7 +59,9 @@ resource "aws_iam_role" "github_actions" {
             "token.actions.githubusercontent.com:aud" : "sts.amazonaws.com"
           }
           StringLike = {
-            "token.actions.githubusercontent.com:sub" : "repo:${var.github_repository}:*"
+            "token.actions.githubusercontent.com:sub" : [
+              for repo in local.repositories : "repo:${repo}:*"
+            ]
           }
         }
       }
