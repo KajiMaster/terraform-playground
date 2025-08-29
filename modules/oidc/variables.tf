@@ -3,9 +3,16 @@ variable "environment" {
   type        = string
 }
 
+variable "github_repositories" {
+  description = "List of GitHub repository names (format: owner/repo)"
+  type        = list(string)
+  default     = []
+}
+
 variable "github_repository" {
-  description = "GitHub repository name (format: owner/repo)"
+  description = "GitHub repository name (format: owner/repo) - deprecated, use github_repositories"
   type        = string
+  default     = null
 }
 
 variable "state_bucket" {

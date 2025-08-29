@@ -37,7 +37,7 @@ module "oidc" {
   source = "../../modules/oidc"
 
   environment          = "global"
-  github_repository    = "KajiMaster/terraform-playground"
+  github_repositories  = var.shared_github_repositories
   state_bucket         = "tf-playground-state-vexus"
   state_lock_table     = "tf-playground-locks"
   aws_region           = "us-east-2"
