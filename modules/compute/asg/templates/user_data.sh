@@ -67,13 +67,13 @@ def get_db_password():
         region_response = requests.get('http://169.254.169.254/latest/meta-data/placement/region', timeout=5)
         region = region_response.text if region_response.status_code == 200 else 'us-east-2'
         
-        client = boto3.client('secretsmanager', region_name=region)
-        # Use centralized database password secret
-        secret_name = '/tf-playground/all/db-pword'
-        response = client.get_secret_value(SecretId=secret_name)
+        client = boto3.client('ssm', region_name=region)
+        # Use centralized database password parameter
+        parameter_name = '/tf-playground/all/db-password'
+        response = client.get_parameter(Name=parameter_name, WithDecryption=True)
         
-        # The password is stored as a plain string, not JSON
-        return response['SecretString']
+        # Return the parameter value
+        return response['Parameter']['Value']
     except Exception as e:
         print(f"Failed to get password from Secrets Manager: {e}")
         return None  # No fallback - let the application handle the error

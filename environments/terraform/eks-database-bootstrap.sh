@@ -151,7 +151,7 @@ fi
 echo "✅ Found Flask app pod: $POD_NAME"
 
 echo "Getting database password from Parameter Store..."
-DB_PASSWORD=$(aws ssm get-parameter --name "/tf-playground/all/db-pword" --region "$AWS_REGION" --with-decryption --query Parameter.Value --output text)
+DB_PASSWORD=$(aws ssm get-parameter --name "/tf-playground/all/db-password" --region "$AWS_REGION" --with-decryption --query Parameter.Value --output text)
 
 if [ -z "$DB_PASSWORD" ]; then
     echo "❌ Error: Could not retrieve database password from Parameter Store"

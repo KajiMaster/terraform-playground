@@ -222,7 +222,7 @@ class Settings:
         try:
             region = os.environ.get('AWS_REGION', 'us-east-2')
             client = boto3.client('ssm', region_name=region)
-            parameter_name = '/tf-playground/all/db-pword'
+            parameter_name = '/tf-playground/all/db-password'
             response = client.get_parameter(
                 Name=parameter_name,
                 WithDecryption=True

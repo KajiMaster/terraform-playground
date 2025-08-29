@@ -98,7 +98,7 @@ print_status "Database user: $DB_USER"
 # Get database password from Parameter Store
 print_info "Getting database password from Parameter Store..."
 DB_PASSWORD=$(aws ssm get-parameter \
-    --name "/tf-playground/all/db-pword" \
+    --name "/tf-playground/all/db-password" \
     --region "$AWS_REGION" \
     --with-decryption \
     --query 'Parameter.Value' \

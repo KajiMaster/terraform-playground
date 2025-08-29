@@ -40,10 +40,10 @@ resource "aws_iam_role" "asg" {
   }
 }
 
-# IAM Policy for Secrets Manager access
+# IAM Policy for Parameter Store access
 resource "aws_iam_policy" "asg_secrets" {
   name        = "${var.environment}-${var.deployment_color}-asg-secrets-policy"
-  description = "Policy to allow ASG instances to access database credentials in Secrets Manager"
+  description = "Policy to allow ASG instances to access database credentials in Parameter Store"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -51,18 +51,28 @@ resource "aws_iam_policy" "asg_secrets" {
       {
         Effect = "Allow"
         Action = [
-          "secretsmanager:GetSecretValue"
+          "ssm:GetParameter",
+          "ssm:GetParameters",
+          "ssm:GetParametersByPath"
         ]
         Resource = [
-          # Environment-specific secrets (legacy support)
-          "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:/tf-playground/${var.environment}/database/credentials-*",
-          "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:/tf-playground/${var.environment}/db-pword",
-          "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:/tf-playground/${var.environment}/db-pword-*",
-          # Centralized secrets (new approach)
-          "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:/tf-playground/all/db-pword*",
-          "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:/tf-playground/all/ssh-key*",
-          "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:/tf-playground/all/ssh-key-public*"
+          # Centralized parameter (current approach)
+          "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/tf-playground/all/db-password",
+          # Environment-specific parameters if needed
+          "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/tf-playground/${var.environment}/*"
         ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt"
+        ]
+        Resource = "*"
+        Condition = {
+          StringEquals = {
+            "kms:ViaService" = "ssm.${data.aws_region.current.name}.amazonaws.com"
+          }
+        }
       }
     ]
   })
