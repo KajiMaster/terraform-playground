@@ -238,7 +238,8 @@ resource "aws_iam_role_policy" "terraform_permissions" {
         ]
         Resource = [
           "arn:aws:ssm:${var.aws_region}:*:parameter/global/*",
-          "arn:aws:ssm:${var.aws_region}:*:parameter/${var.environment}/*"
+          "arn:aws:ssm:${var.aws_region}:*:parameter/${var.environment}/*",
+          "arn:aws:ssm:${var.aws_region}:*:parameter/tf-playground/*"
         ]
       },
       # SSM permissions for session manager and other SSM operations
