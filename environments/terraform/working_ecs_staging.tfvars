@@ -51,6 +51,6 @@ enable_nat_gateway = true       # NAT Gateway for controlled internet access
 # NAT Gateway Configuration
 create_nat_gateway = true       # Enable for staging security pattern
 
-# Test deployment after secrets modernization - staging deployment trigger
+# Test deployment after secrets modernization - proper staging workflow test
 enable_platform = true
 enable_rds = true
