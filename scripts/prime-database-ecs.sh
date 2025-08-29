@@ -57,8 +57,8 @@ DB_ENDPOINT=$(terraform output -raw database_endpoint)
 DB_NAME=$(terraform output -raw database_name)
 DB_USER="tfplayground_user"
 
-# Get database password from Secrets Manager
-DB_PASSWORD=$(aws secretsmanager get-secret-value --secret-id "/tf-playground/all/db-pword" --query 'SecretString' --output text)
+# Get database password from Parameter Store
+DB_PASSWORD=$(aws ssm get-parameter --name "/tf-playground/all/db-password" --with-decryption --query 'Parameter.Value' --output text)
 
 print_status "Database endpoint: $DB_ENDPOINT"
 print_status "Database name: $DB_NAME"

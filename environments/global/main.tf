@@ -72,4 +72,28 @@ module "ecr" {
   tags = {
     Purpose = "shared-container-registry"
   }
+}
+
+# Shared SSM Parameter for Claude API Key
+# Used by multiple projects for GitHub Actions Claude Code reviews
+resource "aws_ssm_parameter" "claude_api_key" {
+  name        = "/global/claude-code/api-key"
+  type        = "SecureString"
+  description = "Anthropic API key for Claude Code reviews across all projects"
+  
+  # Placeholder value - update this after creation via AWS CLI or Console
+  value = "PLACEHOLDER_UPDATE_VIA_AWS_CONSOLE"
+
+  # Ignore changes to the value to preserve the existing secret
+  lifecycle {
+    ignore_changes = [value]
+  }
+
+  tags = {
+    Name        = "claude-code-api-key"
+    Environment = "global"
+    Purpose     = "github-actions-claude-reviews"
+    ManagedBy   = "terraform"
+    Project     = "shared-infrastructure"
+  }
 } 

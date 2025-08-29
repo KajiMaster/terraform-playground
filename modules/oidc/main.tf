@@ -212,15 +212,6 @@ resource "aws_iam_role_policy" "terraform_permissions" {
           "arn:aws:iam::*:role/AWSServiceRoleForAmazonEKSNodegroup"
         ]
       },
-      # KMS permissions for AWS managed keys (limited scope)
-      {
-        Effect = "Allow"
-        Action = [
-          "kms:Decrypt",
-          "kms:DescribeKey"
-        ]
-        Resource = "*"
-      },
       # Secrets Manager permissions
       {
         Effect = "Allow"
@@ -229,13 +220,57 @@ resource "aws_iam_role_policy" "terraform_permissions" {
         ]
         Resource = "*"
       },
-      # SSM permissions for automation
+      # SSM permissions for Parameter Store access
       {
         Effect = "Allow"
         Action = [
-          "ssm:*"
+          "ssm:GetParameter",
+          "ssm:GetParameters",
+          "ssm:GetParameterHistory",
+          "ssm:GetParametersByPath",
+          "ssm:DescribeParameters",
+          "ssm:PutParameter",
+          "ssm:DeleteParameter",
+          "ssm:DeleteParameters",
+          "ssm:AddTagsToResource",
+          "ssm:RemoveTagsFromResource",
+          "ssm:ListTagsForResource"
+        ]
+        Resource = [
+          "arn:aws:ssm:${var.aws_region}:*:parameter/global/*",
+          "arn:aws:ssm:${var.aws_region}:*:parameter/${var.environment}/*"
+        ]
+      },
+      # SSM permissions for session manager and other SSM operations
+      {
+        Effect = "Allow"
+        Action = [
+          "ssm:StartSession",
+          "ssm:TerminateSession",
+          "ssm:ResumeSession",
+          "ssm:DescribeSessions",
+          "ssm:GetConnectionStatus",
+          "ssm:DescribeInstanceInformation",
+          "ssm:DescribeInstanceProperties",
+          "ssm:SendCommand",
+          "ssm:ListCommandInvocations",
+          "ssm:GetCommandInvocation"
         ]
         Resource = "*"
+      },
+      # KMS permissions for decrypting SSM SecureString parameters
+      {
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt",
+          "kms:DescribeKey"
+        ]
+        Resource = "*"
+        Condition = {
+          StringEquals = {
+            "kms:ViaService" = "ssm.${var.aws_region}.amazonaws.com"
+          }
+        }
       },
       # CloudWatch permissions for monitoring and alarms
       {

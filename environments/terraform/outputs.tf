@@ -19,22 +19,10 @@ output "alb_zone_id" {
 }
 
 # SSH Key Outputs
-output "ssh_key_name" {
-  description = "Name of the SSH key pair"
-  value       = length(aws_key_pair.environment_key) > 0 ? aws_key_pair.environment_key[0].key_name : null
-}
+# SSH outputs removed - using SSM Session Manager for access
+# Connect to instances via: aws ssm start-session --target <instance-id>
 
-output "ssh_private_key" {
-  description = "Private key for SSH access (sensitive)"
-  value       = data.aws_secretsmanager_secret_version.ssh_private.secret_string
-  sensitive   = true
-}
-
-output "ssh_public_key" {
-  description = "Public key content"
-  value       = length(data.aws_secretsmanager_secret_version.ssh_public) > 0 ? data.aws_secretsmanager_secret_version.ssh_public[0].secret_string : null
-  sensitive   = true
-}
+# SSH public key output removed - using SSM Session Manager for access
 
 # Blue Auto Scaling Group Outputs
 output "blue_asg_id" {
@@ -232,7 +220,7 @@ output "environment_summary" {
     blue_asg_name     = var.enable_asg ? module.blue_asg[0].asg_name : null
     green_asg_name    = var.enable_asg ? module.green_asg[0].asg_name : null
     database_endpoint = var.enable_rds ? module.database[0].db_instance_endpoint : "serverless-architecture"
-    ssh_key_name      = length(aws_key_pair.environment_key) > 0 ? aws_key_pair.environment_key[0].key_name : null
+    # ssh_key_name removed - using SSM Session Manager
   }
 }
 

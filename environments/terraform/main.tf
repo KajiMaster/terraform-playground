@@ -83,8 +83,6 @@ module "networking" {
 # Centralized Parameter Store Configuration
 locals {
   db_password_parameter_name  = "/tf-playground/all/db-password"
-  ssh_private_key_secret_name = "/tf-playground/all/ssh-key"
-  ssh_public_key_secret_name  = "/tf-playground/all/ssh-key-public"
   
   # ECS Tasks Security Group ID (for database access)
   ecs_tasks_security_group_id = (var.enable_platform && var.enable_ecs) ? module.ecs[0].ecs_tasks_security_group_id : null
@@ -97,41 +95,14 @@ data "aws_ssm_parameter" "db_password" {
   with_decryption = true
 }
 
-# Get centralized SSH private key
-data "aws_secretsmanager_secret" "ssh_private" {
-  name = local.ssh_private_key_secret_name
-}
+# SSH keys removed - not needed for any platform:
+# - EC2/ASG: Uses SSM Session Manager (aws ssm start-session)
+# - ECS Fargate: Serverless, use ECS Exec (aws ecs execute-command)
+# - EKS: Use kubectl exec for pods, SSM for nodes if needed
+# Migration completed: All platforms now use IAM-based access
 
-data "aws_secretsmanager_secret_version" "ssh_private" {
-  secret_id = data.aws_secretsmanager_secret.ssh_private.id
-}
-
-# Get centralized SSH public key
-data "aws_secretsmanager_secret" "ssh_public" {
-  count = var.enable_platform && (var.enable_ecs || var.enable_eks) ? 1 : 0
-  name  = local.ssh_public_key_secret_name
-}
-
-data "aws_secretsmanager_secret_version" "ssh_public" {
-  count     = var.enable_platform && (var.enable_ecs || var.enable_eks) ? 1 : 0
-  secret_id = data.aws_secretsmanager_secret.ssh_public[0].id
-}
-
-# Create environment-specific AWS key pair using centralized SSH public key
-resource "aws_key_pair" "environment_key" {
-  count = var.enable_platform && (var.enable_ecs || var.enable_eks) ? 1 : 0
-  
-  key_name   = "tf-playground-${local.environment}-key"
-  public_key = data.aws_secretsmanager_secret_version.ssh_public[0].secret_string
-
-  tags = {
-    Name        = "tf-playground-${local.environment}-key"
-    Environment = local.environment
-    Project     = "tf-playground"
-    ManagedBy   = "terraform"
-    Purpose     = "centralized-ssh-key"
-  }
-}
+# SSH key pair removed - not needed for any platform
+# All platforms use IAM-based access methods instead
 
 # Application Load Balancer Module (conditionally created)
 module "loadbalancer" {
@@ -201,7 +172,7 @@ module "blue_asg" {
   db_user               = "tfplayground_user"
   db_password           = var.enable_rds ? data.aws_ssm_parameter.db_password[0].value : ""
   security_group_id     = module.networking.webserver_security_group_id
-  key_name              = length(aws_key_pair.environment_key) > 0 ? aws_key_pair.environment_key[0].key_name : null
+  key_name              = null  # SSH keys removed - using SSM Session Manager
   application_log_group_name = data.terraform_remote_state.global.outputs.application_log_groups[var.environment]
   system_log_group_name      = data.terraform_remote_state.global.outputs.system_log_groups[var.environment]
 }
@@ -227,7 +198,7 @@ module "green_asg" {
   db_user               = "tfplayground_user"
   db_password           = var.enable_rds ? data.aws_ssm_parameter.db_password[0].value : ""
   security_group_id     = module.networking.webserver_security_group_id
-  key_name              = length(aws_key_pair.environment_key) > 0 ? aws_key_pair.environment_key[0].key_name : null
+  key_name              = null  # SSH keys removed - using SSM Session Manager
   application_log_group_name = data.terraform_remote_state.global.outputs.application_log_groups[var.environment]
   system_log_group_name      = data.terraform_remote_state.global.outputs.system_log_groups[var.environment]
 }
